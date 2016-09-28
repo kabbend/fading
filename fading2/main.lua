@@ -1257,8 +1257,11 @@ function love.keypressed( key, isrepeat )
    end 
 
    if key == "=" then
-	if map.mag > 1 then map.mag = map.mag - 1 end
-	if map.mag <= 1 then map.mag = map.mag - 0.5 end	
+	if map.mag > 1 then 
+		map.mag = map.mag - 1 
+	elseif map.mag <= 1 then 
+		map.mag = map.mag - 0.5 
+	end	
 	if map.mag == 0 then map.mag = 0.5 end
 	ignoreLastChar = true
 	if atlas:isVisible(map) then udp:send("MAGN " .. 1/map.mag ) end	
