@@ -447,10 +447,19 @@ function myStencilFunction( )
         local zx,zy = -( x * 1/mag - W / 2), -( y * 1/mag - H / 2)
 	love.graphics.rectangle("fill",zx,zy,w/mag,h/mag)
 	for k,v in pairs(map.mask) do
-		local _,_,shape,x,y,wm,hm = string.find( v , "(%a+) (%d+) (%d+) (%d+) (%d+)" )
-		x = zx + x/mag
-		y = zy + y/mag
-		if shape == "RECT" then love.graphics.rectangle( "fill", x, y, wm/mag, hm/mag) end
+		--local _,_,shape,x,y,wm,hm = string.find( v , "(%a+) (%d+) (%d+) (%d+) (%d+)" )
+		local _,_,shape = string.find( v , "(%a+)" )
+		if shape == "RECT" then 
+			local _,_,_,x,y,wm,hm = string.find( v , "(%a+) (%d+) (%d+) (%d+) (%d+)" )
+			x = zx + x/mag
+			y = zy + y/mag
+			love.graphics.rectangle( "fill", x, y, wm/mag, hm/mag) 
+		elseif shape == "CIRC" then
+			local _,_,_,x,y,r = string.find( v , "(%a+) (%d+) (%d+) (%d+)" )
+			x = zx + x/mag
+			y = zy + y/mag
+			love.graphics.circle( "fill", x, y, r/mag ) 
+		end
 	end
 	end
 
