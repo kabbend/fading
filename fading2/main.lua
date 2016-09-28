@@ -15,6 +15,7 @@ chunksize = 4096
 W, H = 1420, 730 	-- main window size
 viewh = 640 		-- view height
 size = 19 		-- base font size
+margin = 20		-- screen margin in map mode
 
 -- some GUI buttons whose color will need to be 
 -- changed at runtime
@@ -91,7 +92,7 @@ arrowStartX, arrowStartY = 0,0		-- starting point of the arrow
 arrowX, arrowY 		 = 0,0		-- current end point of the arrow
 arrowStartIndex 	 = nil		-- index of the PNJ at the starting point
 arrowStopIndex 		 = nil		-- index of the PNJ at the ending point
-
+arrowModeMap		 = "RECT"	-- shape used to draw map mask, rectangles by default
 
 -- capture text input (for text search)
 function love.textinput(t)
@@ -455,7 +456,7 @@ function myStencilFunction( )
 			y = zy + y/mag
 			love.graphics.rectangle( "fill", x, y, wm/mag, hm/mag) 
 		elseif shape == "CIRC" then
-			local _,_,_,x,y,r = string.find( v , "(%a+) (%d+) (%d+) (%d+)" )
+			local _,_,_,x,y,r = string.find( v , "(%a+) (%d+) (%d+) (%d+%.?%d+)" )
 			x = zx + x/mag
 			y = zy + y/mag
 			love.graphics.circle( "fill", x, y, r/mag ) 
@@ -562,7 +563,8 @@ function love.draw()
      
       -- draw rectangle in map mode
       if Mode =="map" then
-	love.graphics.rectangle("line",arrowStartX, arrowStartY,(arrowX - arrowStartX),(arrowY - arrowStartY))
+	if arrowModeMap == "RECT" then love.graphics.rectangle("line",arrowStartX, arrowStartY,(arrowX - arrowStartX),(arrowY - arrowStartY)) end
+	if arrowModeMap == "CIRC" then love.graphics.circle("line",(arrowStartX+arrowX)/2, (arrowStartY+arrowY)/2, distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY) / 2) end
       end 
  
     end
@@ -606,16 +608,16 @@ function love.draw()
    if map then
 
      -- print image
-     love.graphics.setScissor( 20 , 20, W - 40, H - 40 )
+     love.graphics.setScissor( margin , margin , W - margin * 2, H - margin * 2 )
      local SX,SY,MAG = map.x, map.y, map.mag
      local x,y = -( SX * 1/MAG - W / 2), -( SY * 1/MAG - H / 2)
 
      if map.mask then	
-       love.graphics.setColor(55,55,0,180)
+       love.graphics.setColor(100,100,50,200)
        love.graphics.stencil( myStencilFunction, "increment" )
        love.graphics.setStencilTest("equal", 1)
      else
-       love.graphics.setColor(255,255,255,220)
+       love.graphics.setColor(255,255,255,240)
      end
 
      love.graphics.draw( map.im, x, y, 0, 1/MAG, 1/MAG )
@@ -700,24 +702,40 @@ function love.mousereleased( x, y )
 
 	elseif Mode == "map" then
 
-	  local map = atlas:getMap()
-	  -- convert arrow on screen to image pixels
-	  if arrowStartX > arrowX then arrowStartX, arrowX = arrowX, arrowStartX end
-	  if arrowStartY > arrowY then arrowStartY, arrowY = arrowY, arrowStartY end
-	  local sx = math.floor( (arrowStartX + ( map.x / map.mag  - W / 2)) *map.mag )
-	  local sy = math.floor( (arrowStartY + ( map.y / map.mag  - H / 2)) *map.mag )
-	  local w = math.floor((arrowX - arrowStartX) * map.mag)
-	  local h = math.floor((arrowY - arrowStartY) * map.mag)
-	  local command = "RECT " .. sx .. " " .. sy .. " " .. w .. " " .. h 
+  	  arrowMode = false
+
+  	  local map = atlas:getMap()
+	  local command
+
+	  if arrowX < margin or arrowX > W or arrowY < margin or arrowY > H then return end
+
+	  if arrowModeMap == "RECT" then
+
+	  	if arrowStartX > arrowX then arrowStartX, arrowX = arrowX, arrowStartX end
+	  	if arrowStartY > arrowY then arrowStartY, arrowY = arrowY, arrowStartY end
+	  	local sx = math.floor( (arrowStartX + ( map.x / map.mag  - W / 2)) *map.mag )
+	  	local sy = math.floor( (arrowStartY + ( map.y / map.mag  - H / 2)) *map.mag )
+	  	local w = math.floor((arrowX - arrowStartX) * map.mag)
+	  	local h = math.floor((arrowY - arrowStartY) * map.mag)
+	  	command = "RECT " .. sx .. " " .. sy .. " " .. w .. " " .. h 
+
+	  elseif arrowModeMap == "CIRC" then
+
+		local sx, sy = math.floor((arrowX + arrowStartX) *map.mag / 2), math.floor((arrowY + arrowStartY) * map.mag / 2)
+	  	sx = math.floor( sx + ( map.x / map.mag  - W / 2)) *map.mag 
+	  	sy = math.floor( sy + ( map.y / map.mag  - H / 2)) *map.mag 
+		local r = distanceFrom( arrowX, arrowY, arrowStartX, arrowStartY) * map.mag / 2
+	  	command = "CIRC " .. sx .. " " .. sy .. " " .. r
+
+	  end
 
 	  table.insert( map.mask , command )
 	  
 	  -- send over if requested
 	  if atlas:isVisible( map ) then udp:send( command ) end
-
+	
 	end	
 
-  	arrowMode = false
   
 	end
 
@@ -1260,9 +1278,20 @@ function love.keypressed( key, isrepeat )
     end
 
    if key == "tab" then
+
+	if map.kind == "scenario" then
+
 	  if searchIterator then
 		map.x,map.y,searchPertinence,searchIndex,searchSize = searchIterator()
 	  end
+
+	elseif map.kind == "map" then
+
+	  -- switch between rectangles and circles
+	  if arrowModeMap == "RECT" then arrowModeMap = "CIRC" else arrowModeMap = "RECT" end
+
+	end
+
    end
 
    if key == "return" then
