@@ -451,13 +451,13 @@ function myStencilFunction( )
 		--local _,_,shape,x,y,wm,hm = string.find( v , "(%a+) (%d+) (%d+) (%d+) (%d+)" )
 		local _,_,shape = string.find( v , "(%a+)" )
 		if shape == "RECT" then 
-			local _,_,_,x,y,wm,hm = string.find( v , "(%a+) (%d+) (%d+) (%d+) (%d+)" )
+			local _,_,_,x,y,wm,hm = string.find( v , "(%a+) (%-?%d+) (%-?%d+) (%d+) (%d+)" )
 			x = zx + x/mag
 			y = zy + y/mag
 			love.graphics.rectangle( "fill", x, y, wm/mag, hm/mag) 
 		elseif shape == "CIRC" then
-			local _,_,_,x,y,r = string.find( v , "(%a+) (%d+) (%d+) (%d+%.?%d+)" )
-			x = zx + x/mag
+			local _,_,_,x,y,r = string.find( v , "(%a+) (%-?%d+) (%-?%d+) (%d+%.?%d+)" )
+		  	x = zx + x/mag
 			y = zy + y/mag
 			love.graphics.circle( "fill", x, y, r/mag ) 
 		end
@@ -705,7 +705,7 @@ function love.mousereleased( x, y )
   	  arrowMode = false
 
   	  local map = atlas:getMap()
-	  local command
+	  local command = nil
 
 	  if arrowX < margin or arrowX > W or arrowY < margin or arrowY > H then return end
 
@@ -721,16 +721,18 @@ function love.mousereleased( x, y )
 
 	  elseif arrowModeMap == "CIRC" then
 
-		local sx, sy = math.floor((arrowX + arrowStartX) *map.mag / 2), math.floor((arrowY + arrowStartY) * map.mag / 2)
+		local sx, sy = math.floor((arrowX + arrowStartX) / 2), math.floor((arrowY + arrowStartY) / 2)
 	  	sx = math.floor( sx + ( map.x / map.mag  - W / 2)) *map.mag 
 	  	sy = math.floor( sy + ( map.y / map.mag  - H / 2)) *map.mag 
 		local r = distanceFrom( arrowX, arrowY, arrowStartX, arrowStartY) * map.mag / 2
-	  	command = "CIRC " .. sx .. " " .. sy .. " " .. r
+	  	if r ~= 0 then command = "CIRC " .. sx .. " " .. sy .. " " .. r end
 
 	  end
 
-	  table.insert( map.mask , command )
-	  
+	  if command then 
+		table.insert( map.mask , command ) 
+	  end
+ 
 	  -- send over if requested
 	  if atlas:isVisible( map ) then udp:send( command ) end
 	
@@ -751,7 +753,7 @@ function love.mousepressed( x, y )
 	return
   end
 
-  -- Clicking on the ROLL bottom section does not change the current FOCUS, but cancel the arrow
+  -- Clicking on upper button section does not change the current FOCUS, but cancel the arrow
   if y < 40 then 
     arrowMode = false
     return
