@@ -731,11 +731,10 @@ function love.mousereleased( x, y )
 
 	  if command then 
 		table.insert( map.mask , command ) 
+	  	-- send over if requested
+	  	if atlas:isVisible( map ) then udp:send( command ) end
 	  end
  
-	  -- send over if requested
-	  if atlas:isVisible( map ) then udp:send( command ) end
-	
 	end	
 
   
@@ -2060,7 +2059,15 @@ function readScenario( filename )
     -- GUI initializations...
     yui.UI.registerEvents()
     love.window.setTitle( "Fading Suns Combat Tracker" )
-    love.window.setMode( W , H , { fullscreen=false, resizable=true, display=1} )
+
+    -- adjust window size
+    W, H = love.window.getDesktopDimensions()
+    W, H = W * 0.98, H * 0.90
+
+    -- adjust number of rows in screen
+    PNJmax = math.floor( (H - 90) / 42 )
+
+    love.window.setMode( W  , H  , { fullscreen=false, resizable=true, display=1} )
     love.keyboard.setKeyRepeat(true)
 
     -- parse data file, 
