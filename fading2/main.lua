@@ -574,7 +574,11 @@ function love.draw()
       end 
  
     end
-    
+   
+  -- display global dangerosity
+  local danger = computeGlobalDangerosity( )
+  if danger ~= -1 then drawRound( 1315 , 70, "danger", tostring(danger) ) end
+   
   for i = 1, PNJnum-1 do
   
     local offset = 1212
@@ -599,7 +603,7 @@ function love.draw()
       end
     end
     
-    -- display dangerosity
+    -- display dangerosity per PNJ
     if PNJTable[i].PJ then
       local danger = computeDangerosity( i )
       if danger ~= -1 then drawRound( PNJtext[i].x + offset, PNJtext[i].y + 15, "danger", tostring(danger) ) end
@@ -1356,6 +1360,23 @@ function computeDangerosity( i )
   if potentialTouch ~= 0 then return math.ceil( PNJTable[i].hits / potentialTouch ) else return -1 end
   end
 
+-- compute dangerosity for the whole group
+function computeGlobalDangerosity()
+  local potentialTouch = 0
+  local hits = 0
+  for i=1,PNJnum-1 do
+   if PNJTable[i].PJ then
+    hits = hits + PNJTable[i].hits
+    for k,v in pairs(PNJTable[i].attackers) do
+     if v then
+      local index = findPNJ( k )
+      if index then potentialTouch = potentialTouch + averageTouch( i , index ) end
+     end
+    end
+   end
+  end
+  if potentialTouch ~= 0 then return math.ceil( hits / potentialTouch ) else return -1 end
+  end
 
 -- add n to the current defense malus of the i-th character (n can be positive or negative)
 -- set to m the defense stance malus of the i-th character. If m is nil, does not alter the current stance malus
