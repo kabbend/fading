@@ -12,7 +12,7 @@ address, port = "localhost", 12345
 chunksize = 4096
 
 -- main screen size
-W, H = 1420, 730 	-- main window size
+W, H = 1420, 730 	-- main window size default values (may be changed dynamically on some systems)
 viewh = 640 		-- view height
 size = 19 		-- base font size
 margin = 20		-- screen margin in map mode
@@ -41,6 +41,8 @@ searchIndex		= 0			-- will be set by using the iterator, and used during love.dr
 searchSize		= 0 			-- idem
 dictionnary 		= {}			-- dictionnary indexed by word, with value a couple position (string) 
 						-- and level (integer) as in { "((x,y))", lvl } 
+keyZoomIn		= ':'			-- default on macbookpro keyboard. Changed at runtime for windows
+keyZoomOut 		= '=' 			-- default on macbookpro keyboard. Changed at runtime for windows
 
 -- some basic colors
 color = {
@@ -561,10 +563,14 @@ function love.draw()
         love.graphics.polygon( "fill", arrowX, arrowY, x3, y3, x4, y4 )
       end
      
-      -- draw rectangle in map mode
+      -- draw rectangle or circle in map mode
       if Mode =="map" then
-	if arrowModeMap == "RECT" then love.graphics.rectangle("line",arrowStartX, arrowStartY,(arrowX - arrowStartX),(arrowY - arrowStartY)) end
-	if arrowModeMap == "CIRC" then love.graphics.circle("line",(arrowStartX+arrowX)/2, (arrowStartY+arrowY)/2, distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY) / 2) end
+	-- draw circle or rectangle itself
+	if arrowModeMap == "RECT" then 
+		love.graphics.rectangle("line",arrowStartX, arrowStartY,(arrowX - arrowStartX),(arrowY - arrowStartY)) 
+	elseif arrowModeMap == "CIRC" then 
+		love.graphics.circle("line",(arrowStartX+arrowX)/2, (arrowStartY+arrowY)/2, distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY) / 2) 
+	end
       end 
  
     end
@@ -631,11 +637,18 @@ function love.draw()
 
      love.graphics.setScissor()
 
+     -- draw small circle or rectangle in upper corner, to show which mode we are in
+     if map.kind == "map" then
+       love.graphics.setColor(200,0,0,180)
+       if arrowModeMap == "RECT" then love.graphics.rectangle("line",margin + 5, margin + 5,20,20) end
+       if arrowModeMap == "CIRC" then love.graphics.circle("line",margin + 15, margin + 15,10) end
+     end
+
      -- print visible 
      if atlas:isVisible( map ) then
         love.graphics.setColor(200,0,0,180)
         love.graphics.setFont(fontDice)
-	love.graphics.printf("VISIBLE",500,100,500)
+	love.graphics.printf("VISIBLE",margin , margin ,500)
      end
 
      -- print search zone for a scenario
@@ -834,14 +847,13 @@ function Atlas:getMap() return self.maps[ self.index ] end
 function Atlas:toggleVisible()
 	if not self.maps[ self.index ] then return end
 	if self.maps[ self.index ].kind == "scenario" then return end -- a scenario is never displayed to the players
-	if self.visible then 
+	if self.visible == self.index then 
 		self.visible = nil 
 		-- erase snapshot !
 		currentImage = nil 
-	  	-- send a delete agreed sequence to the projector
-    	  	--udp:send("$$$FADING$$$DELETE$$$")
+	  	-- send hide command to projector
 		udp:send("HIDE")
-	else 
+	else    
 		self.visible = self.index 
 		-- change snapshot !
 		currentImage = self.maps[ self.index ].im
@@ -1248,14 +1260,14 @@ function love.keypressed( key, isrepeat )
 	if atlas:isVisible(map) then udp:send("CHXY " .. map.x .. " " .. map.y ) end
    end 
 
-   if key == ":" then
+   if key == keyZoomIn then
 	if map.mag >= 1 then map.mag = map.mag + 1 end
 	if map.mag < 1 then map.mag = map.mag + 0.5 end	
 	ignoreLastChar = true
 	if atlas:isVisible(map) then udp:send("MAGN " .. 1/map.mag ) end	
    end 
 
-   if key == "=" then
+   if key == keyZoomOut then
 	if map.mag > 1 then 
 		map.mag = map.mag - 1 
 	elseif map.mag <= 1 then 
@@ -2060,9 +2072,14 @@ function readScenario( filename )
     yui.UI.registerEvents()
     love.window.setTitle( "Fading Suns Combat Tracker" )
 
-    -- adjust window size
-    W, H = love.window.getDesktopDimensions()
-    W, H = W * 0.98, H * 0.90
+    -- some adjustments on different systems
+    if love.system.getOS() == "Windows" then
+
+    	W, H = love.window.getDesktopDimensions()
+    	W, H = W * 0.98, H * 0.90
+	keyZoomIn, keyZoomOut = ':', '!'
+
+    end
 
     -- adjust number of rows in screen
     PNJmax = math.floor( (H - 90) / 42 )
