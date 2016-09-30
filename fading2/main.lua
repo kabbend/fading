@@ -9,7 +9,6 @@ local utf8 	= require 'utf8'
 --
 -- the address and port of the projector client
 address, port = "localhost", 12345
-chunksize = 4096
 
 -- main screen size
 W, H = 1420, 730 	-- main window size default values (may be changed dynamically on some systems)
@@ -17,19 +16,19 @@ viewh = 640 		-- view height
 size = 19 		-- base font size
 margin = 20		-- screen margin in map mode
 
--- some GUI buttons whose color will need to be 
--- changed at runtime
-attButton	= nil	-- button Roll Attack
-armButton	= nil	-- button Roll Armor
-nextButton	= nil	-- button Next Round
-clnButton	= nil	-- button Cleanup
-thereIsDead	= false
-
 -- snapshot size and image
 H1, W1 = 140, 140
 currentImage = nil
 
--- maps &scenario stuff
+-- some GUI buttons whose color will need to be 
+-- changed at runtime
+attButton	= nil		-- button Roll Attack
+armButton	= nil		-- button Roll Armor
+nextButton	= nil		-- button Next Round
+clnButton	= nil		-- button Cleanup
+thereIsDead	= false		-- is there a dead character in the list ? (if so, cleanup button is clickable)
+
+-- maps & scenario stuff
 Mode 			= "combat"		-- mode can be 'combat' (default) or 'map'
 textBase		= "Search : "
 text 			= textBase		-- text printed on the screen when typing search keywords
@@ -182,21 +181,6 @@ function doSearch( sentence )
 -- send an image (already stored in memory) to the projector
 function sendOver( map )
 
---[[
-  -- send the file over the socket
-  file:open('r')
-  local data, size = file:read( chunksize )
-  while size ~= 0 do
-   	udp:send(data)
-       	socket.sleep(0.01)
-       	data, size = file:read( chunksize )
-   end
-   file:close()
-   -- send a EOF agreed sequence
-  udp:send("$$$FADING$$$EOF$$$")
-  love.filesystem.remove('local.png')
---]]
-
   udp:send("OPEN " .. map.filename )
 
   -- send mask if applicable
@@ -215,7 +199,7 @@ function sendOver( map )
 -- dropping a file over the main window will: 
 -- * create a snapshot at bottom right of the screen,
 -- * send this same image over the socket to the projector client
--- * if a map was visible, it is no more the case
+-- * if a map was visible, it is now hidden
 function love.filedropped(file)
 
   	if file:open('r') then
@@ -237,19 +221,6 @@ function love.filedropped(file)
 		atlas:removeVisible()
 	
     	  	-- send the filename over the socket
---[[
-    	  	file:open('r')
-    	  	local data, size = file:read( chunksize )
-    	  	while size ~= 0 do
-            		udp:send(data)
-            		socket.sleep(0.01)
-            		data, size = file:read( chunksize )
-    	  	end
-    	  	file:close()
-	  	-- send a EOF agreed sequence
-    	  	udp:send("$$$FADING$$$EOF$$$")
---]]
-
 		local filename = file:getFilename()
 		udp:send("OPEN " .. filename)
 		udp:send("DISP") 	-- display immediately
@@ -260,10 +231,13 @@ function love.filedropped(file)
 
 	end
 
+-- for a given PNJ at index i, return true if Attack or Armor button should be clickable
+-- false otherwise
 function isAttorArm( i )
 	if not i then return false end
 	if not PNJTable[ i ] then return false end
-	-- when a PJ is selected, we do not roll for him but for it's enemy, provided there is only one
+	-- when a PJ is selected, we do not roll for him but for it's enemy, provided 
+	-- there is one and only one
   	if (PNJTable[ i ].PJ) then 
     		local count = 0
     		local oneid = nil
@@ -272,6 +246,7 @@ function isAttorArm( i )
     		end
     		if (count ~= 1) or (not oneid) then return false end
   	end
+	-- if it's a PNJ, return true 
 	return true	
 end
 
@@ -279,7 +254,7 @@ end
 -- Compute dices to roll when "roll attack" or "roll armor" is pressed
 -- Roll is made for the character with current focus, provided it is a PNJ and not a PJ
 -- If it is a PJ, the roll is made not for him, but for it's opponent, provided there is
--- only one (otherwise, do nothing)
+-- one and only one (otherwise, do nothing)
 -- Return nothing, but activate the corresponding draw flag and timer so it is used in
 -- love.draw()
 function rollAttack( rollType )
@@ -881,7 +856,7 @@ function Atlas.new()
   setmetatable(new,Atlas)
   new.maps = {}
   new.visible = nil -- index of the map currently visible (or nil if none)
-  new.index = 0 -- index of the current map with focus in map mode (or nil if none) 
+  new.index = 0 -- index of the current map with focus in map mode (or 0 if none) 
   return new
   end
 
@@ -2097,7 +2072,7 @@ function readScenario( filename )
     if love.system.getOS() == "Windows" then
 
     	W, H = love.window.getDesktopDimensions()
-    	W, H = W * 0.98, H * 0.90
+    	W, H = W * 0.90, H * 0.90
 	keyZoomIn, keyZoomOut = ':', '!'
 
     end
@@ -2184,7 +2159,7 @@ function readScenario( filename )
 			onClick = function(self) if self.button.black then return end rollAttack("armor") end }),
                 yui.HorizontalSpacing({w=150}),
                 yui.Button({name="cleanup", text="       Cleanup       ", size=size, onClick = function(self) return removeDeadPNJ() and sortAndDisplayPNJ() end }),
-                yui.HorizontalSpacing({w=280}),
+                yui.HorizontalSpacing({w=270}),
                 yui.Button({text="    Quit    ", size=size, onClick = function(self) love.event.quit() end }),
               }), -- end of Flow
             createPNJGUIFrame(),
