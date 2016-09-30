@@ -2072,7 +2072,7 @@ function readScenario( filename )
     if love.system.getOS() == "Windows" then
 
     	W, H = love.window.getDesktopDimensions()
-    	W, H = W * 0.98, H * 0.90
+    	W, H = W * 0.90, H * 0.90
 	keyZoomIn, keyZoomOut = ':', '!'
 
     end
@@ -2159,7 +2159,7 @@ function readScenario( filename )
 			onClick = function(self) if self.button.black then return end rollAttack("armor") end }),
                 yui.HorizontalSpacing({w=150}),
                 yui.Button({name="cleanup", text="       Cleanup       ", size=size, onClick = function(self) return removeDeadPNJ() and sortAndDisplayPNJ() end }),
-                yui.HorizontalSpacing({w=280}),
+                yui.HorizontalSpacing({w=270}),
                 yui.Button({text="    Quit    ", size=size, onClick = function(self) love.event.quit() end }),
               }), -- end of Flow
             createPNJGUIFrame(),
