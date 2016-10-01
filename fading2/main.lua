@@ -19,8 +19,9 @@ margin = 20		-- screen margin in map mode
 -- snapshots
 snapshots = {}
 snapshotIndex = 1	-- which image is first
-snapshotSize = 90
-snapshotMargin = 10
+snapshotSize = 70 	-- w and h of each snapshot
+snapshotMargin = 7 	-- space between images and screen border
+snapshotOffset = 0	-- current offset to display
 
 -- snapshot size and image
 H1, W1 = 140, 140
@@ -41,8 +42,8 @@ text 			= textBase		-- text printed on the screen when typing search keywords
 searchActive		= false
 ignoreLastChar		= false
 searchIterator		= nil			-- iterator on the results, when search is done
-searchPertinence 	= 0			-- will be set by using the iterator, and used during love.draw
-searchIndex		= 0			-- will be set by using the iterator, and used during love.draw
+searchPertinence 	= 0			-- will be set by using the iterator, and used during draw
+searchIndex		= 0			-- will be set by using the iterator, and used during draw
 searchSize		= 0 			-- idem
 dictionnary 		= {}			-- dictionnary indexed by word, with value a couple position (string) 
 						-- and level (integer) as in { "((x,y))", lvl } 
@@ -262,7 +263,7 @@ end
 -- If it is a PJ, the roll is made not for him, but for it's opponent, provided there is
 -- one and only one (otherwise, do nothing)
 -- Return nothing, but activate the corresponding draw flag and timer so it is used in
--- love.draw()
+-- draw()
 function rollAttack( rollType )
 
   	if not focus then return end -- no one with focus, cannot roll
@@ -307,6 +308,18 @@ function rollAttack( rollType )
 
 -- GUI basic functions
 function love.update(dt)
+
+	-- change snapshot offset if mouse  at bottom right or left
+	local snapMax = #snapshots * (snapshotSize + snapshotMargin) - W
+	local x,y = love.mouse.getPosition()
+	if (x < snapshotMargin * 4 ) and (y > H - snapshotMargin - snapshotSize ) then
+	  snapshotOffset = snapshotOffset + snapshotMargin * 2
+	  if snapshotOffset > 0 then snapshotOffset = 0  end
+	end
+	if (x > W - snapshotMargin * 4 ) and (y > H - snapshotMargin - snapshotSize ) then
+	  snapshotOffset = snapshotOffset - snapshotMargin * 2
+	  if snapshotOffset < -snapMax then snapshotOffset = -snapMax end
+	end
 
 	-- change some button behaviour when needed
 	nextButton.button.black = not nextFlash 
@@ -453,7 +466,10 @@ function love.draw()
 
   -- bottom snapshots list
   for i=snapshotIndex, #snapshots do
-	love.graphics.draw( snapshots[ i ].im , snapshotSize * i , viewh , 0 , 0.1, 0.1 )
+	love.graphics.draw( 	snapshots[i].im , 
+				snapshotOffset + snapshotSize * (i-1) + snapshotMargin - (snapshots[i].w * snapshots[i].mag - snapshotSize) / 2, 
+				H - snapshotSize - snapshotMargin - ( snapshots[i].h * snapshots[i].mag - snapshotSize ) / 2, 
+			    	0 , snapshots[i].mag, snapshots[i].mag )
   end
 
   -- small snapshot
@@ -836,7 +852,8 @@ function loadSnap( imageFilename )
   new.filename = imageFilename
   new.im = img 
   new.w, new.h = new.im:getDimensions() 
-  new.mag = 0.1 
+  local f1, f2 = snapshotSize / new.w , snapshotSize / new.h
+  new.mag = math.min(f1,f2)
   return new
   end
 
@@ -2197,7 +2214,7 @@ function readScenario( filename )
       if f == 'scenario.txt' then readScenario( f ) end
       if f == 'scenario.jpg' then
 	atlas:addMap( Map.new( "scenario", fadingDirectory .. f ) )
-      elseif string.sub(f,-4) == '.jpg'  then
+      elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
         if string.sub(f,1,3) == 'map' then
 	  atlas:addMap( Map.new( "map", fadingDirectory .. f ) )
  	else
