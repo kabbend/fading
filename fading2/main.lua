@@ -2165,7 +2165,7 @@ function readScenario( filename )
     diceW[6] = love.graphics.newImage( 'dice/w6.png' )
 
     -- get images & scenario directory, either provided at command line or love2d default one
-    local fadingDirectory = args[2] or ""
+    local fadingDirectory = args[2] or args[1] .. "/"
     print("directory : " .. fadingDirectory)
 
     local allfiles = {}, sep, command
@@ -2173,7 +2173,7 @@ function readScenario( filename )
 	command = "ls"	
 	sep = "/"
     elseif love.system.getOS() == "Windows" then
-	command = "dir"	
+	command = "dir -name"	
 	sep = '\\'
     end
 
@@ -2196,8 +2196,7 @@ function readScenario( filename )
       if f == 'scenario.txt' then readScenario( f ) end
       if f == 'scenario.jpg' then
 	atlas:addMap( Map.new( "scenario", fadingDirectory .. f ) )
-      end
-      if string.sub(f,-4) == '.jpg'  then
+      elseif string.sub(f,-4) == '.jpg'  then
         if string.sub(f,1,3) == 'map' then
 	  atlas:addMap( Map.new( "map", fadingDirectory .. f ) )
  	else
