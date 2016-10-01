@@ -2187,29 +2187,27 @@ function readScenario( filename )
     diceW[6] = love.graphics.newImage( 'dice/w6.png' )
 
     -- get images & scenario directory, either provided at command line or love2d default one
-    local fadingDirectory = args[2] or args[1] .. "/"
-    print("directory : " .. fadingDirectory)
+    local fadingDirectory = args[ 2 ] 
+    local sep = '/'
+    if love.system.getOS() == "Windows" then
+	    if args[1] == "--console" then fadingDirectory = args[ 3 ] end
+    	    sep = '\\'
+    end
+    print("directory : |" .. fadingDirectory .. "|")
 
-    local allfiles = {}, sep, command
+    local allfiles = {}, command
     if love.system.getOS() == "OS X" then
-	command = "ls"	
-	sep = "/"
+	    os.execute("ls '" .. fadingDirectory .. "' > .temp")
     elseif love.system.getOS() == "Windows" then
-	command = "dir -name"	
-	sep = '\\'
+	    print("cmd.exe /c dir /b \"" .. fadingDirectory .. "\" > .temp ")
+	    os.execute("cmd.exe /c dir /b \"" .. fadingDirectory .. "\" > .temp ")
     end
 
-    -- get a temporary file name
-    n = os.tmpname ()
-
-    -- execute a command
-    os.execute ("ls '" .. fadingDirectory .. "' > " .. n)
-
     -- store output
-    for line in io.lines (n) do table.insert(allfiles,line) end
+    for line in io.lines (".temp") do table.insert(allfiles,line) end
 
     -- remove temporary file
-    os.remove (n)
+    os.remove (".temp")
 
     -- check for scenario & maps to load
     atlas = Atlas.new()
@@ -2217,12 +2215,12 @@ function readScenario( filename )
       print("scanning file : '" .. f .. "'")
       if f == 'scenario.txt' then readScenario( f ) end
       if f == 'scenario.jpg' then
-	atlas:addMap( Map.new( "scenario", fadingDirectory .. f ) )
+	atlas:addMap( Map.new( "scenario", fadingDirectory .. sep .. f ) )
       elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
         if string.sub(f,1,3) == 'map' then
-	  atlas:addMap( Map.new( "map", fadingDirectory .. f ) )
+	  atlas:addMap( Map.new( "map", fadingDirectory .. sep .. f ) )
  	else
-	  table.insert( snapshots, loadSnap( fadingDirectory .. f ) ) 
+	  table.insert( snapshots, loadSnap( fadingDirectory .. sep .. f ) ) 
         end
       end
     end
