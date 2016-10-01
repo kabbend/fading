@@ -12,9 +12,15 @@ address, port = "localhost", 12345
 
 -- main screen size
 W, H = 1420, 730 	-- main window size default values (may be changed dynamically on some systems)
-viewh = 640 		-- view height
+viewh = H - 170 	-- view height
 size = 19 		-- base font size
 margin = 20		-- screen margin in map mode
+
+-- snapshots
+snapshots = {}
+snapshotIndex = 1	-- which image is first
+snapshotSize = 90
+snapshotMargin = 10
 
 -- snapshot size and image
 H1, W1 = 140, 140
@@ -58,7 +64,7 @@ templateArray 	= {}
 -- A Dead PNJ counts as 1, except if explicitely removed from the list
 PNJTable 	= {}		
 PNJnum 		= 1		-- next index to use in PNJTable 
-PNJmax   	= 15		-- Limit in the number of PNJs (and the GUI frame size as well)
+PNJmax   	= 13		-- Limit in the number of PNJs (and the GUI frame size as well)
 
 -- Direct access (without traversal) to GUI structure:
 -- PNJtext[i] gives a direct access to the i-th GUI line in the GUI PNJ frame
@@ -445,6 +451,10 @@ function love.draw()
 
   local alpha = 80
 
+  -- bottom snapshots list
+  for i=snapshotIndex, #snapshots do
+  end
+
   -- small snapshot
   love.graphics.setColor(255,255,255)
   love.graphics.rectangle("line", W - W1 - 10, H - H1 - 10 , W1 , H1 )
@@ -738,7 +748,7 @@ function love.mousepressed( x, y )
 
   if Mode == "map" then
 	local map = atlas:getMap()
-	if map.kind == "scenario" then return end
+	if not map or map.kind == "scenario" then return end
 	arrowMode = true
 	arrowStartX, arrowStartY = x, y
 	return
@@ -787,15 +797,45 @@ function Map.new( kind, imageFilename )
   assert( kind == "map" or kind == "scenario" , "sorry, cannot create a map of such kind" )
   assert( imageFilename , "please provide a filename" )
   new.kind = kind
-  local path = love.filesystem.getWorkingDirectory( )
-  new.filename = path .. "/fading2/" .. imageFilename
-  new.im = love.graphics.newImage( imageFilename )
+  local file = assert(io.open( imageFilename , "rb" ))
+  local image = file:read( "*a" )
+  file:close()
+
+  local lfn = love.filesystem.newFileData
+  local lin = love.image.newImageData
+  local lgn = love.graphics.newImage
+
+  local img = lgn(lin(lfn(image, 'img', 'file')))
+  assert(img, "sorry, could not load image at '" .. imageFilename .. "'")  
+  
+  new.filename = imageFilename
+  new.im = img 
   new.w, new.h = new.im:getDimensions() 
   new.x = new.w / 2
   new.y = new.h / 2
   new.mag = 1.0
   new.step = 50
   if kind == "map" then new.mask = {} else new.mask = nil end
+  return new
+  end
+
+function loadSnap( imageFilename ) 
+  local new = {}
+  local file = assert(io.open( imageFilename , "rb" ))
+  local image = file:read( "*a" )
+  file:close()
+
+  local lfn = love.filesystem.newFileData
+  local lin = love.image.newImageData
+  local lgn = love.graphics.newImage
+
+  local img = lgn(lin(lfn(image, 'img', 'file')))
+  assert(img, "sorry, could not load image at '" .. imageFilename .. "'")  
+  
+  new.filename = imageFilename
+  new.im = img 
+  new.w, new.h = new.im:getDimensions() 
+  new.mag = 0.1 
   return new
   end
 
@@ -1978,6 +2018,7 @@ function readScenario( filename )
 	table.insert( stack, { level=0, xy="((".. math.floor(W / 2) .. "," .. math.floor(H / 2) .. "))" } )
 
 	local linecount = 0
+-- FIXME: need to replace by non love method
 	for line in love.filesystem.lines(filename) do
 
 		linecount = linecount + 1
@@ -2078,7 +2119,7 @@ function readScenario( filename )
     end
 
     -- adjust number of rows in screen
-    PNJmax = math.floor( (H - 90) / 42 )
+    PNJmax = math.floor( viewh / 42 )
 
     love.window.setMode( W  , H  , { fullscreen=false, resizable=true, display=1} )
     love.keyboard.setKeyRepeat(true)
@@ -2101,6 +2142,7 @@ function readScenario( filename )
 
     local current_class = opt[1]
 
+    -- load fonts
     fontDice = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",90)
     fontRound = love.graphics.newFont("yui/yaoui/fonts/OpenSans-Bold.ttf",12)
     fontSearch = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",16)
@@ -2122,18 +2164,49 @@ function readScenario( filename )
     diceW[5] = love.graphics.newImage( 'dice/w5.png' )
     diceW[6] = love.graphics.newImage( 'dice/w6.png' )
 
+    -- get images & scenario directory, either provided at command line or love2d default one
+    local fadingDirectory = args[2] or ""
+    print("directory : " .. fadingDirectory)
+
+    local allfiles = {}, sep, command
+    if love.system.getOS() == "OS X" then
+	command = "ls"	
+	sep = "/"
+    elseif love.system.getOS() == "Windows" then
+	command = "dir"	
+	sep = '\\'
+    end
+
+    -- get a temporary file name
+    n = os.tmpname ()
+
+    -- execute a command
+    os.execute ("ls '" .. fadingDirectory .. "' > " .. n)
+
+    -- store output
+    for line in io.lines (n) do table.insert(allfiles,line) end
+
+    -- remove temporary file
+    os.remove (n)
+
     -- check for scenario & maps to load
     atlas = Atlas.new()
-    local allfiles = love.filesystem.getDirectoryItems("")
     for k,f in pairs(allfiles) do
+      print("scanning file : '" .. f .. "'")
       if f == 'scenario.txt' then readScenario( f ) end
       if f == 'scenario.jpg' then
-	atlas:addMap( Map.new( "scenario", f ) )
+	atlas:addMap( Map.new( "scenario", fadingDirectory .. f ) )
       end
-      if string.sub(f,1,3) == 'map' and string.sub(f,-4) == '.jpg' then
-	atlas:addMap( Map.new( "map", f ) )
+      if string.sub(f,-4) == '.jpg'  then
+        if string.sub(f,1,3) == 'map' then
+	  atlas:addMap( Map.new( "map", fadingDirectory .. f ) )
+ 	else
+	  table.insert( snapshots, loadSnap( fadingDirectory .. f ) ) 
+        end
       end
     end
+
+    print("Loaded " .. #snapshots .. " snapshots" )
 
     -- create view structure
     love.graphics.setBackgroundColor( 248, 245, 244 )
