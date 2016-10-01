@@ -311,6 +311,7 @@ function love.update(dt)
 
 	-- change snapshot offset if mouse  at bottom right or left
 	local snapMax = #snapshots * (snapshotSize + snapshotMargin) - W
+	if snapMax < 0 then snapMax = 0 end
 	local x,y = love.mouse.getPosition()
 	if (x < snapshotMargin * 4 ) and (y > H - snapshotMargin - snapshotSize ) then
 	  snapshotOffset = snapshotOffset + snapshotMargin * 2
@@ -466,7 +467,7 @@ function love.draw()
 
   -- bottom snapshots list
   for i=snapshotIndex, #snapshots do
-	local x = snapshotOffset + snapshotSize * (i-1) + snapshotMargin - (snapshots[i].w * snapshots[i].mag - snapshotSize) / 2
+	local x = snapshotOffset + (snapshotSize + snapshotMargin) * (i-1) - (snapshots[i].w * snapshots[i].mag - snapshotSize) / 2
 	if x > W then break end
 	if x >= -snapshotSize then 
 		love.graphics.draw( 	snapshots[i].im , 
