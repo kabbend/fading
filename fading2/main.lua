@@ -453,6 +453,7 @@ function love.draw()
 
   -- bottom snapshots list
   for i=snapshotIndex, #snapshots do
+	love.graphics.draw( snapshots[ i ].im , snapshotSize * i , viewh , 0 , 0.1, 0.1 )
   end
 
   -- small snapshot
