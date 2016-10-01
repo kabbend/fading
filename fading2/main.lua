@@ -466,15 +466,19 @@ function love.draw()
 
   -- bottom snapshots list
   for i=snapshotIndex, #snapshots do
-	love.graphics.draw( 	snapshots[i].im , 
-				snapshotOffset + snapshotSize * (i-1) + snapshotMargin - (snapshots[i].w * snapshots[i].mag - snapshotSize) / 2, 
+	local x = snapshotOffset + snapshotSize * (i-1) + snapshotMargin - (snapshots[i].w * snapshots[i].mag - snapshotSize) / 2
+	if x > W then break end
+	if x >= -snapshotSize then 
+		love.graphics.draw( 	snapshots[i].im , 
+				x,
 				H - snapshotSize - snapshotMargin - ( snapshots[i].h * snapshots[i].mag - snapshotSize ) / 2, 
 			    	0 , snapshots[i].mag, snapshots[i].mag )
+	end
   end
 
   -- small snapshot
   love.graphics.setColor(255,255,255)
-  love.graphics.rectangle("line", W - W1 - 10, H - H1 - 10 , W1 , H1 )
+  love.graphics.rectangle("line", W - W1 - 10, H - H1 - snapshotSize - snapshotMargin * 2 - 10 , W1 , H1 )
   if currentImage then 
     local w, h = currentImage:getDimensions()
     -- compute magnifying factor f to fit to screen, with max = 2
