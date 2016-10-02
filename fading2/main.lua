@@ -86,6 +86,7 @@ flashSequence	= false
 focus	        = nil   -- Index (in PNJTable) of the current PNJ with focus (or nil if no one)
 focusTarget     = nil   -- unique ID (and not index) of the corresponding target
 focusAttackers  = {}    -- List of unique IDs of the corresponding attackers
+lastFocus	= nil	-- store last focus value
 
 -- flag and timer to draw d6 dices in combat mode
 drawDicesTimer      = 0
@@ -308,6 +309,18 @@ function rollAttack( rollType )
 
 -- GUI basic functions
 function love.update(dt)
+
+	-- if focus changed, send a new PJ snapshot to the projector, or a HIDe command, eventually
+	if focus and lastFocus ~= focus then
+		if PNJTable[focus].PJ and PNJTable[focus].snapshot then
+			udp:send("SNAP " .. PNJTable[focus].snapshot.filename ) 
+		end
+		lastFocus = focus -- avoid to do this next time...
+	end
+	if not focus and lastFocus ~= focus then
+		udp:send("HIDS") 
+		lastFocus = nil -- avoid to do this next time...
+	end
 
 	-- change snapshot offset if mouse  at bottom right or left
 	local snapMax = #snapshots * (snapshotSize + snapshotMargin) - W
@@ -821,6 +834,7 @@ function love.mousepressed( x, y )
   end
 
   -- we assume that the mouse was pressed outside PNJ list, this might change below
+  lastFocus = focus
   focus = nil
   focusTarget = nil
   focusAttackers = nil
@@ -829,6 +843,7 @@ function love.mousepressed( x, y )
   for i=1,PNJnum-1 do
     if (y >= PNJtext[i].y-5 and y < PNJtext[i].y + 42) then
       PNJTable[i].focus = true
+      lastFocus = focus
       focus = i
       focusTarget = PNJTable[i].target
       focusAttackers = PNJTable[i].attackers
@@ -1265,6 +1280,7 @@ function updateTargetByArrow( i, j )
 
     updateLineColor(i)
 
+    lastFocus = focus
     focus = i
     focusAttackers = PNJTable[i].attackers
     focusTarget = PNJTable[i].target
@@ -1283,6 +1299,7 @@ function love.keypressed( key, isrepeat )
    if key == "down" then
     if not focus then return end
     if focus < PNJnum-1 then 
+      lastFocus = focus
       focus = focus + 1
       focusAttackers = PNJTable[ focus ].attackers
       focusTarget  = PNJTable[ focus ].target
@@ -1293,6 +1310,7 @@ function love.keypressed( key, isrepeat )
    if key == "up" then
     if not focus then return end
     if focus > 1 then 
+      lastFocus = focus
       focus = focus - 1
       focusAttackers = PNJTable[ focus ].attackers
       focusTarget  = PNJTable[ focus ].target
@@ -1897,9 +1915,10 @@ function sortAndDisplayPNJ()
     end
 
     -- all this resets the current focus
-    focus     = nil
-    focusTarget   = nil
-    focusAttackers  = {}
+    lastFocus 		= focus
+    focus     		= nil
+    focusTarget   	= nil
+    focusAttackers  	= {}
 
   end 
 

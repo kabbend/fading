@@ -8,6 +8,9 @@ local currentImage = nil
 local storedImage = nil
 local mask = nil 
 local mag = 0 -- a priori
+local snapMag = 1.0 
+local WS, HS = 200, 200	-- snapshot size
+local snapImage = nil
 
 function myStencilFunction() 
         love.graphics.rectangle("fill",zx,zy,w,h)
@@ -65,6 +68,13 @@ function love.draw()
 
   end
 
+  if snapImage then
+
+	love.graphics.setColor(255,255,255)
+  	love.graphics.draw( snapImage , 50 , 50 , 0 , snapMag, snapMag )
+
+  end
+
   end
 
 function love.update( dt )
@@ -103,6 +113,11 @@ function love.update( dt )
 	--
 	-- CIRC x y r 		set a new stencil (unmask) circle at position x,y, of radius r (a decimal number)
 	--
+	-- SNAP filename	open a snapshot, an image that will be displayed in a small format at upper left corner of the
+	-- 			screen (whatever the current display status). No DISP command is needed, it is implicit
+	--
+	-- HIDS			HIDe Snapshot. Note that HIDE does not imply HIDS
+	-- 
 	
 	  local command = string.sub( data, 1, 4)
 
@@ -133,6 +148,31 @@ function love.update( dt )
 		currentImage = nil
 		mag = 0
 	    	mask = nil
+
+	  elseif command == "SNAP" then
+
+		local filename = string.sub( data , 6)
+		local file = assert(io.open( filename , "rb" ))
+		local image = file:read( "*a" )	
+		file:close()
+
+	    	local lfn = love.filesystem.newFileData
+  	    	local lin = love.image.newImageData
+  	    	local lgn = love.graphics.newImage
+
+    	    	snapImage = lgn(lin(lfn(image, 'img', 'file')))
+		assert(snapImage, "sorry, could not load image at '" .. filename .. "'")
+
+		-- store new image
+  		local snapW, snapH = snapImage:getDimensions()
+  		local xfactor = WS / snapW 
+  		local yfactor = HS / snapH 
+
+		-- reset previous image
+		snapMag = math.min(xfactor, yfactor) 
+
+	  elseif command == "HIDS" then
+		snapImage = nil
 
 	  elseif command == "HIDE" then
 		currentImage = nil
