@@ -1086,6 +1086,7 @@ function PNJConstructor( template )
   aNewPNJ.PJ 		  = template.PJ or false	-- is it a PJ or PNJ ?
   aNewPNJ.done		  = false 			-- has played this round ?
   aNewPNJ.is_dead         = false  			-- so far 
+  aNewPNJ.im		  = nil				-- image of the PJ
 
   -- GRAPHICAL INTERFACE (focus, timers...)
   aNewPNJ.focus	  	  = false			-- has the focus currently ?
@@ -1218,6 +1219,13 @@ function updateLineColor( i )
   end
 end
 
+
+-- return the 1st character of a class, or nil if not found
+function findPNJByClass( class )
+  if not class then return nil end
+  for i=1,PNJnum-1 do if PNJTable[i].class == class then return i end end
+  return nil
+  end
 
 -- return the character by its ID, or nil if not found
 function findPNJ( id )
@@ -2230,71 +2238,6 @@ function readScenario( filename )
     diceW[5] = love.graphics.newImage( 'dice/w5.png' )
     diceW[6] = love.graphics.newImage( 'dice/w6.png' )
 
-    -- get images & scenario directory, either provided at command line or love2d default one
-    local fadingDirectory = args[ 2 ] 
-    local sep = '/'
-
-    -- some small differences in windows: separator is not the same, and some weird completion
-    -- feature in command line may add an unexpected doublequote char at the end of the path (?)
-    -- that we want to remove
-    if love.system.getOS() == "Windows" then
-	    local n = string.len(fadingDirectory)
-	    if string.sub(fadingDirectory,1,1) ~= '"' and 
-		    string.sub(fadingDirectory,n,n) == '"' then
-		    fadingDirectory=string.sub(fadingDirectory,1,n-1)
-	    end
-    	    sep = '\\'
-    end
-
-    -- default directory is 'fading2' (application folder)
-    if not fadingDirectory or fadingDirectory == "" then fadingDirectory = "fading2" end
-    io.write("directory : |" .. fadingDirectory .. "|\n")
-
-    -- list all files in that directory, by executing a command ls or dir
-    local allfiles = {}, command
-    if love.system.getOS() == "OS X" then
-	    io.write("ls '" .. fadingDirectory .. "' > .temp\n")
-	    os.execute("ls '" .. fadingDirectory .. "' > .temp")
-    elseif love.system.getOS() == "Windows" then
-	    io.write("dir /b \"" .. fadingDirectory .. "\" > .temp\n")
-	    os.execute("dir /b \"" .. fadingDirectory .. "\" > .temp ")
-    end
-
-    -- store output
-    for line in io.lines (".temp") do table.insert(allfiles,line) end
-
-    -- remove temporary file
-    os.remove (".temp")
-
-    -- check for scenario, snapshots & maps to load
-    atlas = Atlas.new()
-    for k,f in pairs(allfiles) do
-
-      io.write("scanning file : '" .. f .. "'\n")
-
-      if f == 'scenario.txt' then 
-	      readScenario( fadingDirectory .. sep .. f ) 
-	      io.write("Loaded scenario at " .. fadingDirectory .. sep .. f .. "\n")
-      end
-
-      if f == 'scenario.jpg' then
-
-	atlas:addMap( Map.new( "scenario", fadingDirectory .. sep .. f ) )
-	io.write("Loaded scenario image file at " .. fadingDirectory .. sep .. f .. "\n")
-
-      elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
-
-        if string.sub(f,1,3) == 'map' then
-	  atlas:addMap( Map.new( "map", fadingDirectory .. sep .. f ) )
- 	else
-	  table.insert( snapshots, loadSnap( fadingDirectory .. sep .. f ) ) 
-        end
-
-      end
-
-    end
-
-    io.write("Loaded " .. #snapshots .. " snapshots\n" )
 
     -- create view structure
     love.graphics.setBackgroundColor( 248, 245, 244 )
@@ -2339,17 +2282,104 @@ function readScenario( filename )
     armButton.button.black = true
     clnButton.button.black = true
     
-    -- some initialization stuff
-    generateUID = UIDiterator()
-
-    -- create PJ automatically (1 instance of each!)
-    createPJ()
-
     -- create socket and connect to the client
     udp = socket.udp()
     udp:settimeout(0)
     udp:setpeername(address, port)
 
+    -- some initialization stuff
+    generateUID = UIDiterator()
+
+    -- create PJ automatically (1 instance of each!)
+    -- later on, an image might be attached to them, if we find one
+    createPJ()
+
+    -- get images & scenario directory, either provided at command line or default one
+    local fadingDirectory = args[ 2 ] 
+    local sep = '/'
+
+    -- some small differences in windows: separator is not the same, and some weird completion
+    -- feature in command line may add an unexpected doublequote char at the end of the path (?)
+    -- that we want to remove
+    if love.system.getOS() == "Windows" then
+	    local n = string.len(fadingDirectory)
+	    if string.sub(fadingDirectory,1,1) ~= '"' and 
+		    string.sub(fadingDirectory,n,n) == '"' then
+		    fadingDirectory=string.sub(fadingDirectory,1,n-1)
+	    end
+    	    sep = '\\'
+    end
+
+    -- default directory is 'fading2' (application folder)
+    if not fadingDirectory or fadingDirectory == "" then fadingDirectory = "fading2" end
+    io.write("directory : |" .. fadingDirectory .. "|\n")
+
+    -- list all files in that directory, by executing a command ls or dir
+    local allfiles = {}, command
+    if love.system.getOS() == "OS X" then
+	    io.write("ls '" .. fadingDirectory .. "' > .temp\n")
+	    os.execute("ls '" .. fadingDirectory .. "' > .temp")
+    elseif love.system.getOS() == "Windows" then
+	    io.write("dir /b \"" .. fadingDirectory .. "\" > .temp\n")
+	    os.execute("dir /b \"" .. fadingDirectory .. "\" > .temp ")
+    end
+
+    -- store output
+    for line in io.lines (".temp") do table.insert(allfiles,line) end
+
+    -- remove temporary file
+    os.remove (".temp")
+
+    -- check for scenario, snapshots & maps to load
+    atlas = Atlas.new()
+    for k,f in pairs(allfiles) do
+
+      io.write("scanning file : '" .. f .. "'\n")
+
+      -- All files are optional. They can be:
+      --   SCENARIO IMAGE: 	named scenario.jpg
+      --   SCENARIO TEXT:	associated to this image, named scenario.txt
+      --   MAPS: 		map*jpg or map*png, they are considered as maps and loaded as such
+      --   PJ IMAGE:		PJ_pjname.jpg, they are considered as images for corresponding PJ
+      --   SNAPSHOTS:		*.jpg or *.png, all are snapshots displayed at the bottom part
+      --
+      if f == 'scenario.txt' then 
+	      readScenario( fadingDirectory .. sep .. f ) 
+	      io.write("Loaded scenario at " .. fadingDirectory .. sep .. f .. "\n")
+      end
+
+      if f == 'scenario.jpg' then
+
+	atlas:addMap( Map.new( "scenario", fadingDirectory .. sep .. f ) )
+	io.write("Loaded scenario image file at " .. fadingDirectory .. sep .. f .. "\n")
+
+      elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
+
+        if string.sub(f,1,3) == 'PJ_' then
+
+		local pjname = string.sub(f,4, f:len() - 4 )
+		io.write("Looking for PJ " .. pjname .. "\n")
+		local index = findPNJByClass( pjname ) 
+		if index then
+	  		table.insert( snapshots, loadSnap( fadingDirectory .. sep .. f ) ) 
+			PNJTable[index].im = snapshots.im
+		end
+
+	elseif string.sub(f,1,3) == 'map' then
+
+	  atlas:addMap( Map.new( "map", fadingDirectory .. sep .. f ) )
+
+ 	else
+
+	  table.insert( snapshots, loadSnap( fadingDirectory .. sep .. f ) ) 
+	  
+        end
+
+      end
+
+    end
+
+    io.write("Loaded " .. #snapshots .. " snapshots\n" )
  
   end
 
