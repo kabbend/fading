@@ -1086,7 +1086,7 @@ function PNJConstructor( template )
   aNewPNJ.PJ 		  = template.PJ or false	-- is it a PJ or PNJ ?
   aNewPNJ.done		  = false 			-- has played this round ?
   aNewPNJ.is_dead         = false  			-- so far 
-  aNewPNJ.im		  = nil				-- image of the PJ
+  aNewPNJ.snapshot	  = nil				-- image (and some other information) for the PJ
 
   -- GRAPHICAL INTERFACE (focus, timers...)
   aNewPNJ.focus	  	  = false			-- has the focus currently ?
@@ -2297,6 +2297,7 @@ function readScenario( filename )
     -- get images & scenario directory, either provided at command line or default one
     local fadingDirectory = args[ 2 ] 
     local sep = '/'
+    local PJImageNum, mapsNum, scenarioImageNum, scenarioTextNum = 0,0,0,0
 
     -- some small differences in windows: separator is not the same, and some weird completion
     -- feature in command line may add an unexpected doublequote char at the end of the path (?)
@@ -2330,8 +2331,10 @@ function readScenario( filename )
     -- remove temporary file
     os.remove (".temp")
 
-    -- check for scenario, snapshots & maps to load
+    -- create a new empty atlas (an array of maps)
     atlas = Atlas.new()
+
+    -- check for scenario, snapshots & maps to load
     for k,f in pairs(allfiles) do
 
       io.write("scanning file : '" .. f .. "'\n")
@@ -2346,12 +2349,14 @@ function readScenario( filename )
       if f == 'scenario.txt' then 
 	      readScenario( fadingDirectory .. sep .. f ) 
 	      io.write("Loaded scenario at " .. fadingDirectory .. sep .. f .. "\n")
+	      scenarioTextNum = scenarioTextNum + 1
       end
 
       if f == 'scenario.jpg' then
 
 	atlas:addMap( Map.new( "scenario", fadingDirectory .. sep .. f ) )
 	io.write("Loaded scenario image file at " .. fadingDirectory .. sep .. f .. "\n")
+	scenarioImageNum = scenarioImageNum + 1
 
       elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
@@ -2361,13 +2366,14 @@ function readScenario( filename )
 		io.write("Looking for PJ " .. pjname .. "\n")
 		local index = findPNJByClass( pjname ) 
 		if index then
-	  		table.insert( snapshots, loadSnap( fadingDirectory .. sep .. f ) ) 
-			PNJTable[index].im = snapshots.im
+			PNJTable[index].snapshot = loadSnap( fadingDirectory .. sep .. f )  
+			PJImageNum = PJImageNum + 1
 		end
 
 	elseif string.sub(f,1,3) == 'map' then
 
 	  atlas:addMap( Map.new( "map", fadingDirectory .. sep .. f ) )
+	  mapsNum = mapsNum + 1
 
  	else
 
@@ -2379,7 +2385,8 @@ function readScenario( filename )
 
     end
 
-    io.write("Loaded " .. #snapshots .. " snapshots\n" )
+    io.write("Loaded " .. #snapshots .. " snapshots, " .. mapsNum .. " maps, " .. PJImageNum .. " PJ images, " .. scenarioImageNum .. " scenario image, " .. 
+    		scenarioTextNum .. " scenario text\n" )
  
   end
 
