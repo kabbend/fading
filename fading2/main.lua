@@ -466,6 +466,7 @@ function love.draw()
   local alpha = 80
 
   -- bottom snapshots list
+  love.graphics.setColor(255,255,255)
   for i=snapshotIndex, #snapshots do
 	local x = snapshotOffset + (snapshotSize + snapshotMargin) * (i-1) - (snapshots[i].w * snapshots[i].mag - snapshotSize) / 2
 	if x > W then break end
@@ -488,7 +489,7 @@ function love.draw()
     local f = math.min( xfactor, yfactor )
     if f > 2 then f = 2 end
     w , h = f * w , f * h
-    love.graphics.draw( currentImage , W - W1 - 10 +  (W1 - w) / 2, H - H1 - 10 + ( H1 - h ) / 2, 0 , f, f )
+    love.graphics.draw( currentImage , W - W1 - 10 +  (W1 - w) / 2, H - H1 - snapshotSize - snapshotMargin * 2 - 10 + ( H1 - h ) / 2, 0 , f, f )
   end
 
   --if not nextFlash then     -- no focus drawing if Next round zone is blinking
@@ -2132,6 +2133,10 @@ function readScenario( filename )
     yui.UI.registerEvents()
     love.window.setTitle( "Fading Suns Combat Tracker" )
 
+    -- log file
+    logFile = io.open("fading.log","w")
+    io.output(logFile)
+
     -- some adjustments on different systems
     if love.system.getOS() == "Windows" then
 
@@ -2190,18 +2195,31 @@ function readScenario( filename )
     -- get images & scenario directory, either provided at command line or love2d default one
     local fadingDirectory = args[ 2 ] 
     local sep = '/'
+
+    -- some small differences in windows: separator is not the same, and some weird completion
+    -- feature in command line may add an unexpected doublequote char at the end of the path (?)
+    -- that we want to remove
     if love.system.getOS() == "Windows" then
-	    if args[1] == "--console" then fadingDirectory = args[ 3 ] end
+	    local n = string.len(fadingDirectory)
+	    if string.sub(fadingDirectory,1,1) ~= '"' and 
+		    string.sub(fadingDirectory,n,n) == '"' then
+		    fadingDirectory=string.sub(fadingDirectory,1,n-1)
+	    end
     	    sep = '\\'
     end
-    print("directory : |" .. fadingDirectory .. "|")
 
+    -- default directory is 'fading2' (application folder)
+    if not fadingDirectory or fadingDirectory == "" then fadingDirectory = "fading2" end
+    io.write("directory : |" .. fadingDirectory .. "|\n")
+
+    -- list all files in that directory, by executing a command ls or dir
     local allfiles = {}, command
     if love.system.getOS() == "OS X" then
+	    io.write("ls '" .. fadingDirectory .. "' > .temp\n")
 	    os.execute("ls '" .. fadingDirectory .. "' > .temp")
     elseif love.system.getOS() == "Windows" then
-	    print("cmd.exe /c dir /b \"" .. fadingDirectory .. "\" > .temp ")
-	    os.execute("cmd.exe /c dir /b \"" .. fadingDirectory .. "\" > .temp ")
+	    io.write("dir /b \"" .. fadingDirectory .. "\" > .temp\n")
+	    os.execute("dir /b \"" .. fadingDirectory .. "\" > .temp ")
     end
 
     -- store output
@@ -2210,23 +2228,30 @@ function readScenario( filename )
     -- remove temporary file
     os.remove (".temp")
 
-    -- check for scenario & maps to load
+    -- check for scenario, snapshots & maps to load
     atlas = Atlas.new()
     for k,f in pairs(allfiles) do
-      print("scanning file : '" .. f .. "'")
+
+      io.write("scanning file : '" .. f .. "'\n")
+
       if f == 'scenario.txt' then readScenario( f ) end
+
       if f == 'scenario.jpg' then
 	atlas:addMap( Map.new( "scenario", fadingDirectory .. sep .. f ) )
+
       elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
+
         if string.sub(f,1,3) == 'map' then
 	  atlas:addMap( Map.new( "map", fadingDirectory .. sep .. f ) )
  	else
 	  table.insert( snapshots, loadSnap( fadingDirectory .. sep .. f ) ) 
         end
+
       end
+
     end
 
-    print("Loaded " .. #snapshots .. " snapshots" )
+    io.write("Loaded " .. #snapshots .. " snapshots\n" )
 
     -- create view structure
     love.graphics.setBackgroundColor( 248, 245, 244 )
