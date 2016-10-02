@@ -1387,7 +1387,8 @@ function love.keypressed( key, isrepeat )
 
    if key == keyZoomIn then
 	if map.mag >= 1 then map.mag = map.mag + 1 end
-	if map.mag < 1 then map.mag = map.mag + 0.5 end	
+	if map.mag == 0.5 then map.mag = 1 end	
+	if map.mag == 0.25 then map.mag = 0.5 end	
 	ignoreLastChar = true
 	if atlas:isVisible(map) then udp:send("MAGN " .. 1/map.mag ) end	
    end 
@@ -1395,10 +1396,12 @@ function love.keypressed( key, isrepeat )
    if key == keyZoomOut then
 	if map.mag > 1 then 
 		map.mag = map.mag - 1 
-	elseif map.mag <= 1 then 
-		map.mag = map.mag - 0.5 
+	elseif map.mag == 1 then 
+		map.mag = 0.5 
+	elseif map.mag == 0.5 then
+		map.mag = 0.25
 	end	
-	if map.mag == 0 then map.mag = 0.5 end
+	if map.mag == 0 then map.mag = 0.25 end
 	ignoreLastChar = true
 	if atlas:isVisible(map) then udp:send("MAGN " .. 1/map.mag ) end	
    end 
