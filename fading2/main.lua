@@ -471,6 +471,15 @@ function love.draw()
 	local x = snapshotOffset + (snapshotSize + snapshotMargin) * (i-1) - (snapshots[i].w * snapshots[i].mag - snapshotSize) / 2
 	if x > W then break end
 	if x >= -snapshotSize then 
+		if snapshots[i].selected then
+  			love.graphics.setColor(unpack(color.red))
+			love.graphics.rectangle("line", 
+				snapshotOffset + (snapshotSize + snapshotMargin) * (i-1),
+				H - snapshotSize - snapshotMargin, 
+				snapshotSize, 
+				snapshotSize)
+  			love.graphics.setColor(255,255,255)
+		end
 		love.graphics.draw( 	snapshots[i].im , 
 				x,
 				H - snapshotSize - snapshotMargin - ( snapshots[i].h * snapshots[i].mag - snapshotSize ) / 2, 
@@ -782,7 +791,35 @@ function love.mousepressed( x, y )
     arrowMode = false
     return
   end
-  
+ 
+  -- Clicking on bottom section may select a snapshot image
+  if y > H - snapshotSize - snapshotMargin * 2 then
+    -- incidentally, this cancels the arrow as well
+    arrowMode = false
+    -- check if there is a snapshot there
+    local index = math.floor((x - snapshotOffset) / ( snapshotSize + snapshotMargin)) + 1
+    -- 2 possibilities: if this image is already selected, then display it
+    -- otherwise, just select it (and deselect any other eventually)
+    if index >= 1 and index <= #snapshots then
+      if snapshots[index].selected then
+	      -- already selected
+	      snapshots[index].selected = false 
+	      currentImage = snapshots[index].im
+	      -- remove the 'visible' flag from maps (eventually)
+	      atlas:removeVisible()
+    	      -- send the filename over the socket
+	      udp:send("OPEN " .. snapshots[index].filename)
+	      udp:send("DISP") 	-- display immediately
+      else
+	      -- not selected, select it now
+	    for i,v in ipairs(snapshots) do
+	      if i == index then snapshots[i].selected = true
+	      else snapshots[i].selected = false end
+	    end
+      end
+    end
+  end
+
   -- we assume that the mouse was pressed outside PNJ list, this might change below
   focus = nil
   focusTarget = nil
@@ -860,6 +897,7 @@ function loadSnap( imageFilename )
   new.w, new.h = new.im:getDimensions() 
   local f1, f2 = snapshotSize / new.w , snapshotSize / new.h
   new.mag = math.min(f1,f2)
+  new.selected = false
   return new
   end
 
@@ -2136,17 +2174,18 @@ function readScenario( filename )
     logFile = io.open("fading.log","w")
     io.output(logFile)
 
+    -- adjust number of rows in screen
+    PNJmax = math.floor( viewh / 42 )
+
     -- some adjustments on different systems
     if love.system.getOS() == "Windows" then
 
     	W, H = love.window.getDesktopDimensions()
     	W, H = W * 0.96, H * 0.90
+        PNJmax = 14 
 	keyZoomIn, keyZoomOut = ':', '!'
 
     end
-
-    -- adjust number of rows in screen
-    PNJmax = math.floor( viewh / 42 )
 
     love.window.setMode( W  , H  , { fullscreen=false, resizable=true, display=1} )
     love.keyboard.setKeyRepeat(true)
