@@ -23,6 +23,9 @@ snapshotSize = 70 	-- w and h of each snapshot
 snapshotMargin = 7 	-- space between images and screen border
 snapshotOffset = 0	-- current offset to display
 
+-- PJ snapshots
+displayPJSnapshots = true
+
 -- snapshot size and image
 H1, W1 = 140, 140
 currentImage = nil
@@ -310,16 +313,28 @@ function rollAttack( rollType )
 -- GUI basic functions
 function love.update(dt)
 
-	-- if focus changed, send a new PJ snapshot to the projector, or a HIDe command, eventually
-	if focus and lastFocus ~= focus then
+	if displayPJSnapshots then
+
+	  -- if focus changed, send a new PJ snapshot to the projector, or a HIDe command, eventually
+	  if focus and lastFocus ~= focus then
 		if PNJTable[focus].PJ and PNJTable[focus].snapshot then
 			udp:send("SNAP " .. PNJTable[focus].snapshot.filename ) 
+		elseif not PNJTable[focus].PJ then
+    			local index = findPNJ(PNJTable[focus].target)
+			if index and PNJTable[index].PJ and PNJTable[index].snapshot then
+				udp:send("SNAP " .. PNJTable[index].snapshot.filename ) 
+			else 
+				udp:send("HIDS") 
+
+			end
 		end
 		lastFocus = focus -- avoid to do this next time...
-	end
-	if not focus and lastFocus ~= focus then
+	  end
+	  if not focus and lastFocus ~= focus then
 		udp:send("HIDS") 
 		lastFocus = nil -- avoid to do this next time...
+	  end
+
 	end
 
 	-- change snapshot offset if mouse  at bottom right or left
@@ -1294,7 +1309,10 @@ function love.keypressed( key, isrepeat )
   -- IN COMBAT MODE
   --
   if Mode == "combat" then
- 
+
+   -- display PJ snapshots or not
+   if key == "s" then displayPJSnapshots = not displayPJSnapshots end
+
    -- UP and DOWN change focus to previous/next PNJ
    if key == "down" then
     if not focus then return end
