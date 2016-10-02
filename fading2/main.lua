@@ -2042,8 +2042,7 @@ function readScenario( filename )
 	table.insert( stack, { level=0, xy="((".. math.floor(W / 2) .. "," .. math.floor(H / 2) .. "))" } )
 
 	local linecount = 0
--- FIXME: need to replace by non love method
-	for line in love.filesystem.lines(filename) do
+	for line in io.lines(filename) do
 
 		linecount = linecount + 1
 
@@ -2141,7 +2140,7 @@ function readScenario( filename )
     if love.system.getOS() == "Windows" then
 
     	W, H = love.window.getDesktopDimensions()
-    	W, H = W * 0.90, H * 0.90
+    	W, H = W * 0.96, H * 0.90
 	keyZoomIn, keyZoomOut = ':', '!'
 
     end
@@ -2234,10 +2233,15 @@ function readScenario( filename )
 
       io.write("scanning file : '" .. f .. "'\n")
 
-      if f == 'scenario.txt' then readScenario( f ) end
+      if f == 'scenario.txt' then 
+	      readScenario( fadingDirectory .. sep .. f ) 
+	      io.write("Loaded scenario at " .. fadingDirectory .. sep .. f .. "\n")
+      end
 
       if f == 'scenario.jpg' then
+
 	atlas:addMap( Map.new( "scenario", fadingDirectory .. sep .. f ) )
+	io.write("Loaded scenario image file at " .. fadingDirectory .. sep .. f .. "\n")
 
       elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
