@@ -784,8 +784,8 @@ function love.mousereleased( x, y )
 	  elseif arrowModeMap == "CIRC" then
 
 		local sx, sy = math.floor((arrowX + arrowStartX) / 2), math.floor((arrowY + arrowStartY) / 2)
-	  	sx = math.floor( sx + ( map.x / map.mag  - W / 2)) *map.mag 
-	  	sy = math.floor( sy + ( map.y / map.mag  - H / 2)) *map.mag 
+	  	sx = math.floor( (sx + ( map.x / map.mag  - W / 2)) *map.mag )
+	  	sy = math.floor( (sy + ( map.y / map.mag  - H / 2)) *map.mag )
 		local r = distanceFrom( arrowX, arrowY, arrowStartX, arrowStartY) * map.mag / 2
 	  	if r ~= 0 then command = "CIRC " .. sx .. " " .. sy .. " " .. r end
 
@@ -793,6 +793,7 @@ function love.mousereleased( x, y )
 
 	  if command then 
 		table.insert( map.mask , command ) 
+		io.write("inserting new mask " .. command .. "\n")
 	  	-- send over if requested
 	  	if atlas:isVisible( map ) then udp:send( command ) end
 	  end
