@@ -39,7 +39,6 @@ clnButton	= nil		-- button Cleanup
 thereIsDead	= false		-- is there a dead character in the list ? (if so, cleanup button is clickable)
 
 -- maps & scenario stuff
-Mode 			= "combat"		-- mode can be 'combat' (default) or 'map'
 textBase		= "Search : "
 text 			= textBase		-- text printed on the screen when typing search keywords
 searchActive		= false
@@ -104,7 +103,8 @@ arrowStartX, arrowStartY = 0,0		-- starting point of the arrow
 arrowX, arrowY 		 = 0,0		-- current end point of the arrow
 arrowStartIndex 	 = nil		-- index of the PNJ at the starting point
 arrowStopIndex 		 = nil		-- index of the PNJ at the ending point
-arrowModeMap		 = "RECT"	-- shape used to draw map mask, rectangles by default
+arrowModeMap		 = nil		-- either nil (not in map mode), "RECT" or "CIRC" shape used to draw map maskt
+maskType		 = "RECT"	-- shape to use, rectangle by default
 
 -- capture text input (for text search)
 function love.textinput(t)
@@ -529,8 +529,6 @@ function love.draw()
     love.graphics.draw( currentImage , W - W1 - 10 +  (W1 - w) / 2, H - H1 - snapshotSize - snapshotMargin * 2 - 10 + ( H1 - h ) / 2, 0 , f, f )
   end
 
-  --if not nextFlash then     -- no focus drawing if Next round zone is blinking
-
     love.graphics.setLineWidth(3)
 
     -- draw FOCUS if applicable
@@ -552,7 +550,6 @@ function love.draw()
     love.graphics.setColor(250,80,80,alpha*1.5)
     local index = findPNJ(focusTarget)
     if index then love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,W-12,42) end
-  --else
 
   if nextFlash then
     -- draw a blinking rectangle until Next button is pressed
@@ -608,15 +605,12 @@ function love.draw()
         love.graphics.polygon( "fill", arrowX, arrowY, x3, y3, x4, y4 )
       end
      
-      -- draw rectangle or circle in map mode
-      if Mode =="map" then
-	-- draw circle or rectangle itself
-	if arrowModeMap == "RECT" then 
+      -- draw circle or rectangle itself
+      if arrowModeMap == "RECT" then 
 		love.graphics.rectangle("line",arrowStartX, arrowStartY,(arrowX - arrowStartX),(arrowY - arrowStartY)) 
-	elseif arrowModeMap == "CIRC" then 
+      elseif arrowModeMap == "CIRC" then 
 		love.graphics.circle("line",(arrowStartX+arrowX)/2, (arrowStartY+arrowY)/2, distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY) / 2) 
-	end
-      end 
+      end
  
     end
    
@@ -656,14 +650,11 @@ function love.draw()
     
   end
   
- if Mode == "map" then
 
    local map = atlas:getMap()
 
    if map then
 
-     -- print image
-     love.graphics.setScissor( margin , margin , W - margin * 2, H - margin * 2 )
      local SX,SY,MAG = map.x, map.y, map.mag
      local x,y = -( SX * 1/MAG - W / 2), -( SY * 1/MAG - H / 2)
 
@@ -684,20 +675,18 @@ function love.draw()
        love.graphics.setStencilTest()
      end
 
-     love.graphics.setScissor()
-
      -- draw small circle or rectangle in upper corner, to show which mode we are in
      if map.kind == "map" then
        love.graphics.setColor(200,0,0,180)
-       if arrowModeMap == "RECT" then love.graphics.rectangle("line",margin + 5, margin + 5,20,20) end
-       if arrowModeMap == "CIRC" then love.graphics.circle("line",margin + 15, margin + 15,10) end
+       if maskType == "RECT" then love.graphics.rectangle("line",x + 5, y + 5,20,20) end
+       if maskType == "CIRC" then love.graphics.circle("line",x + 15, y + 15,10) end
      end
 
      -- print visible 
      if atlas:isVisible( map ) then
         love.graphics.setColor(200,0,0,180)
         love.graphics.setFont(fontDice)
-	love.graphics.printf("VISIBLE",margin , margin ,500)
+	love.graphics.printf("V", x + map.w / map.mag - 65 , y + 5 ,500)
      end
 
      -- print search zone for a scenario
@@ -711,9 +700,9 @@ function love.draw()
       if not searchActive then searchActive = true end
 
       -- print number of the search result is needed
-      if searchIterator then love.graphics.printf( "( " .. searchIndex .. " [" .. string.format("%.2f", searchPertinence) .. "] out of " .. searchSize .. " )", 800, H - 40, 400) end
+      if searchIterator then love.graphics.printf( "( " .. searchIndex .. " [" .. string.format("%.2f", searchPertinence) .. "] out of " .. 
+						           searchSize .. " )", 800, H - 40, 400) end
 
-     end
 
    end
 
@@ -744,102 +733,106 @@ function computeTriangle( x1, y1, x2, y2 )
 -- is on a given PNJ, and update PNJ accordingly
 function love.mousereleased( x, y )   
 
+	-- we were moving the map. We stop now
 	if mouseMove then mouseMove = false; return end
 
+	-- we were not drawing anything, nothing to do
   	if not arrowMode then return end
- 
- 	if Mode == "combat" then
- 
-  	  -- check which PNJ was selected, depending on position on y-axis
-  	  for i=1,PNJnum-1 do
-    		if (y >= PNJtext[i].y-5 and y < PNJtext[i].y + 42) then
+
+	-- from here, we know that we were drawing an arrow, we stop it now
+  	arrowMode = false
+
+	-- if we were drawing a mask shape as well, we terminate it now (even if we are outside the map)
+	if arrowModeMap then
+	
+  	  	local map = atlas:getMap()
+
+	  	local command = nil
+
+	  	--if arrowX < margin or arrowX > W or arrowY < margin or arrowY > H then return end
+
+	  	if arrowModeMap == "RECT" then
+
+	  		if arrowStartX > arrowX then arrowStartX, arrowX = arrowX, arrowStartX end
+	  		if arrowStartY > arrowY then arrowStartY, arrowY = arrowY, arrowStartY end
+	  		local sx = math.floor( (arrowStartX + ( map.x / map.mag  - W / 2)) *map.mag )
+	  		local sy = math.floor( (arrowStartY + ( map.y / map.mag  - H / 2)) *map.mag )
+	  		local w = math.floor((arrowX - arrowStartX) * map.mag)
+	  		local h = math.floor((arrowY - arrowStartY) * map.mag)
+	  		command = "RECT " .. sx .. " " .. sy .. " " .. w .. " " .. h 
+
+	  	elseif arrowModeMap == "CIRC" then
+
+			local sx, sy = math.floor((arrowX + arrowStartX) / 2), math.floor((arrowY + arrowStartY) / 2)
+	  		sx = math.floor( (sx + ( map.x / map.mag  - W / 2)) *map.mag )
+	  		sy = math.floor( (sy + ( map.y / map.mag  - H / 2)) *map.mag )
+			local r = distanceFrom( arrowX, arrowY, arrowStartX, arrowStartY) * map.mag / 2
+	  		if r ~= 0 then command = "CIRC " .. sx .. " " .. sy .. " " .. r end
+
+	  	end
+
+	  	if command then 
+			table.insert( map.mask , command ) 
+			io.write("inserting new mask " .. command .. "\n")
+	  		-- send over if requested
+	  		if atlas:isVisible( map ) then udp:send( command ) end
+	  	end
+
+		arrowModeMap = nil
+	
+	-- not drawing a mask, so maybe selecting a PNJ
+	else 
+	   	-- depending on position on y-axis
+  	  	for i=1,PNJnum-1 do
+    		  if (y >= PNJtext[i].y-5 and y < PNJtext[i].y + 42) then
       			-- this stops the arrow mode
       			arrowMode = false
+			arrowModeMap = nil
       			arrowStopIndex = i
       			-- set new target
       			if arrowStartIndex ~= arrowStopIndex then 
         			updateTargetByArrow(arrowStartIndex, arrowStopIndex) 
       			end
-      			return
-    		end
-  	  end
+    		  end
+		end	
 
-	elseif Mode == "map" then
-
-  	  arrowMode = false
-
-  	  local map = atlas:getMap()
-	  local command = nil
-
-	  if arrowX < margin or arrowX > W or arrowY < margin or arrowY > H then return end
-
-	  if arrowModeMap == "RECT" then
-
-	  	if arrowStartX > arrowX then arrowStartX, arrowX = arrowX, arrowStartX end
-	  	if arrowStartY > arrowY then arrowStartY, arrowY = arrowY, arrowStartY end
-	  	local sx = math.floor( (arrowStartX + ( map.x / map.mag  - W / 2)) *map.mag )
-	  	local sy = math.floor( (arrowStartY + ( map.y / map.mag  - H / 2)) *map.mag )
-	  	local w = math.floor((arrowX - arrowStartX) * map.mag)
-	  	local h = math.floor((arrowY - arrowStartY) * map.mag)
-	  	command = "RECT " .. sx .. " " .. sy .. " " .. w .. " " .. h 
-
-	  elseif arrowModeMap == "CIRC" then
-
-		local sx, sy = math.floor((arrowX + arrowStartX) / 2), math.floor((arrowY + arrowStartY) / 2)
-	  	sx = math.floor( (sx + ( map.x / map.mag  - W / 2)) *map.mag )
-	  	sy = math.floor( (sy + ( map.y / map.mag  - H / 2)) *map.mag )
-		local r = distanceFrom( arrowX, arrowY, arrowStartX, arrowStartY) * map.mag / 2
-	  	if r ~= 0 then command = "CIRC " .. sx .. " " .. sy .. " " .. r end
-
-	  end
-
-	  if command then 
-		table.insert( map.mask , command ) 
-		io.write("inserting new mask " .. command .. "\n")
-	  	-- send over if requested
-	  	if atlas:isVisible( map ) then udp:send( command ) end
-	  end
- 
-	end	
-
-  
 	end
 
+	end
 	
 -- put FOCUS on a PNJ line when mouse is pressed (or remove FOCUS if outside PNJ list)
 function love.mousepressed( x, y , button )   
 
-
-  if Mode == "map" then
-
 	local map = atlas:getMap()
-	if not map then return end
-	if map:isInside(x,y) then 
 
-    	if button==1 then --Left click
-	  if not love.keyboard.isDown("lshift") then 
-	   love.mouse.setCursor( love.mouse.getSystemCursor("hand"))
-	   mouseMove = true
-	   arrowMode = false
-          else
-	   if map.kind == "scenario" then return end
-	   arrowMode = true
-	   mouseMove = false 
-	   arrowStartX, arrowStartY = x, y
-          end
-        end
+	-- clicking somewhere in the map, this starts either a Move or a Mask	
+	if map and map:isInside(x,y) then 
 
-	return
+    		if button == 1 then --Left click
+	  		if not love.keyboard.isDown("lshift") then 
+	   			mouseMove = true
+	   			arrowMode = false
+				arrowModeMap = nil
+          		else
+	   			if map.kind ~= "scenario" then 
+	   				arrowMode = true
+					arrowModeMap = maskType 
+	   				mouseMove = false 
+	   				arrowStartX, arrowStartY = x, y
+          			end
+        		end
+
+		return
 
         end
 
     end
 
   -- Clicking on upper button section does not change the current FOCUS, but cancel the arrow
-  if y < 40 then 
-    arrowMode = false
-    return
-  end
+  --if y < 40 then 
+   -- arrowMode = false
+    --return
+  --end
  
   -- Clicking on bottom section may select a snapshot image
   if y > H - snapshotSize - snapshotMargin * 2 then
@@ -969,19 +962,17 @@ function Atlas:addMap(m)
 	else
 		table.insert(self.maps, m);  
 	end
-	if self.index == 0 then self.index = 1 end 
 	end 
 
 function Atlas:nextMap() 
 	if #self.maps == 0 then return nil end 
+	if self.index == 0 then self.index = 1; return nil end
+	local map = self.maps[self.index]
 	self.index = self.index + 1 
-	if self.index > #self.maps then 
-		self.index = 1
-		return nil 
-	else
-		return self.maps[self.index]
+	if self.index > #self.maps then self.index = 0 end
+	return map 
 	end 
-	end 
+
 function Atlas:getMap() return self.maps[ self.index ] end
 
 function Atlas:toggleVisible()
@@ -1339,15 +1330,21 @@ if mouseMove then
 
    if map then
 
-	local maxx,maxy = map.im:getDimensions()
-	map.x = map.x - dx * map.mag 
-	if map.x < 0 then map.x = 0 end
-	if map.x > maxx then map.x = maxx end
-	map.y = map.y - dy * map.mag 
-	if map.y < 0 then map.y = 0 end
-	if map.y > maxy then map.y = maxy end
+	-- store old values, in case we need to rollback because we get outside limits
+	local oldx, oldy = map.x, map.y
 
-	if atlas:isVisible(map) then udp:send("CHXY " .. map.x .. " " .. map.y ) end
+	-- apply changes
+	map.x = map.x - dx * map.mag 
+	map.y = map.y - dy * map.mag 
+
+	-- check we are still within margins of the screen
+  	local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
+	
+	if zx > W - margin or zx + map.w / map.mag < margin then map.x = oldx end	
+	if zy > H - margin or zy + map.h / map.mag < margin then map.y = oldy end	
+
+	-- send move to the projector
+	if map.x ~= oldx or map.y ~= oldy and atlas:isVisible(map) then udp:send("CHXY " .. map.x .. " " .. map.y ) end
 
     end
 end
@@ -1359,25 +1356,22 @@ function love.keypressed( key, isrepeat )
   --
   -- IN COMBAT MODE
   --
-  if Mode == "combat" then
+  --if Mode == "combat" then
+  local map = atlas:getMap()
 
-   -- display PJ snapshots or not
-   if key == "s" then displayPJSnapshots = not displayPJSnapshots end
+   -- IN ANY CASE
 
    -- UP and DOWN change focus to previous/next PNJ
-   if key == "down" then
-    if not focus then return end
+   if focus and key == "down" then
     if focus < PNJnum-1 then 
       lastFocus = focus
       focus = focus + 1
       focusAttackers = PNJTable[ focus ].attackers
       focusTarget  = PNJTable[ focus ].target
     end
-    return
    end
   
-   if key == "up" then
-    if not focus then return end
+   if focus and key == "up" then
     if focus > 1 then 
       lastFocus = focus
       focus = focus - 1
@@ -1387,29 +1381,28 @@ function love.keypressed( key, isrepeat )
     return
    end
 
-   if key == "escape" then
-	Mode = "map"  -- switch to scenario/map mode
-   end
+   --if key == "escape" then
+--	Mode = "map"  -- switch to scenario/map mode
+   --end
  
   --
   -- IN MAP MODE
   --
- elseif Mode == "map" then
+ -- elseif Mode == "map" then
+ --else
 
-   local map = atlas:getMap() 
-
-   if map then
+   --if map then
 
    	if key == "escape" then
 	  map = atlas:nextMap()
 	  if not map then	
-	    Mode = "combat"	   
+	    --Mode = "combat"	   
 	    -- reset search input
 	    searchActive = false
 	    text = textBase 
 	  end
    	end
- 
+--[[ 
    if key == "up" then
 	map.y = map.y - map.step * map.mag 
 	if map.y < 0 then map.y = 0 end
@@ -1435,6 +1428,9 @@ function love.keypressed( key, isrepeat )
 	if map.x < 0 then map.x = 0 end
 	if atlas:isVisible(map) then udp:send("CHXY " .. map.x .. " " .. map.y ) end
    end 
+--]]
+
+  if map then
 
    if key == keyZoomIn then
 	if map.mag >= 1 then map.mag = map.mag + 1 end
@@ -1461,6 +1457,24 @@ function love.keypressed( key, isrepeat )
 	atlas:toggleVisible()
    end
 
+   if key == "c" then
+	-- recenter
+	map.x = map.w / 2
+	map.y = map.h / 2
+   end
+
+   -- display PJ snapshots or not
+   if key == "s" and map.kind =="map" then displayPJSnapshots = not displayPJSnapshots end
+
+   if key == "tab" then
+	  -- switch between rectangles and circles
+	  if maskType == "RECT" then maskType = "CIRC" else maskType = "RECT" end
+   end
+
+  end
+
+  if map and map.kind == "scenario" then
+
    if key == "backspace" and text ~= textBase then
         -- get the byte offset to the last UTF-8 character in the string.
         local byteoffset = utf8.offset(text, -1)
@@ -1474,18 +1488,12 @@ function love.keypressed( key, isrepeat )
 
    if key == "tab" then
 
-	if map.kind == "scenario" then
 
 	  if searchIterator then
 		map.x,map.y,searchPertinence,searchIndex,searchSize = searchIterator()
 	  end
 
-	elseif map.kind == "map" then
 
-	  -- switch between rectangles and circles
-	  if arrowModeMap == "RECT" then arrowModeMap = "CIRC" else arrowModeMap = "RECT" end
-
-	end
 
    end
 
@@ -1497,11 +1505,10 @@ function love.keypressed( key, isrepeat )
 	  end
    end
 
-   end -- if map then
+   end 
 
- end 
-    
-end
+   end
+
 
 -- For an opponent (at index k) attacking a PJ (at index i), return
 -- an "average touch" value ( a number of hits ) which is an average
