@@ -811,20 +811,28 @@ function love.mousepressed( x, y , button )
 
 
   if Mode == "map" then
+
 	local map = atlas:getMap()
-	if not map or map.kind == "scenario" then return end
+	if not map then return end
+	if map:isInside(x,y) then 
+
     	if button==1 then --Left click
 	  if not love.keyboard.isDown("lshift") then 
 	   love.mouse.setCursor( love.mouse.getSystemCursor("hand"))
 	   mouseMove = true
 	   arrowMode = false
           else
+	   if map.kind == "scenario" then return end
 	   arrowMode = true
 	   mouseMove = false 
 	   arrowStartX, arrowStartY = x, y
           end
         end
+
 	return
+
+        end
+
     end
 
   -- Clicking on upper button section does not change the current FOCUS, but cancel the arrow
@@ -943,6 +951,14 @@ function loadSnap( imageFilename )
   new.selected = false
   return new
   end
+
+-- return true if position x,y on the screen (typically, the mouse), is
+-- inside the current map display
+function Map:isInside(x,y)
+  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+  return x >= zx and x <= zx + self.w / self.mag and 
+  	 y >= zy and y <= zy + self.h / self.mag
+end
 
 Atlas = {}
 Atlas.__index = Atlas
@@ -1326,7 +1342,7 @@ if mouseMove then
 	local maxx,maxy = map.im:getDimensions()
 	map.x = map.x - dx * map.mag 
 	if map.x < 0 then map.x = 0 end
-	if map.x > maxx then map.y = maxx end
+	if map.x > maxx then map.x = maxx end
 	map.y = map.y - dy * map.mag 
 	if map.y < 0 then map.y = 0 end
 	if map.y > maxy then map.y = maxy end
