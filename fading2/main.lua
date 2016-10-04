@@ -744,6 +744,8 @@ function computeTriangle( x1, y1, x2, y2 )
 -- is on a given PNJ, and update PNJ accordingly
 function love.mousereleased( x, y )   
 
+	if mouseMove then mouseMove = false; return end
+
   	if not arrowMode then return end
  
  	if Mode == "combat" then
@@ -805,15 +807,25 @@ function love.mousereleased( x, y )
 
 	
 -- put FOCUS on a PNJ line when mouse is pressed (or remove FOCUS if outside PNJ list)
-function love.mousepressed( x, y )   
+function love.mousepressed( x, y , button )   
+
 
   if Mode == "map" then
 	local map = atlas:getMap()
 	if not map or map.kind == "scenario" then return end
-	arrowMode = true
-	arrowStartX, arrowStartY = x, y
+    	if button==1 then --Left click
+	  if not love.keyboard.isDown("lshift") then 
+	   love.mouse.setCursor( love.mouse.getSystemCursor("hand"))
+	   mouseMove = true
+	   arrowMode = false
+          else
+	   arrowMode = true
+	   mouseMove = false 
+	   arrowStartX, arrowStartY = x, y
+          end
+        end
 	return
-  end
+    end
 
   -- Clicking on upper button section does not change the current FOCUS, but cancel the arrow
   if y < 40 then 
@@ -1303,6 +1315,28 @@ function updateTargetByArrow( i, j )
     
 end
 
+function love.mousemoved(x,y,dx,dy)
+
+if mouseMove then
+
+   local map = atlas:getMap() 
+
+   if map then
+
+	local maxx,maxy = map.im:getDimensions()
+	map.x = map.x - dx * map.mag 
+	if map.x < 0 then map.x = 0 end
+	if map.x > maxx then map.y = maxx end
+	map.y = map.y - dy * map.mag 
+	if map.y < 0 then map.y = 0 end
+	if map.y > maxy then map.y = maxy end
+
+	if atlas:isVisible(map) then udp:send("CHXY " .. map.x .. " " .. map.y ) end
+
+    end
+end
+
+end
 
 function love.keypressed( key, isrepeat )
 
