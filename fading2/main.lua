@@ -829,10 +829,10 @@ function love.mousepressed( x, y , button )
     end
 
   -- Clicking on upper button section does not change the current FOCUS, but cancel the arrow
-  --if y < 40 then 
-   -- arrowMode = false
-    --return
-  --end
+  if y < 40 then 
+    arrowMode = false
+    return
+  end
  
   -- Clicking on bottom section may select a snapshot image
   if y > H - snapshotSize - snapshotMargin * 2 then
