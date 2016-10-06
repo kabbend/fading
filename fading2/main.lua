@@ -605,18 +605,24 @@ function love.draw()
     if focus then love.graphics.rectangle("fill",PNJtext[focus].x+2,PNJtext[focus].y-5,W-12,42) end
 
     -- draw ATTACKERS if applicable
-    love.graphics.setColor(204,102,0,alpha)
+    love.graphics.setColor(174,102,0,alpha)
     if focusAttackers then
       for i,v in pairs(focusAttackers) do
         if v then
           local index = findPNJ(i)
-          if index then love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,W-12,42) end
+          if index then 
+		  love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,W-12,42) 
+    		  love.graphics.setColor(255,0,0,200)
+		  love.graphics.rectangle("fill",PNJtext[index].x+743,PNJtext[index].y-3, 26,39) 
+		  PNJtext[index].def.color = { unpack(color.white) }
+    		  love.graphics.setColor(204,102,0,alpha)
+	  end
         end
       end
     end 
 
     -- draw TARGET if applicable
-    love.graphics.setColor(250,80,80,alpha*1.5)
+    love.graphics.setColor(250,60,60,alpha*1.5)
     local index = findPNJ(focusTarget)
     if index then love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,W-12,42) end
 
@@ -735,6 +741,7 @@ function love.draw()
       table.sort(sorted)
       for k,id in pairs(sorted) do
           local index = findPNJ(id)
+          if index and PNJTable[index].PJ then id = PNJTable[index].class end
           if index then drawRound( PNJtext[i].x + offset, PNJtext[i].y + 15, "attacker", id ) ; offset = offset + 30; end
       end
     end
@@ -974,12 +981,12 @@ function love.mousepressed( x, y , button )
       focusTarget = PNJTable[i].target
       focusAttackers = PNJTable[i].attackers
       -- this starts the arrow mode if PNJ
-      if not PNJTable[i].PJ then
+      --if not PNJTable[i].PJ then
         arrowMode = true
         arrowStartX = x
         arrowStartY = y
         arrowStartIndex = i
-      end
+      --end
     else
       PNJTable[i].focus = false
     end
