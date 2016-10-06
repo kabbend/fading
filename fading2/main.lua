@@ -6,15 +6,14 @@ local utf8 	= require 'utf8'
 
 -- dice3d code
 require	'base'
-require "loveplus"
-require "vector"
-require "render"
-require "stars"
-require "geometry"
-require "diceview"
-require "light"
-require "default/config"
-
+require 'loveplus'
+require 'vector'
+require 'render'
+require 'stars'
+require 'geometry'
+require 'diceview'
+require 'light'
+require 'default/config'
 
 --
 -- GLOBAL VARIABLES
@@ -36,7 +35,7 @@ snapshotMargin = 7 	-- space between images and screen border
 snapshotOffset = 0	-- current offset to display
 
 -- PJ snapshots
-displayPJSnapshots = true
+displayPJSnapshots = false 
 
 -- snapshot size and image
 H1, W1 = 140, 140
@@ -103,12 +102,14 @@ focusAttackers  = {}    -- List of unique IDs of the corresponding attackers
 lastFocus	= nil	-- store last focus value
 
 -- flag and timer to draw d6 dices in combat mode
-dice 		    = {}
+dice 		    = {}	-- list of d6 dices
 drawDicesTimer      = 0
 drawDices           = false	-- flag to draw dices
 drawDicesResult     = false	-- flag to draw dices result (in a 2nd step)	
---Dices 	    = {}	-- values of the dices
 diceKind 	    = ""	-- kind of dice (black for 'attack', white for 'armor')
+diceSum		    = 0		-- result to be displayed on screen
+lastDiceSum	    = 0		-- store previous result
+diceStableTimer	    = 0
 
 -- information to draw the arrow in combat mode
 arrowMode 		 = false	-- draw an arrow with mouse, yes or no
@@ -333,13 +334,15 @@ function rollAttack( rollType )
   	end
 
   	for i=1,#dice do box[i]=dice[i].star end
-  	for i=#dice+1,40 do box[i]=nil end
+  	for i=#dice+1,40 do box[i]=nil end -- FIXME, hardcoded, ugly...
 	box.n = #dice
 
 	-- give go to draw them
   	drawDicesTimer = 0
   	drawDices = true
   	drawDicesResult = false
+	lastDiceSum = 0
+	diceStableTimer = 0
 
 	end
 
@@ -426,8 +429,9 @@ function love.update(dt)
 
 		local immobile = false   
 		for i=1,#box do
-  		  	if box[i].velocity:abs() > 0.1 then break end -- at least one alive !
+  		  	if box[i].velocity:abs() > 0.8 then break end -- at least one alive !
   			immobile = true
+			drawDicesResult = true
 		end
 
 		if immobile then
@@ -436,22 +440,26 @@ function love.update(dt)
   			-- very unlikely situations for the die (not horizontal...). 
   			-- in that case, there is no simple way to retrieve the face anyway
   			-- so forget it...
+
+			lastDiceSum = diceSum
+
 			diceSum = 0
   			for n=1,#box do
     			  local s = box[n]
 			  local index = {0,0,0,0} -- will store 4 indexes in the end
 			  local t = 1
 			  for i=1,8 do if s[i][3] > 0 then index[t] = i; t = t+1 end end
-			  local num = whichFace(index[1],index[2],index[3],index[4]) or 0 -- which face, or 0 
+			  local num = whichFace(index[1],index[2],index[3],index[4]) or 0 -- find face number, or 0 if not possible to decide 
 			  if num >= 1 and num <= 4 then diceSum = diceSum + 1 end
-
-			  drawDicesResult = true
-
   			end 
+
+			if lastDiceSum ~= diceSum then diceStableTimer = 0 end
 		end
-   
+  
+		-- dice are removed after a fixed timelength (30 sec.) or after the result is stable for long enough (6 sec.)
     		drawDicesTimer = drawDicesTimer + dt
-    		if (drawDicesTimer >= 30) then drawDicesTimer = 0; drawDices = false; drawDicesResult = false; end
+		diceStableTimer = diceStableTimer + dt
+    		if drawDicesTimer >= 30 or diceStableTimer >= 6 then drawDicesTimer = 0; drawDices = false; drawDicesResult = false; end
 
   	end
 
