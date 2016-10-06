@@ -1,3 +1,0 @@
-Arial Rounded MT Bold 26pt, drawn with Paint.NET
-white antialiased text over a transparent background
-using lowercase "L" instead of 1.

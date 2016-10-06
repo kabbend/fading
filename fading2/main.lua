@@ -4,6 +4,18 @@ local yui 	= require 'yui.yaoui' 	-- Graphical library on top of Love2D
 local socket 	= require 'socket'
 local utf8 	= require 'utf8'
 
+-- dice3d code
+require	'base'
+require "loveplus"
+require "vector"
+require "render"
+require "stars"
+require "geometry"
+require "diceview"
+require "light"
+require "default/config"
+
+
 --
 -- GLOBAL VARIABLES
 --
@@ -91,10 +103,11 @@ focusAttackers  = {}    -- List of unique IDs of the corresponding attackers
 lastFocus	= nil	-- store last focus value
 
 -- flag and timer to draw d6 dices in combat mode
+dice 		    = {}
 drawDicesTimer      = 0
 drawDices           = false	-- flag to draw dices
 drawDicesResult     = false	-- flag to draw dices result (in a 2nd step)	
-Dices 		    = {}	-- values of the dices
+--Dices 	    = {}	-- values of the dices
 diceKind 	    = ""	-- kind of dice (black for 'attack', white for 'armor')
 
 -- information to draw the arrow in combat mode
@@ -297,9 +310,27 @@ function rollAttack( rollType )
     		num = PNJTable[ index ].armor
   	end
 
+	--[[
 	-- roll them all and store result
   	Dices = {}
   	for i=1,num do Dices[i] = math.random(1,6) end
+	--]]
+
+  	math.randomseed( os.time() )
+  
+	-- prepare the dice box simulation
+  	box:set(10,10,10,20,0.3,0.3,0.005)
+
+	dice = {}
+  	for i=1,num do
+   		table.insert(dice,
+		{ star=newD6star(1.5):set({math.random(0,10),math.random(0,10),math.random(0,10)}, -- position
+					  {math.random(5,20),math.random(5,20),math.random(5,20)}, -- velocity
+					  {math.random(0,5),math.random(0,5),math.random(0,5)}), -- angular mvmt
+    		  die=clone(d6,{material=light.plastic,color={200,0,20,150},text={255,255,255},shadow={20,0,0,150}}) })
+  	end
+
+  	for i=1,#dice do box[i]=dice[i].star end
 
 	-- give go to draw them
   	drawDicesTimer = 0
@@ -386,8 +417,9 @@ function love.update(dt)
   	-- draw dices if requested
 	-- there are two phases of 1 second each: drawDices (all dices) then drawDicesResult (remove failed ones)
   	if drawDices then
+  		box:update(dt)
     		drawDicesTimer = drawDicesTimer + dt
-    		if (drawDicesTimer >= 1) then
+    		if (drawDicesTimer >= 5) then
       			if not drawDicesResult then drawDicesTimer = 0; drawDices = true; drawDicesResult = true;
       			else drawDicesTimer = 0; drawDices = false; drawDicesResult = false;
       			end
@@ -567,6 +599,33 @@ function love.draw()
   -- draw dices if needed
   if drawDices then
 
+  --use a coordinate system with 0,0 at the center
+  --and an approximate width and height of 10
+  local cx,cy=400,400
+  local scale=cx/4
+  
+  love.graphics.push()
+  love.graphics.translate(cx,cy)
+  love.graphics.scale(scale)
+  
+  --board
+  --render.board(config.boardimage,config.boardlight)
+  
+  --shadows
+  --for i=1,#dice do render.shadow(function(z,f) f() end, dice[i].die, dice[i].star) end
+  --render.edgeboard()
+  
+  --dice
+  render.clear()
+
+  --render.bulb(render.zbuffer) --light source
+  for i=1,#dice do render.die(render.zbuffer, dice[i].die, dice[i].star) end
+  render.paint()
+
+  love.graphics.pop()
+  love.graphics.dbg()
+
+  --[[
     total = 0
 
     local dices = {}
@@ -592,6 +651,7 @@ function love.draw()
       love.graphics.setFont(fontDice)
       love.graphics.print(tostring(total),650,4*viewh/5)
     end
+    --]]
 
   end 
 
@@ -2486,7 +2546,7 @@ function readScenario( filename )
     io.write("Loaded " .. #snapshots .. " snapshots, " .. mapsNum .. " maps, " .. PJImageNum .. " PJ images, " .. scenarioImageNum .. " scenario image, " .. 
     		scenarioTextNum .. " scenario text\n" )
  
-  end
 
+end
 
 
