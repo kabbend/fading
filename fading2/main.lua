@@ -612,8 +612,11 @@ function love.draw()
           local index = findPNJ(i)
           if index then 
 		  love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,W-12,42) 
-    		  love.graphics.setColor(255,0,0,200)
-		  love.graphics.rectangle("fill",PNJtext[index].x+743,PNJtext[index].y-3, 26,39) 
+		  -- emphasize defense value, but only for PNJ
+    		  if not PNJTable[index].PJ then
+			  love.graphics.setColor(255,0,0,200)
+		  	  love.graphics.rectangle("fill",PNJtext[index].x+743,PNJtext[index].y-3, 26,39) 
+		  end
 		  PNJtext[index].def.color = { unpack(color.white) }
     		  love.graphics.setColor(204,102,0,alpha)
 	  end
