@@ -85,10 +85,11 @@ function render.die(action, die, star)
     c=c/#face
     
     --light it up
-    local strength=die.material(c+star.position, c:norm())
+    local strength=die.material(c+star.position, c:norm())*1.8
     local color={ die.color[1]*strength, die.color[2]*strength, die.color[3]*strength, die.color[4] }
     local text={die.text[1]*strength,die.text[2]*strength,die.text[3]*strength}
     local front=c..(1*c+star.position-cam)<=0
+
     --if it is visible then render
     action(z, function()
       if front then 

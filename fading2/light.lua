@@ -31,7 +31,7 @@ function light.cast(point)
 end
 
 function light.metal(...) return light.generic(0.4,0.5,false,...) end
-function light.plastic(...) return light.generic(0.9,0.0,true,...) end
+function light.plastic(...) return light.generic(1,0.0,true,...) end
 
 
 local relax=0

@@ -42,9 +42,11 @@ function newD6star(size)
               {size,size,-size}, {size,-size,-size}, {-size,-size,-size}, {-size,size,-size} }
   return clone(star,new):set(nil,nil,nil,size*size*size*2,size*size*size*2)
 end
+
 d6= {
   faces={{1,2,3,4}, {5,6,7,8}, {1,2,6,5},{2,3,7,6},{3,4,8,7},{4,1,5,8}}
 }
+
 function d6.image(n,a,b,c,d,e,f,g,h)
   if n>6 then return end
   local img=love.graphics.getImage("textures/"..n..".png")
@@ -113,3 +115,7 @@ function round(p,die,star)
   for i=1,#newstar do star[i]=newstar[i] end
   die.faces=newfaces
 end
+
+
+
+

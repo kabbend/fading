@@ -20,19 +20,26 @@ function box:update(dt)
   while(self.timeleft>self.dt) do
     for i=1,#self do
       local s=self[i]
+      if s then
       s:push{0,0,-self.gravity*self.dt}
       s:update(self.dt)
       s:box(-self.x,-self.y,0,self.x,self.y,self.z,self.bounce,self.friction)
-      if math.abs(s.angular[3])<0.1 then s.angular[3]=0 end
+
       -- naive collision
       for j=1,#self do
 	if i ~= j then
-		local v = self[i].position - self[j].position
-		if v:abs() < 2 then
-      			self[i]:push{unpack(v)}
-      			self[j]:push{unpack(-v)}
+		if self[j] then
+			local v = self[i].position - self[j].position
+			if v:abs() < 2 then
+      				self[i]:push{unpack(v)}
+      				self[j]:push{unpack(-v)}
+			end
 		end
 	end
+      end
+
+      if math.abs(s.angular[3])<0.1 then s.angular[3]=0 end
+ 
       end
     end
     self.timeleft=self.timeleft-self.dt

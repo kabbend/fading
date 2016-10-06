@@ -310,6 +310,8 @@ function rollAttack( rollType )
     		num = PNJTable[ index ].armor
   	end
 
+	if num == 0 then return end
+
 	--[[
 	-- roll them all and store result
   	Dices = {}
@@ -319,18 +321,20 @@ function rollAttack( rollType )
   	math.randomseed( os.time() )
   
 	-- prepare the dice box simulation
-  	box:set(10,10,10,20,0.3,0.3,0.005)
+  	box:set(10,10,5,20,0.8,2,0.01)
 
 	dice = {}
   	for i=1,num do
    		table.insert(dice,
-		{ star=newD6star(1.5):set({math.random(0,10),math.random(0,10),math.random(0,10)}, -- position
-					  {math.random(5,20),math.random(5,20),math.random(5,20)}, -- velocity
-					  {math.random(0,5),math.random(0,5),math.random(0,5)}), -- angular mvmt
-    		  die=clone(d6,{material=light.plastic,color={200,0,20,150},text={255,255,255},shadow={20,0,0,150}}) })
+		{ star=newD6star(1.5):set({math.random(10),math.random(10),math.random(10)}, -- position
+					  {-math.random(5,20),-math.random(5,20),-2}, -- velocity
+					  {math.random(10),math.random(10),math.random(10)}), -- angular mvmt
+    		  die=clone(d6,{material=light.plastic,color={200,0,20,255},text={255,255,255},shadow={20,0,0,150}}) })
   	end
 
   	for i=1,#dice do box[i]=dice[i].star end
+  	for i=#dice+1,40 do box[i]=nil end
+	box.n = #dice
 
 	-- give go to draw them
   	drawDicesTimer = 0
@@ -417,13 +421,38 @@ function love.update(dt)
   	-- draw dices if requested
 	-- there are two phases of 1 second each: drawDices (all dices) then drawDicesResult (remove failed ones)
   	if drawDices then
+
   		box:update(dt)
+
+		local immobile = false   
+		for i=1,#box do
+  		  	if box[i].velocity:abs() > 0.1 then break end -- at least one alive !
+  			immobile = true
+		end
+
+		if immobile then
+  			-- for each die, retrieve the 4 points with positive z coordinate
+  			-- there should always be 4 (and exactly 4) such points, unless 
+  			-- very unlikely situations for the die (not horizontal...). 
+  			-- in that case, there is no simple way to retrieve the face anyway
+  			-- so forget it...
+			diceSum = 0
+  			for n=1,#box do
+    			  local s = box[n]
+			  local index = {0,0,0,0} -- will store 4 indexes in the end
+			  local t = 1
+			  for i=1,8 do if s[i][3] > 0 then index[t] = i; t = t+1 end end
+			  local num = whichFace(index[1],index[2],index[3],index[4]) or 0 -- which face, or 0 
+			  if num >= 1 and num <= 4 then diceSum = diceSum + 1 end
+
+			  drawDicesResult = true
+
+  			end 
+		end
+   
     		drawDicesTimer = drawDicesTimer + dt
-    		if (drawDicesTimer >= 5) then
-      			if not drawDicesResult then drawDicesTimer = 0; drawDices = true; drawDicesResult = true;
-      			else drawDicesTimer = 0; drawDices = false; drawDicesResult = false;
-      			end
-    		end
+    		if (drawDicesTimer >= 30) then drawDicesTimer = 0; drawDices = false; drawDicesResult = false; end
+
   	end
 
 	-- check PNJ-related timers
@@ -601,7 +630,7 @@ function love.draw()
 
   --use a coordinate system with 0,0 at the center
   --and an approximate width and height of 10
-  local cx,cy=400,400
+  local cx,cy=380,380
   local scale=cx/4
   
   love.graphics.push()
@@ -619,7 +648,7 @@ function love.draw()
   render.clear()
 
   --render.bulb(render.zbuffer) --light source
-  for i=1,#dice do render.die(render.zbuffer, dice[i].die, dice[i].star) end
+  for i=1,#dice do if dice[i] then render.die(render.zbuffer, dice[i].die, dice[i].star) end end
   render.paint()
 
   love.graphics.pop()
@@ -644,14 +673,14 @@ function love.draw()
         if v < 5 then love.graphics.draw( dices[v] , x , y ) ; total = total + 1 ; end -- draw only 1-4 dices then
       end
     end
+    --]]
 
     -- draw number if needed
     if drawDicesResult then
       love.graphics.setColor(unpack(color.red))
       love.graphics.setFont(fontDice)
-      love.graphics.print(tostring(total),650,4*viewh/5)
+      love.graphics.print(diceSum,650,4*viewh/5)
     end
-    --]]
 
   end 
 
@@ -2546,7 +2575,28 @@ function readScenario( filename )
     io.write("Loaded " .. #snapshots .. " snapshots, " .. mapsNum .. " maps, " .. PJImageNum .. " PJ images, " .. scenarioImageNum .. " scenario image, " .. 
     		scenarioTextNum .. " scenario text\n" )
  
+  -- create a reverted table of faces, in which point numbers are index,
+  -- not value. This will ease face retrieval when knowing the points
+  d6.revertedfaces = {}
+  for i=1,#d6.faces do
+   d6.revertedfaces[i] = {}
+    for k,v in ipairs( d6.faces[i]) do
+      d6.revertedfaces[i][v] = true
+    end
+  end
 
 end
 
+
+-- given 4 points by their index on the star, retrieve the number of
+-- the corresponding face
+function whichFace(i1,i2,i3,i4)
+  for i=1,#d6.faces do
+   if d6.revertedfaces[i][i1] and 
+	  d6.revertedfaces[i][i2] and
+	  d6.revertedfaces[i][i3] and
+	  d6.revertedfaces[i][i4] then return i end
+   end	  
+   return nil
+   end
 
