@@ -34,8 +34,9 @@ snapshotSize = 70 	-- w and h of each snapshot
 snapshotMargin = 7 	-- space between images and screen border
 snapshotOffset = 0	-- current offset to display
 
--- PJ snapshots
+-- pawns and PJ snapshots
 displayPJSnapshots = false 
+pawns = {}
 
 -- snapshot size and image
 H1, W1 = 140, 140
@@ -328,7 +329,7 @@ function rollAttack( rollType )
   	for i=1,num do
    		table.insert(dice,
 		{ star=newD6star(1.5):set({math.random(10),math.random(10),math.random(10)}, -- position
-					  {-math.random(5,20),-math.random(5,20),-2}, -- velocity
+					  {-math.random(8,40),-math.random(8,40),-10}, -- velocity
 					  {math.random(10),math.random(10),math.random(10)}), -- angular mvmt
     		  die=clone(d6,{material=light.plastic,color={200,0,20,255},text={255,255,255},shadow={20,0,0,150}}) })
   	end
@@ -654,14 +655,6 @@ function love.draw()
   love.graphics.translate(cx,cy)
   love.graphics.scale(scale)
   
-  --board
-  --render.board(config.boardimage,config.boardlight)
-  
-  --shadows
-  --for i=1,#dice do render.shadow(function(z,f) f() end, dice[i].die, dice[i].star) end
-  --render.edgeboard()
-  
-  --dice
   render.clear()
 
   --render.bulb(render.zbuffer) --light source
@@ -669,28 +662,7 @@ function love.draw()
   render.paint()
 
   love.graphics.pop()
-  love.graphics.dbg()
-
-  --[[
-    total = 0
-
-    local dices = {}
-    if diceKind == "attack" then dices = diceB; else dices = diceW; end
-
-    love.graphics.setColor(255,255,255)
-
-    local x, y  = 0 , viewh / 2
-
-    for i,v in ipairs(Dices) do
-      if i == 11 or i == 21 or i == 31 or i == 41 or i == 51 then x = 80; y = y + 80;
-      else x = x + 80; end
-      if not drawDicesResult then 
-        love.graphics.draw( dices[v] , x , y ) -- draw all dices first
-      else
-        if v < 5 then love.graphics.draw( dices[v] , x , y ) ; total = total + 1 ; end -- draw only 1-4 dices then
-      end
-    end
-    --]]
+  --love.graphics.dbg()
 
     -- draw number if needed
     if drawDicesResult then
@@ -734,9 +706,10 @@ function love.draw()
         local id = PNJTable[i].target
         if PNJTable[index].PJ then id = PNJTable[index].class end
         drawRound( PNJtext[i].x + offset, PNJtext[i].y + 15, "target", id )
-        offset = offset + 30
     end
     
+    offset = offset + 30 -- in any case
+
     -- display ATTACKERS (in a colored circle) when applicable
     if PNJTable[i].attackers then
       local sorted = {}
@@ -787,6 +760,17 @@ function love.draw()
        love.graphics.setColor(200,0,0,180)
        if maskType == "RECT" then love.graphics.rectangle("line",x + 5, y + 5,20,20) end
        if maskType == "CIRC" then love.graphics.circle("line",x + 15, y + 15,10) end
+     end
+
+     -- draw pawns, if any
+     if map.pawns then
+       	     love.graphics.setColor(255,255,255)
+	     for i=1,#map.pawns do
+		     if map.pawns[i].im then
+  		     local zx,zy = map.pawns[i].x * 1/map.mag + x , map.pawns[i].y * 1/map.mag + y
+		     love.graphics.draw( map.pawns[i].im , zx, zy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
+	     end
+	     end
      end
 
      -- print visible 
@@ -997,6 +981,44 @@ function love.mousepressed( x, y , button )
 
 end
 
+
+--[[ 
+  Pawn object 
+--]]
+Pawn = {}
+Pawn.__index = Pawn
+function Pawn.new( id, img, imageFilename, x, y ) 
+  local new = {}
+  setmetatable(new,Pawn)
+  new.id = id
+  new.x, new.y = x or 0, y or 0 -- relative to the map
+  new.filename = imageFilename
+  new.im = img 
+  new.f = 1.0
+  new.dead = false -- so far
+  return new
+  end
+
+function createPawns( map , requiredSize )
+  assert(map)
+  map.pawns = {}
+  local requiredSize = requiredSize or 50
+  local margin = requiredSize / 10
+  for i=1,PNJnum-1 do
+	 local p
+	 if PNJTable[i].snapshot then
+	  	p = Pawn.new( PNJTable[i].id , PNJTable[i].snapshot.im, PNJTable[i].snapshot.filename , i * (requiredSize + margin) , margin ) 
+		local w,h = PNJTable[i].snapshot.im:getDimensions()
+		local f1,f2 = requiredSize/w, requiredSize/h
+		p.f = math.min(f1,f2)
+	 else
+	  	p = Pawn.new( PNJTable[i].id , nil, nil , i * (requiredSize + margin) , margin ) 
+	 end
+	 io.write("creating pawn " .. i .. " with id " .. p.id .. "\n")
+	 map.pawns[i] = p
+  end
+  end
+
 --[[ 
   Map object 
 --]]
@@ -1027,6 +1049,9 @@ function Map.new( kind, imageFilename )
   new.mag = 1.0
   new.step = 50
   if kind == "map" then new.mask = {} else new.mask = nil end
+
+  new.pawns = nil
+
   return new
   end
 
@@ -1460,25 +1485,19 @@ end
 
 function love.keypressed( key, isrepeat )
 
-  --
-  -- IN COMBAT MODE
-  --
-  --if Mode == "combat" then
   local map = atlas:getMap()
 
-   -- IN ANY CASE
-
-   -- UP and DOWN change focus to previous/next PNJ
-   if focus and key == "down" then
+  -- UP and DOWN change focus to previous/next PNJ
+  if focus and key == "down" then
     if focus < PNJnum-1 then 
       lastFocus = focus
       focus = focus + 1
       focusAttackers = PNJTable[ focus ].attackers
       focusTarget  = PNJTable[ focus ].target
     end
-   end
+  end
   
-   if focus and key == "up" then
+  if focus and key == "up" then
     if focus > 1 then 
       lastFocus = focus
       focus = focus - 1
@@ -1486,59 +1505,24 @@ function love.keypressed( key, isrepeat )
       focusTarget  = PNJTable[ focus ].target
     end
     return
-   end
+  end
 
-   --if key == "escape" then
---	Mode = "map"  -- switch to scenario/map mode
-   --end
- 
-  --
-  -- IN MAP MODE
-  --
- -- elseif Mode == "map" then
- --else
-
-   --if map then
-
-   	if key == "escape" then
+  -- ESCAPE changes map
+  if key == "escape" then
 	  map = atlas:nextMap()
 	  if not map then	
-	    --Mode = "combat"	   
 	    -- reset search input
 	    searchActive = false
 	    text = textBase 
 	  end
-   	end
---[[ 
-   if key == "up" then
-	map.y = map.y - map.step * map.mag 
-	if map.y < 0 then map.y = 0 end
-	if atlas:isVisible(map) then udp:send("CHXY " .. map.x .. " " .. map.y ) end
-   end 
+  end
 
-   if key == "down" then
-	map.y = map.y + map.step * map.mag 
-	local _,max = map.im:getDimensions()
-	if map.y > max then map.y = max end
-	if atlas:isVisible(map) then udp:send("CHXY " .. map.x .. " " .. map.y ) end
-   end 
-
-   if key == "right" then
-	map.x = map.x + map.step * map.mag 
-	local max,_ = map.im:getDimensions()
-	if map.x > max then map.x = max end
-	if atlas:isVisible(map) then udp:send("CHXY " .. map.x .. " " .. map.y ) end
-   end 
-
-   if key == "left" then
-	map.x = map.x - map.step * map.mag 
-	if map.x < 0 then map.x = 0 end
-	if atlas:isVisible(map) then udp:send("CHXY " .. map.x .. " " .. map.y ) end
-   end 
---]]
-
+  --
+  -- ALL MAPS
+  --
   if map then
 
+  -- ZOOM in and out
    if key == keyZoomIn then
 	if map.mag >= 1 then map.mag = map.mag + 1 end
 	if map.mag == 0.5 then map.mag = 1 end	
@@ -1560,12 +1544,13 @@ function love.keypressed( key, isrepeat )
 	if atlas:isVisible(map) then udp:send("MAGN " .. 1/map.mag ) end	
    end 
 
+   -- V for VISIBLE
    if key == "v" and map.kind == "map" then
 	atlas:toggleVisible()
    end
 
+   -- C for RECENTER
    if key == "c" then
-	-- recenter
 	map.x = map.w / 2
 	map.y = map.h / 2
    end
@@ -1573,13 +1558,21 @@ function love.keypressed( key, isrepeat )
    -- display PJ snapshots or not
    if key == "s" and map.kind =="map" then displayPJSnapshots = not displayPJSnapshots end
 
+   -- create & display pawns 
+   if key == "p" and map.kind =="map" then
+	   if map.pawns == nil then createPawns( map ) ; io.write("initiating pawns\n") end
+   end
+
+   -- TAB switches between rectangles and circles
    if key == "tab" then
-	  -- switch between rectangles and circles
 	  if maskType == "RECT" then maskType = "CIRC" else maskType = "RECT" end
    end
 
   end
 
+  --
+  -- SCENARIO SPECIFIC
+  -- 
   if map and map.kind == "scenario" then
 
    if key == "backspace" and text ~= textBase then
@@ -1744,7 +1737,7 @@ function createPNJGUIFrame()
             end}),
 
         yui.Text({name="id",text="", w=35, bold=1, size=size, center = 1 }),
-        yui.Text({name="class",text="", w=width*2.5, bold=1, size=size, center=1}),
+        yui.Text({name="class",text="", w=width*2.5, bold=1, size=size, center=false}),
         yui.Text({name="init",text="", w=40, bold=1, size=size, center = 1, color = color.darkblue}),
 
         yui.Button({name="initm", text = '-', size=size-4,
