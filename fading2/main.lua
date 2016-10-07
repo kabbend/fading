@@ -836,6 +836,16 @@ function love.mousereleased( x, y )
 	-- from here, we know that we were drawing an arrow, we stop it now
   	arrowMode = false
 
+	-- if we were drawing a pawn, we stop it now
+	if arrowPawn then
+		-- this gives the required size for the pawns
+  	  	local map = atlas:getMap()
+		local w = (arrowX - arrowStartX) * map.mag
+		createPawns( map, w )
+		arrowPawn = false
+		return
+	end
+
 	-- if we were drawing a mask shape as well, we terminate it now (even if we are outside the map)
 	if arrowModeMap then
 	
@@ -911,12 +921,24 @@ function love.mousepressed( x, y , button )
 
 		-- not clicking a pawn, it's either a map move or an rect/circle mask...
 		elseif button == 1 then --Left click
-	  		if not love.keyboard.isDown("lshift") then 
+	  		if not love.keyboard.isDown("lshift") and not love.keyboard.isDown("lctrl") then 
+				-- want to move map
 	   			mouseMove = true
 	   			arrowMode = false
+	   			arrowStartX, arrowStartY = x, y
 				arrowModeMap = nil
-          		else
+
+          		elseif love.keyboard.isDown("lctrl") then
+				-- want to create pawn 
+				arrowPawn = true
+	   			arrowMode = true
+	   			arrowStartX, arrowStartY = x, y
+	   			mouseMove = false 
+				arrowModeMap = "RECT" 
+
+			else
 	   			if map.kind ~= "scenario" then 
+					-- want to create a mask
 	   				arrowMode = true
 					arrowModeMap = maskType 
 	   				mouseMove = false 
@@ -1008,6 +1030,7 @@ function Pawn.new( id, img, imageFilename, size, x, y )
   new.im = img 
   new.size = size -- size of the image in pixels, for map at scale 1
   new.f = 1.0
+  new.PJ = false
   new.dead = false -- so far
   return new
   end
@@ -1028,6 +1051,8 @@ function createPawns( map , requiredSize )
 	  	p = Pawn.new( PNJTable[i].id , nil, nil , requiredSize, i * (requiredSize + margin) , margin ) 
 	 end
 	 io.write("creating pawn " .. i .. " with id " .. p.id .. "\n")
+	 p.dead = PNJTable[i].is_dead
+	 p.PJ = PNJTable[i].PJ
 	 map.pawns[i] = p
   end
   end
@@ -1492,8 +1517,10 @@ if pawnMove then
   	local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
 	--pawnMove.x, pawnMove.y = (x - zx) * map.mag , (y - zy) * map.mag 
 	pawnMove.x, pawnMove.y = pawnMove.x + dx * map.mag, pawnMove.y + dy * map.mag 
-	if pawnMove.x < 0 or pawnMove.x > map.w - pawnMove.size / map.mag then pawnMove.x = oldx end
-	if pawnMove.y < 0 or pawnMove.y > map.h - pawnMove.size / map.mag then pawnMove.y = oldy end
+	local stop = false
+	if pawnMove.x < 0 or pawnMove.x > map.w - pawnMove.size * map.mag then pawnMove.x = oldx ; stop = true; end
+	if pawnMove.y < 0 or pawnMove.y > map.h - pawnMove.size * map.mag then pawnMove.y = oldy ; stop = true; end
+	if stop then pawnMove = nil end
 
 end
 
@@ -1598,11 +1625,6 @@ function love.keypressed( key, isrepeat )
 
    -- display PJ snapshots or not
    if key == "s" and map.kind =="map" then displayPJSnapshots = not displayPJSnapshots end
-
-   -- create & display pawns 
-   if key == "p" and map.kind =="map" then
-	   if map.pawns == nil then createPawns( map ) ; io.write("initiating pawns\n") end
-   end
 
    -- TAB switches between rectangles and circles
    if key == "tab" then
