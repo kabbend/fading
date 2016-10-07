@@ -35,8 +35,8 @@ snapshotMargin = 7 	-- space between images and screen border
 snapshotOffset = 0	-- current offset to display
 
 -- pawns and PJ snapshots
-displayPJSnapshots = false 
-pawns = {}
+pawnMove 		= nil		-- pawn currently moved by mouse movement
+displayPJSnapshots 	= false 
 
 -- snapshot size and image
 H1, W1 = 140, 140
@@ -827,6 +827,9 @@ function love.mousereleased( x, y )
 	-- we were moving the map. We stop now
 	if mouseMove then mouseMove = false; return end
 
+	-- we were moving a pawn. we stop now
+	if pawnMove then pawnMove = nil; return end
+
 	-- we were not drawing anything, nothing to do
   	if not arrowMode then return end
 
@@ -899,7 +902,15 @@ function love.mousepressed( x, y , button )
 	-- clicking somewhere in the map, this starts either a Move or a Mask	
 	if map and map:isInside(x,y) then 
 
-    		if button == 1 then --Left click
+		local p = map:isInsidePawn(x,y)
+
+		if p then
+
+		  -- moving a pawn
+		  pawnMove = p
+
+		-- not clicking a pawn, it's either a map move or an rect/circle mask...
+		elseif button == 1 then --Left click
 	  		if not love.keyboard.isDown("lshift") then 
 	   			mouseMove = true
 	   			arrowMode = false
@@ -913,11 +924,12 @@ function love.mousepressed( x, y , button )
           			end
         		end
 
+
+        	end
+
 		return
 
-        end
-
-    end
+    	end
 
   -- Clicking on upper button section does not change the current FOCUS, but cancel the arrow
   if y < 40 then 
@@ -987,13 +999,14 @@ end
 --]]
 Pawn = {}
 Pawn.__index = Pawn
-function Pawn.new( id, img, imageFilename, x, y ) 
+function Pawn.new( id, img, imageFilename, size, x, y ) 
   local new = {}
   setmetatable(new,Pawn)
   new.id = id
   new.x, new.y = x or 0, y or 0 -- relative to the map
   new.filename = imageFilename
   new.im = img 
+  new.size = size -- size of the image in pixels, for map at scale 1
   new.f = 1.0
   new.dead = false -- so far
   return new
@@ -1007,12 +1020,12 @@ function createPawns( map , requiredSize )
   for i=1,PNJnum-1 do
 	 local p
 	 if PNJTable[i].snapshot then
-	  	p = Pawn.new( PNJTable[i].id , PNJTable[i].snapshot.im, PNJTable[i].snapshot.filename , i * (requiredSize + margin) , margin ) 
+	  	p = Pawn.new( PNJTable[i].id , PNJTable[i].snapshot.im, PNJTable[i].snapshot.filename , requiredSize, i * (requiredSize + margin) , margin ) 
 		local w,h = PNJTable[i].snapshot.im:getDimensions()
 		local f1,f2 = requiredSize/w, requiredSize/h
 		p.f = math.min(f1,f2)
 	 else
-	  	p = Pawn.new( PNJTable[i].id , nil, nil , i * (requiredSize + margin) , margin ) 
+	  	p = Pawn.new( PNJTable[i].id , nil, nil , requiredSize, i * (requiredSize + margin) , margin ) 
 	 end
 	 io.write("creating pawn " .. i .. " with id " .. p.id .. "\n")
 	 map.pawns[i] = p
@@ -1083,6 +1096,21 @@ function Map:isInside(x,y)
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
   return x >= zx and x <= zx + self.w / self.mag and 
   	 y >= zy and y <= zy + self.h / self.mag
+end
+
+-- return a pawn if position x,y on the screen (typically, the mouse), is
+-- inside any pawn of the map 
+function Map:isInsidePawn(x,y)
+  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2) -- position of the map on the screen
+  if self.pawns then
+	for i=1,#self.pawns do
+		local lx,ly = self.pawns[i].x, self.pawns[i].y -- position x,y relative to the map, at scale 1
+		local tx,ty = zx + lx / self.mag, zy + ly / self.mag -- position tx,ty relative to the screen
+		local size = self.pawns[i].size / self.mag -- size relative to the screen
+		if x >= tx and x <= tx + size and y >= ty and y <= ty + size then return self.pawns[i] end
+  	end
+  end
+  return nil
 end
 
 Atlas = {}
@@ -1455,6 +1483,19 @@ function updateTargetByArrow( i, j )
 end
 
 function love.mousemoved(x,y,dx,dy)
+
+if pawnMove then
+	
+   	local map = atlas:getMap() 
+	assert(map)
+	local oldx, oldy = pawnMove.x, pawnMove.y
+  	local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
+	--pawnMove.x, pawnMove.y = (x - zx) * map.mag , (y - zy) * map.mag 
+	pawnMove.x, pawnMove.y = pawnMove.x + dx * map.mag, pawnMove.y + dy * map.mag 
+	if pawnMove.x < 0 or pawnMove.x > map.w - pawnMove.size / map.mag then pawnMove.x = oldx end
+	if pawnMove.y < 0 or pawnMove.y > map.h - pawnMove.size / map.mag then pawnMove.y = oldy end
+
+end
 
 if mouseMove then
 
