@@ -765,12 +765,15 @@ function love.draw()
 
      -- draw pawns, if any
      if map.pawns then
-       	     love.graphics.setColor(255,255,255)
 	     for i=1,#map.pawns do
+       	     	     local index = findPNJ(map.pawns[i].id) 
+		     local dead = false
+		     if index then dead = PNJTable[ index ].is_dead end
 		     if map.pawns[i].im then
-  		     local zx,zy = map.pawns[i].x * 1/map.mag + x , map.pawns[i].y * 1/map.mag + y
-		     love.graphics.draw( map.pawns[i].im , zx, zy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
-	     end
+		       if dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
+  		       local zx,zy = map.pawns[i].x * 1/map.mag + x , map.pawns[i].y * 1/map.mag + y
+		       love.graphics.draw( map.pawns[i].im , zx, zy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
+	     	     end
 	     end
      end
 
