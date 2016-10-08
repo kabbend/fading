@@ -92,17 +92,28 @@ function love.draw()
 	zx,zy = -( X * mag - W2 / 2), -( Y * mag - H2 / 2)
 
 	if mask and #mask > 0 then
+
        		love.graphics.setColor(0,0,0)
        		love.graphics.stencil( myStencilFunction, "increment" )
        		love.graphics.setStencilTest("equal", 1)
+
      	else
+
        		love.graphics.setColor(255,255,255)
+
      	end
 
   	love.graphics.draw( currentImage , zx , zy , 0 , mag, mag )
 
-	-- draw PNJ pawns 
-	for i =1,#pawns do
+
+     	if mask and #mask > 0 then
+
+       		love.graphics.setStencilTest("gequal", 2)
+       		love.graphics.setColor(255,255,255)
+       		love.graphics.draw( currentImage, zx, zy, 0, mag, mag )
+	
+		-- draw PNJ pawns 
+		for i =1,#pawns do
 		 local p = pawns[i]
 		 if not p.PJ then 
                      -- we do some checks before displaying the pawn: it might happen that the character corresponding to the pawn is dead
@@ -114,13 +125,10 @@ function love.draw()
                      py = py + p.offsety * mag
                      love.graphics.draw( p.im , px, py, 0, p.f * mag , p.f * mag )
 		 end
-        end
+        	end
 
-     	if mask and #mask > 0 then
-       		love.graphics.setStencilTest("gequal", 2)
-       		love.graphics.setColor(255,255,255)
-       		love.graphics.draw( currentImage, zx, zy, 0, mag, mag )
        		love.graphics.setStencilTest()
+
      	end
 
 	-- draw PJ pawns (always on top)
