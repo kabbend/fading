@@ -832,7 +832,31 @@ function love.mousereleased( x, y )
 	if mouseMove then mouseMove = false; return end
 
 	-- we were moving a pawn. we stop now
-	if pawnMove then pawnMove = nil; return end
+	if pawnMove then 
+
+		arrowMode = false
+
+		-- check if we are just stopping on another pawn
+		local map = atlas:getMap()
+		local target = map:isInsidePawn(x,y)
+		if target and target ~= pawnMove then
+
+			-- we have a target
+			local indexP = findPNJ( pawnMove.id )
+			PNJTable[ indexP ].target = target.id 
+			-- FIXME: change attackers as well
+			
+		else
+
+			-- it was just a move, change the pawn position
+  			local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
+			pawnMove.x, pawnMove.y = (x - zx) * map.mag, (y - zy) * map.mag
+			
+			
+		end
+		pawnMove = nil; 
+		return 
+	end
 
 	-- we were not drawing anything, nothing to do
   	if not arrowMode then return end
@@ -844,7 +868,7 @@ function love.mousereleased( x, y )
 	if arrowPawn then
 		-- this gives the required size for the pawns
   	  	local map = atlas:getMap()
-		local w = (arrowX - arrowStartX) * map.mag
+		local w = distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY) * map.mag
 		createPawns( map, w , arrowX, arrowY )
 		arrowPawn = false
 		return
@@ -920,8 +944,14 @@ function love.mousepressed( x, y , button )
 
 		if p then
 
-		  -- moving a pawn
+		  -- clicking on a pawn will start an arrow that will represent
+		  -- * either an attack, if the arrow ends on another pawn
+		  -- * or a move, if the arrow ends somewhere else on the map
 		  pawnMove = p
+	   	  arrowMode = true
+	   	  arrowStartX, arrowStartY = x, y
+	   	  mouseMove = false 
+		  arrowModeMap = nil 
 
 		-- not clicking a pawn, it's either a map move or an rect/circle mask...
 		elseif button == 1 then --Left click
@@ -938,7 +968,7 @@ function love.mousepressed( x, y , button )
 	   			arrowMode = true
 	   			arrowStartX, arrowStartY = x, y
 	   			mouseMove = false 
-				arrowModeMap = "RECT" 
+				arrowModeMap = nil 
 
 			else
 	   			if map.kind ~= "scenario" then 
@@ -1048,7 +1078,8 @@ function createPawns( map , requiredSize , sx, sy )
   local margin = requiredSize / 10
   local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
   sx, sy = ( sx - zx ) * map.mag, ( sy - zy ) * map.mag -- position relative to the map
-  local a,b = sx - 2 * (requiredSize + margin) , sy - 2 * (requiredSize + margin)
+  local a,b = sx - 2 * (requiredSize + margin) , sy - 2 * (requiredSize + margin) -- set position of 1st pawn to draw (relative to the map)
+  -- FIXME: a,b could be outside the map...
   for i=1,PNJnum-1 do
 	 local p
 	 if PNJTable[i].snapshot then
@@ -1529,6 +1560,7 @@ end
 
 function love.mousemoved(x,y,dx,dy)
 
+--[[
 if pawnMove then
 	
    	local map = atlas:getMap() 
@@ -1543,7 +1575,8 @@ if pawnMove then
 	if stop then pawnMove = nil end
 
 end
-
+--]]
+--
 if mouseMove then
 
    local map = atlas:getMap() 
