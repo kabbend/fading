@@ -845,7 +845,7 @@ function love.mousereleased( x, y )
 		-- this gives the required size for the pawns
   	  	local map = atlas:getMap()
 		local w = (arrowX - arrowStartX) * map.mag
-		createPawns( map, w )
+		createPawns( map, w , arrowX, arrowY )
 		arrowPawn = false
 		return
 	end
@@ -1039,21 +1039,26 @@ function Pawn.new( id, img, imageFilename, size, x, y )
   return new
   end
 
-function createPawns( map , requiredSize )
+-- create all characters available in PNJTable as pawns on the map, of the required (square) size,
+-- and around the position sx,sy (expressed as pixels of the screen, not position in the map)
+function createPawns( map , requiredSize , sx, sy )
   assert(map)
   map.pawns = {}
   local requiredSize = requiredSize or 50
   local margin = requiredSize / 10
+  local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
+  sx, sy = ( sx - zx ) * map.mag, ( sy - zy ) * map.mag -- position relative to the map
+  local a,b = sx - 2 * (requiredSize + margin) , sy - 2 * (requiredSize + margin)
   for i=1,PNJnum-1 do
 	 local p
 	 if PNJTable[i].snapshot then
-	  	p = Pawn.new( PNJTable[i].id , PNJTable[i].snapshot.im, PNJTable[i].snapshot.filename , requiredSize, i * (requiredSize + margin) , margin ) 
+	  	p = Pawn.new( PNJTable[i].id , PNJTable[i].snapshot.im, PNJTable[i].snapshot.filename , requiredSize, a , b ) 
 		local w,h = PNJTable[i].snapshot.im:getDimensions()
 		local f1,f2 = requiredSize/w, requiredSize/h
 		p.f = math.min(f1,f2)
 	 else
 		assert(defaultPawnSnapshot,"no default image available. You should refrain from using pawns on the map...")
-	  	p = Pawn.new( PNJTable[i].id , defaultPawnSnapshot.im, defaultPawnSnapshot.filename , requiredSize, i * (requiredSize + margin) , margin ) 
+	  	p = Pawn.new( PNJTable[i].id , defaultPawnSnapshot.im, defaultPawnSnapshot.filename , requiredSize, a , b ) 
 		local w,h = defaultPawnSnapshot.im:getDimensions()
 		local f1,f2 = requiredSize/w, requiredSize/h
 		p.f = math.min(f1,f2)
@@ -1062,6 +1067,13 @@ function createPawns( map , requiredSize )
 	 p.dead = PNJTable[i].is_dead
 	 p.PJ = PNJTable[i].PJ
 	 map.pawns[i] = p
+	 -- set position for next image: we display pawns on 4x4 line/column around the mouse position
+	 if i % 4 == 0 then
+		a =  sx - 2 * (requiredSize + margin)
+		b = b + requiredSize + margin
+	 else
+		a = a + requiredSize + margin	
+	 end
   end
   end
 
