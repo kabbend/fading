@@ -152,10 +152,10 @@ function love.draw()
 
 function love.update( dt )
 
-  timer = timer + dt
-  if (timer > updaterate) then
+  --timer = timer + dt
+  --if (timer > updaterate) then
 
-	timer = 0
+	--timer = 0
 
   	  local data, msg = udp:receive()
 	  if data then 
@@ -271,9 +271,7 @@ function love.update( dt )
 
           socket.sleep(0.01)
 
-	--until not data
-	
-  end
+  --end
 
 end
 

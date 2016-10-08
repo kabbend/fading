@@ -1077,7 +1077,6 @@ function Pawn.new( id, img, imageFilename, size, x, y )
   new.f = 1.0
   new.offsetx, new.offsety = 0,0 	-- offset in pixels to center image, within the square, at scale 1
   new.PJ = false
-  --new.dead = false -- so far
   return new
   end
 
@@ -1960,6 +1959,9 @@ function createPNJGUIFrame()
               end
               if (PNJTable[i].hits == 0) then 
                 PNJTable[i].is_dead = true; 
+
+		udp:send("KILL " .. PNJTable[i].id )
+
                 self.parent.done.checkbox.set = true -- a dead character is done
                 PNJTable[i].done = true
                 self.parent.stance.text = "--"; 
@@ -2007,6 +2009,9 @@ function createPNJGUIFrame()
               if (PNJTable[i].is_dead) then return end
               PNJTable[i].hits = 0
               PNJTable[i].is_dead = true 
+
+	      udp:send("KILL " .. PNJTable[i].id )
+
               self.parent.done.checkbox.set = true -- a dead character is done
               PNJTable[i].done = true
               self.parent.stance.text = "--"; 
