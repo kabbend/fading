@@ -843,8 +843,8 @@ function love.mousereleased( x, y )
 
 			-- we have a target
 			local indexP = findPNJ( pawnMove.id )
-			PNJTable[ indexP ].target = target.id 
-			-- FIXME: change attackers as well
+			local indexT = findPNJ( target.id )
+			updateTargetByArrow( indexP, indexT )
 			
 		else
 
