@@ -1628,8 +1628,13 @@ function love.keypressed( key, isrepeat )
 	map.y = map.h / 2
    end
 
+   -- REMOVE ALL PAWNS
+   if key == "x" and love.keyboard.isDown("lctrl") then
+	   map.pawns = nil
+   end
+
    -- display PJ snapshots or not
-   if key == "s" and map.kind =="map" then displayPJSnapshots = not displayPJSnapshots end
+   --if key == "s" and map.kind =="map" then displayPJSnapshots = not displayPJSnapshots end
 
    -- TAB switches between rectangles and circles
    if key == "tab" then
