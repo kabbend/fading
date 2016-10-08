@@ -878,7 +878,7 @@ function love.mousereleased( x, y )
 		-- this gives the required size for the pawns
   	  	local map = atlas:getMap()
 		local w = distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY) * map.mag
-		createPawns( map, w , arrowX, arrowY )
+		createPawns( map, arrowX, arrowY, w )
 		arrowPawn = false
 		return
 	end
@@ -1079,27 +1079,46 @@ function Pawn.new( id, img, imageFilename, size, x, y )
   return new
   end
 
--- create all characters available in PNJTable as pawns on the map, of the required (square) size,
--- and around the position sx,sy (expressed as pixels of the screen, not position in the map)
-function createPawns( map , requiredSize , sx, sy )
+--
+-- Create characters in PNJTable as pawns on the map, with the required (square) size (in pixels, 
+-- for map at scale 1), and around the position sx,sy (expressed as pixel position in the screen)
+--
+-- If createPawns() is called another time, it will only create new characters since last call.
+-- In that case, requiredSize is not necessary and ignored, replaced by the current value for
+-- other pawns of the map.
+--
+function createPawns( map , sx, sy, requiredSize )
+
   assert(map)
-  map.pawns = {}
-  local requiredSize = requiredSize or 50
-  local margin = requiredSize / 10
+
+  local createAgain = map.pawns and #map.pawns > 0
+  if createAgain then requiredSize = map.pawns[1].size end
+  margin = requiredSize / 10 
+
   local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
   sx, sy = ( sx - zx ) * map.mag, ( sy - zy ) * map.mag -- position relative to the map
   local a,b = sx - 2 * (requiredSize + margin) , sy - 2 * (requiredSize + margin) -- set position of 1st pawn to draw (relative to the map)
   -- FIXME: a,b could be outside the map...
+  --
   for i=1,PNJnum-1 do
+
 	 local p
-	 if PNJTable[i].snapshot then
+	 local needCreate = true
+
+	 if createAgain then
+		 -- check if pawn with same ID exists or not
+		 for k=1,#map.pawns do if map.pawns[k].id == PNJTable[i].id then needCreate = false; break; end end
+	 end
+
+	 if needCreate then
+	  if PNJTable[i].snapshot then
 	  	p = Pawn.new( PNJTable[i].id , PNJTable[i].snapshot.im, PNJTable[i].snapshot.filename , requiredSize, a , b ) 
 		local w,h = PNJTable[i].snapshot.im:getDimensions()
 		local f1,f2 = requiredSize/w, requiredSize/h
 		p.f = math.min(f1,f2)
 		p.offsetx = (requiredSize - w * p.f ) / 2
 		p.offsety = (requiredSize - h * p.f ) / 2
-	 else
+	  else
 		assert(defaultPawnSnapshot,"no default image available. You should refrain from using pawns on the map...")
 	  	p = Pawn.new( PNJTable[i].id , defaultPawnSnapshot.im, defaultPawnSnapshot.filename , requiredSize, a , b ) 
 		local w,h = defaultPawnSnapshot.im:getDimensions()
@@ -1107,18 +1126,19 @@ function createPawns( map , requiredSize , sx, sy )
 		p.f = math.min(f1,f2)
 		p.offsetx = (requiredSize - w * p.f ) / 2
 		p.offsety = (requiredSize - h * p.f ) / 2
-	 end
-	 io.write("creating pawn " .. i .. " with id " .. p.id .. "\n")
-	 --p.dead = PNJTable[i].is_dead
-	 p.PJ = PNJTable[i].PJ
-	 map.pawns[i] = p
-	 -- set position for next image: we display pawns on 4x4 line/column around the mouse position
-	 if i % 4 == 0 then
+	  end
+	  io.write("creating pawn " .. i .. " with id " .. p.id .. "\n")
+	  p.PJ = PNJTable[i].PJ
+	  map.pawns[#map.pawns+1] = p
+	  -- set position for next image: we display pawns on 4x4 line/column around the mouse position
+	  if i % 4 == 0 then
 		a =  sx - 2 * (requiredSize + margin)
 		b = b + requiredSize + margin
-	 else
+	  else
 		a = a + requiredSize + margin	
-	 end
+	  end
+  	end
+
   end
   end
 
@@ -1152,9 +1172,7 @@ function Map.new( kind, imageFilename )
   new.mag = 1.0
   new.step = 50
   if kind == "map" then new.mask = {} else new.mask = nil end
-
-  new.pawns = nil
-
+  new.pawns = {} 
   return new
   end
 
@@ -1692,7 +1710,7 @@ function love.keypressed( key, isrepeat )
 
    -- REMOVE ALL PAWNS
    if key == "x" and love.keyboard.isDown("lctrl") then
-	   map.pawns = nil
+	   map.pawns = {} 
    end
 
    -- display PJ snapshots or not
