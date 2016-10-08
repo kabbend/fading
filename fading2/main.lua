@@ -674,24 +674,6 @@ function love.draw()
 
   end 
 
-  if arrowMode then
-
-      -- draw arrow and arrow head
-      love.graphics.setColor(unpack(color.red))
-      love.graphics.line( arrowStartX, arrowStartY, arrowX, arrowY )
-      local x3, y3, x4, y4 = computeTriangle( arrowStartX, arrowStartY, arrowX, arrowY)
-      if x3 then
-        love.graphics.polygon( "fill", arrowX, arrowY, x3, y3, x4, y4 )
-      end
-     
-      -- draw circle or rectangle itself
-      if arrowModeMap == "RECT" then 
-		love.graphics.rectangle("line",arrowStartX, arrowStartY,(arrowX - arrowStartX),(arrowY - arrowStartY)) 
-      elseif arrowModeMap == "CIRC" then 
-		love.graphics.circle("line",(arrowStartX+arrowX)/2, (arrowStartY+arrowY)/2, distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY) / 2) 
-      end
- 
-    end
    
   -- display global dangerosity
   local danger = computeGlobalDangerosity( )
@@ -767,17 +749,21 @@ function love.draw()
      if map.pawns then
 	     for i=1,#map.pawns do
        	     	     local index = findPNJ(map.pawns[i].id) 
-		     local dead = false
-		     if index then dead = PNJTable[ index ].is_dead end
-		     if map.pawns[i].im then
-  		       local zx,zy = map.pawns[i].x * 1/map.mag + x , map.pawns[i].y * 1/map.mag + y
-		       if PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
-		       love.graphics.rectangle( "fill", zx-3, zy-3, map.pawns[i].size / map.mag + 6, map.pawns[i].size / map.mag + 6)
-		       if dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
-		       zx = zx + map.pawns[i].offsetx / map.mag
-		       zy = zy + map.pawns[i].offsety / map.mag
-		       love.graphics.draw( map.pawns[i].im , zx, zy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
-	     	     end
+		     -- we do some checks before displaying the pawn: it might happen that the character corresponding to the pawn 
+		     -- is dead, or, worse, has been removed completely from the list
+		     if index then 
+		     	local dead = false
+		     	dead = PNJTable[ index ].is_dead
+		     	if map.pawns[i].im then
+  		       		local zx,zy = map.pawns[i].x * 1/map.mag + x , map.pawns[i].y * 1/map.mag + y
+		       		if PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
+		       		love.graphics.rectangle( "fill", zx-3, zy-3, map.pawns[i].size / map.mag + 6, map.pawns[i].size / map.mag + 6)
+		       		if dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
+		       		zx = zx + map.pawns[i].offsetx / map.mag
+		       		zy = zy + map.pawns[i].offsety / map.mag
+		       		love.graphics.draw( map.pawns[i].im , zx, zy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
+	     	     	end
+		     end
 	     end
      end
 
@@ -805,6 +791,24 @@ function love.draw()
 
    end
 
+  if arrowMode then
+
+      -- draw arrow and arrow head
+      love.graphics.setColor(unpack(color.red))
+      love.graphics.line( arrowStartX, arrowStartY, arrowX, arrowY )
+      local x3, y3, x4, y4 = computeTriangle( arrowStartX, arrowStartY, arrowX, arrowY)
+      if x3 then
+        love.graphics.polygon( "fill", arrowX, arrowY, x3, y3, x4, y4 )
+      end
+     
+      -- draw circle or rectangle itself
+      if arrowModeMap == "RECT" then 
+		love.graphics.rectangle("line",arrowStartX, arrowStartY,(arrowX - arrowStartX),(arrowY - arrowStartY)) 
+      elseif arrowModeMap == "CIRC" then 
+		love.graphics.circle("line",(arrowStartX+arrowX)/2, (arrowStartY+arrowY)/2, distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY) / 2) 
+      end
+ 
+    end
  end  
 
 end
