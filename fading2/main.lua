@@ -770,8 +770,12 @@ function love.draw()
 		     local dead = false
 		     if index then dead = PNJTable[ index ].is_dead end
 		     if map.pawns[i].im then
-		       if dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
   		       local zx,zy = map.pawns[i].x * 1/map.mag + x , map.pawns[i].y * 1/map.mag + y
+		       if PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
+		       love.graphics.rectangle( "fill", zx-3, zy-3, map.pawns[i].size / map.mag + 6, map.pawns[i].size / map.mag + 6)
+		       if dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
+		       zx = zx + map.pawns[i].offsetx / map.mag
+		       zy = zy + map.pawns[i].offsety / map.mag
 		       love.graphics.draw( map.pawns[i].im , zx, zy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
 	     	     end
 	     end
@@ -1060,13 +1064,14 @@ function Pawn.new( id, img, imageFilename, size, x, y )
   local new = {}
   setmetatable(new,Pawn)
   new.id = id
-  new.x, new.y = x or 0, y or 0 -- relative to the map
+  new.x, new.y = x or 0, y or 0 	-- relative to the map
   new.filename = imageFilename
   new.im = img 
-  new.size = size -- size of the image in pixels, for map at scale 1
+  new.size = size 			-- size of the image in pixels, for map at scale 1
   new.f = 1.0
+  new.offsetx, new.offsety = 0,0 	-- offset in pixels to center image, within the square, at scale 1
   new.PJ = false
-  new.dead = false -- so far
+  --new.dead = false -- so far
   return new
   end
 
@@ -1088,15 +1093,19 @@ function createPawns( map , requiredSize , sx, sy )
 		local w,h = PNJTable[i].snapshot.im:getDimensions()
 		local f1,f2 = requiredSize/w, requiredSize/h
 		p.f = math.min(f1,f2)
+		p.offsetx = (requiredSize - w * p.f ) / 2
+		p.offsety = (requiredSize - h * p.f ) / 2
 	 else
 		assert(defaultPawnSnapshot,"no default image available. You should refrain from using pawns on the map...")
 	  	p = Pawn.new( PNJTable[i].id , defaultPawnSnapshot.im, defaultPawnSnapshot.filename , requiredSize, a , b ) 
 		local w,h = defaultPawnSnapshot.im:getDimensions()
 		local f1,f2 = requiredSize/w, requiredSize/h
 		p.f = math.min(f1,f2)
+		p.offsetx = (requiredSize - w * p.f ) / 2
+		p.offsety = (requiredSize - h * p.f ) / 2
 	 end
 	 io.write("creating pawn " .. i .. " with id " .. p.id .. "\n")
-	 p.dead = PNJTable[i].is_dead
+	 --p.dead = PNJTable[i].is_dead
 	 p.PJ = PNJTable[i].PJ
 	 map.pawns[i] = p
 	 -- set position for next image: we display pawns on 4x4 line/column around the mouse position
