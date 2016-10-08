@@ -101,6 +101,21 @@ function love.draw()
 
   	love.graphics.draw( currentImage , zx , zy , 0 , mag, mag )
 
+	-- draw PNJ pawns 
+	for i =1,#pawns do
+		 local p = pawns[i]
+		 if not p.PJ then 
+                     -- we do some checks before displaying the pawn: it might happen that the character corresponding to the pawn is dead
+                     local px,py = p.x * mag + zx , p.y * mag + zy
+                     love.graphics.setColor(250,50,50)
+                     love.graphics.rectangle( "fill", px-3, py-3, p.size * mag + 6, p.size * mag + 6)
+                     if p.dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
+                     px = px + p.offsetx * mag
+                     py = py + p.offsety * mag
+                     love.graphics.draw( p.im , px, py, 0, p.f * mag , p.f * mag )
+		 end
+        end
+
      	if mask and #mask > 0 then
        		love.graphics.setStencilTest("gequal", 2)
        		love.graphics.setColor(255,255,255)
@@ -110,15 +125,17 @@ function love.draw()
 
 	-- draw PJ pawns (always on top)
 	for i =1,#pawns do
-		     local p = pawns[i]
+		 local p = pawns[i]
+		 if p.PJ then 
                      -- we do some checks before displaying the pawn: it might happen that the character corresponding to the pawn is dead
                      local px,py = p.x * mag + zx , p.y * mag + zy
-                     if p.PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
+                     love.graphics.setColor(50,50,250)
                      love.graphics.rectangle( "fill", px-3, py-3, p.size * mag + 6, p.size * mag + 6)
                      if p.dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
                      px = px + p.offsetx * mag
                      py = py + p.offsety * mag
                      love.graphics.draw( p.im , px, py, 0, p.f * mag , p.f * mag )
+		 end
         end
 
      end
@@ -204,7 +221,7 @@ function love.update( dt )
 		local str = string.sub(data , 6)
 		local _,_,id,x,y,size,pj,f = string.find( str, "(%a+) (%d+) (%d+) (%d+) (%d) (.*)" )
  		if pj == "1" then pj = true; else pj = false end
-		table.insert( pawns, Pawn.new(id,f,size,x,y,f) )
+		table.insert( pawns, Pawn.new(id,f,size,x,y,pj) )
 		
 	  elseif command == "MPAW" then
 		local str = string.sub(data , 6)
@@ -224,7 +241,6 @@ function love.update( dt )
 
 	  elseif command == "CHXY" then
 		local str = string.sub(data , 6)
-io.write(command .. "\n")
 		local _,_,x,y = string.find( str, "(%d+) (%d+)" )
 		X, Y = x , y 
 

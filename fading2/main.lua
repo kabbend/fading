@@ -862,6 +862,7 @@ function love.mousereleased( x, y )
   			local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
 			pawnMove.x, pawnMove.y = (x - zx) * map.mag - pawnMove.size / 2 , (y - zy) * map.mag - pawnMove.size / 2
 			
+			udp:send("MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.x) .. " " .. math.floor(pawnMove.y) )		
 			
 		end
 		pawnMove = nil; 
@@ -1611,23 +1612,6 @@ end
 
 function love.mousemoved(x,y,dx,dy)
 
---[[
-if pawnMove then
-	
-   	local map = atlas:getMap() 
-	assert(map)
-	local oldx, oldy = pawnMove.x, pawnMove.y
-  	local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
-	--pawnMove.x, pawnMove.y = (x - zx) * map.mag , (y - zy) * map.mag 
-	pawnMove.x, pawnMove.y = pawnMove.x + dx * map.mag, pawnMove.y + dy * map.mag 
-	local stop = false
-	if pawnMove.x < 0 or pawnMove.x > map.w - pawnMove.size * map.mag then pawnMove.x = oldx ; stop = true; end
-	if pawnMove.y < 0 or pawnMove.y > map.h - pawnMove.size * map.mag then pawnMove.y = oldy ; stop = true; end
-	if stop then pawnMove = nil end
-
-end
---]]
---
 if mouseMove then
 
    local map = atlas:getMap() 
