@@ -36,7 +36,8 @@ snapshotOffset = 0	-- current offset to display
 
 -- pawns and PJ snapshots
 pawnMove 		= nil		-- pawn currently moved by mouse movement
-displayPJSnapshots 	= false 
+defaultPawnSnapshot	= nil		-- default image to be used for pawns
+--displayPJSnapshots 	= false 	-- deprecated
 
 -- snapshot size and image
 H1, W1 = 140, 140
@@ -1048,7 +1049,11 @@ function createPawns( map , requiredSize )
 		local f1,f2 = requiredSize/w, requiredSize/h
 		p.f = math.min(f1,f2)
 	 else
-	  	p = Pawn.new( PNJTable[i].id , nil, nil , requiredSize, i * (requiredSize + margin) , margin ) 
+		assert(defaultPawnSnapshot,"no default image available. You should refrain from using pawns on the map...")
+	  	p = Pawn.new( PNJTable[i].id , defaultPawnSnapshot.im, defaultPawnSnapshot.filename , requiredSize, i * (requiredSize + margin) , margin ) 
+		local w,h = defaultPawnSnapshot.im:getDimensions()
+		local f1,f2 = requiredSize/w, requiredSize/h
+		p.f = math.min(f1,f2)
 	 end
 	 io.write("creating pawn " .. i .. " with id " .. p.id .. "\n")
 	 p.dead = PNJTable[i].is_dead
@@ -2605,19 +2610,24 @@ function readScenario( filename )
       --   SCENARIO TEXT:	associated to this image, named scenario.txt
       --   MAPS: 		map*jpg or map*png, they are considered as maps and loaded as such
       --   PJ IMAGE:		PJ_pjname.jpg, they are considered as images for corresponding PJ
+      --   PNJ DEFAULT IMAGE:	defaultPawn.jpg
       --   SNAPSHOTS:		*.jpg or *.png, all are snapshots displayed at the bottom part
-      --
+      
       if f == 'scenario.txt' then 
+
 	      readScenario( fadingDirectory .. sep .. f ) 
 	      io.write("Loaded scenario at " .. fadingDirectory .. sep .. f .. "\n")
 	      scenarioTextNum = scenarioTextNum + 1
-      end
 
-      if f == 'scenario.jpg' then
+      elseif f == 'scenario.jpg' then
 
 	atlas:addMap( Map.new( "scenario", fadingDirectory .. sep .. f ) )
 	io.write("Loaded scenario image file at " .. fadingDirectory .. sep .. f .. "\n")
 	scenarioImageNum = scenarioImageNum + 1
+
+      elseif f == 'defaultPawn.jpg' then
+
+	defaultPawnSnapshot = loadSnap( fadingDirectory .. sep .. f )  
 
       elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
