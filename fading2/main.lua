@@ -791,6 +791,8 @@ function love.draw()
 
    end
 
+  end
+
   if arrowMode then
 
       -- draw arrow and arrow head
@@ -808,7 +810,6 @@ function love.draw()
 		love.graphics.circle("line",(arrowStartX+arrowX)/2, (arrowStartY+arrowY)/2, distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY) / 2) 
       end
  
-    end
  end  
 
 end
@@ -1232,6 +1233,14 @@ function Atlas:addMap(m)
 	end
 	end 
 
+function Atlas:goDisplay()
+	self.display = true
+	end
+
+function Atlas:toggleDisplay()
+	self.display = not self.display
+	end
+
 function Atlas:nextMap() 
 	if #self.maps == 0 then return nil end 
 	if self.index == 0 then self.index = 1; return nil end
@@ -1241,7 +1250,7 @@ function Atlas:nextMap()
 	return map 
 	end 
 
-function Atlas:getMap() return self.maps[ self.index ] end
+function Atlas:getMap() if not self.display then return nil else return self.maps[ self.index ] end end
 
 function Atlas:toggleVisible()
 	if not self.maps[ self.index ] then return end
@@ -1277,6 +1286,7 @@ function Atlas.new()
   new.maps = {}
   new.visible = nil -- index of the map currently visible (or nil if none)
   new.index = 0 -- index of the current map with focus in map mode (or 0 if none) 
+  new.display = true -- a priori
   return new
   end
 
@@ -1660,14 +1670,22 @@ function love.keypressed( key, isrepeat )
     return
   end
 
-  -- ESCAPE changes map
-  if key == "escape" then
+  -- SPACE moves to next map
+  if key == "space" then
 	  map = atlas:nextMap()
 	  if not map then	
 	    -- reset search input
 	    searchActive = false
-	    text = textBase 
+	    text = textBase
+	  else
+	    -- if we switch to another map, we display it, whatever the previous display flag
+	    atlas:goDisplay()
 	  end
+  end
+
+  -- ESCAPE hides or restores display of the current map, but does not change it
+  if key == "escape" then
+	atlas:toggleDisplay()
   end
 
   --
@@ -1675,16 +1693,18 @@ function love.keypressed( key, isrepeat )
   --
   if map then
 
-  -- ZOOM in and out
-   if key == keyZoomIn then
+
+
+    -- ZOOM in and out
+    if key == keyZoomIn then
 	if map.mag >= 1 then map.mag = map.mag + 1 end
 	if map.mag == 0.5 then map.mag = 1 end	
 	if map.mag == 0.25 then map.mag = 0.5 end	
 	ignoreLastChar = true
 	if atlas:isVisible(map) then udp:send("MAGN " .. 1/map.mag ) end	
-   end 
+    end 
 
-   if key == keyZoomOut then
+    if key == keyZoomOut then
 	if map.mag > 1 then 
 		map.mag = map.mag - 1 
 	elseif map.mag == 1 then 
@@ -1695,18 +1715,18 @@ function love.keypressed( key, isrepeat )
 	if map.mag == 0 then map.mag = 0.25 end
 	ignoreLastChar = true
 	if atlas:isVisible(map) then udp:send("MAGN " .. 1/map.mag ) end	
-   end 
+    end 
 
-   -- V for VISIBLE
-   if key == "v" and map.kind == "map" then
+    -- V for VISIBLE
+    if key == "v" and map.kind == "map" then
 	atlas:toggleVisible()
-   end
+    end
 
-   -- C for RECENTER
-   if key == "c" then
+    -- C for RECENTER
+    if key == "c" then
 	map.x = map.w / 2
 	map.y = map.h / 2
-   end
+    end
 
    -- REMOVE ALL PAWNS
    if key == "x" and love.keyboard.isDown("lctrl") then
