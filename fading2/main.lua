@@ -849,8 +849,9 @@ function love.mousereleased( x, y )
 		else
 
 			-- it was just a move, change the pawn position
+			-- we consider that the mouse position is at the center of the new image
   			local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
-			pawnMove.x, pawnMove.y = (x - zx) * map.mag, (y - zy) * map.mag
+			pawnMove.x, pawnMove.y = (x - zx) * map.mag - pawnMove.size / 2 , (y - zy) * map.mag - pawnMove.size / 2
 			
 			
 		end
