@@ -1,16 +1,59 @@
-
 local socket = require "socket"
  
 -- the address and port of the server
 local address, port = "localhost", 12345
-local updaterate = 0.05 -- how long to wait, in seconds, before requesting an update
-local currentImage = nil
-local storedImage = nil
-local mask = nil 
-local mag = 0 -- a priori
-local snapMag = 1.0 
-local WS, HS = 200, 200	-- snapshot size
-local snapImage = nil
+local updaterate = 0.05 	-- how long to wait, in seconds, before requesting an update
+
+-- image information
+local currentImage = nil	-- displayed image
+local storedImage = nil		-- stored image (buffer before display)
+local mask = nil		-- array of mask shapes, if any 
+local mag = 0 			-- a priori
+local W,H  			-- image dimensions, at scale 1
+
+-- pawns
+local pawns = {}
+
+--[[ 
+  Pawn object 
+--]]
+Pawn = {}
+Pawn.__index = Pawn
+function Pawn.new( id, filename, size, x, y , pj )
+
+  local new = {}
+  setmetatable(new,Pawn)
+
+  -- get basic data
+  new.id = id
+  new.PJ = pj or false 
+  new.x, new.y = x or 0, y or 0         -- relative to the map
+  new.filename = imageFilename
+  new.size = size                       -- size of the image in pixels, for map at scale 1
+
+  -- set flags
+  new.dead = false 			-- so far
+
+  -- load pawn image
+  local file = assert(io.open( filename , "rb" ))
+  local image = file:read( "*a" )	
+  file:close()
+  local lfn = love.filesystem.newFileData
+  local lin = love.image.newImageData
+  local lgn = love.graphics.newImage
+  new.im = lgn(lin(lfn(image, 'img', 'file')))
+  assert(new.im, "sorry, could not load image at '" .. filename .. "'")
+
+  -- compute scaling factor f, offsets (to center the image within the square)
+  local w,h = new.im:getDimensions()
+  local f1,f2 = size/w, size/h
+  new.f = math.min(f1,f2)
+  new.offsetx = (size - w * new.f ) / 2
+  new.offsety = (size - h * new.f ) / 2
+
+  return new
+  end
+
 
 function myStencilFunction() 
         love.graphics.rectangle("fill",zx,zy,w,h)
@@ -46,7 +89,6 @@ function love.draw()
   	w , h = W * mag, H  * mag
 
 	-- center the image 
-  	--zx, zy = (W2 - w) / 2, (H2 - h) / 2
 	zx,zy = -( X * mag - W2 / 2), -( Y * mag - H2 / 2)
 
 	if mask and #mask > 0 then
@@ -66,15 +108,21 @@ function love.draw()
        		love.graphics.setStencilTest()
      	end
 
-  end
+	-- draw PJ pawns (always on top)
+	for i =1,#pawns do
+		     local p = pawns[i]
+                     -- we do some checks before displaying the pawn: it might happen that the character corresponding to the pawn is dead
+                     local px,py = p.x * mag + zx , p.y * mag + zy
+                     if p.PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
+                     love.graphics.rectangle( "fill", px-3, py-3, p.size * mag + 6, p.size * mag + 6)
+                     if p.dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
+                     px = px + p.offsetx * mag
+                     py = py + p.offsety * mag
+                     love.graphics.draw( p.im , px, py, 0, p.f * mag , p.f * mag )
+        end
 
-  if snapImage then
-
-	love.graphics.setColor(255,255,255)
-  	love.graphics.draw( snapImage , 50 , 50 , 0 , snapMag, snapMag )
-
-  end
-
+     end
+ 
   end
 
 function love.update( dt )
@@ -113,11 +161,14 @@ function love.update( dt )
 	--
 	-- CIRC x y r 		set a new stencil (unmask) circle at position x,y, of radius r (a decimal number)
 	--
-	-- SNAP filename	open a snapshot, an image that will be displayed in a small format at upper left corner of the
-	-- 			screen (whatever the current display status). No DISP command is needed, it is implicit
+	-- PAWN id x y s p filename
+	--			create a new pawn with id, at position x,y (relative to the map at scale 1), of size s (in pixels 
+	--			at scale 1), with boolean true/false p (if PJ or not), with image filename
 	--
-	-- HIDS			HIDe Snapshot. Note that HIDE does not imply HIDS
-	-- 
+	-- KILL id		kill pawn with id given
+	--
+	-- MPAW id x y		move pawn id to new position x,y (relative to the map at scale 1)
+	--
 	
 	  local command = string.sub( data, 1, 4)
 
@@ -149,30 +200,21 @@ function love.update( dt )
 		mag = 0
 	    	mask = nil
 
-	  elseif command == "SNAP" then
+	  elseif command == "PAWN" then
+		local str = string.sub(data , 6)
+		local _,_,id,x,y,size,pj,f = string.find( str, "(%a+) (%d+) (%d+) (%d+) (%d) (.*)" )
+ 		if pj == "1" then pj = true; else pj = false end
+		table.insert( pawns, Pawn.new(id,f,size,x,y,f) )
+		
+	  elseif command == "MPAW" then
+		local str = string.sub(data , 6)
+		local _,_,id,x,y = string.find( str, "(%a+) (%d+) (%d+)" )
+		for i=1,#pawns do if pawns[i].id == id then pawns[i].x = x; pawns[i].y = y end end
 
-		local filename = string.sub( data , 6)
-		local file = assert(io.open( filename , "rb" ))
-		local image = file:read( "*a" )	
-		file:close()
-
-	    	local lfn = love.filesystem.newFileData
-  	    	local lin = love.image.newImageData
-  	    	local lgn = love.graphics.newImage
-
-    	    	snapImage = lgn(lin(lfn(image, 'img', 'file')))
-		assert(snapImage, "sorry, could not load image at '" .. filename .. "'")
-
-		-- store new image
-  		local snapW, snapH = snapImage:getDimensions()
-  		local xfactor = WS / snapW 
-  		local yfactor = HS / snapH 
-
-		-- reset previous image
-		snapMag = math.min(xfactor, yfactor) 
-
-	  elseif command == "HIDS" then
-		snapImage = nil
+	  elseif command == "KILL" then
+		local str = string.sub(data , 6)
+		local _,_,id = string.find( str, "(%a+)" )
+		for i=1,#pawns do if pawns[i].id == id then pawns[i].dead = true end end
 
 	  elseif command == "HIDE" then
 		currentImage = nil
@@ -181,7 +223,8 @@ function love.update( dt )
 		if storedImage then currentImage = storedImage end
 
 	  elseif command == "CHXY" then
-		local str = string.sub( data , 6)
+		local str = string.sub(data , 6)
+io.write(command .. "\n")
 		local _,_,x,y = string.find( str, "(%d+) (%d+)" )
 		X, Y = x , y 
 

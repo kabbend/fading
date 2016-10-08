@@ -1088,17 +1088,17 @@ function Pawn.new( id, img, imageFilename, size, x, y )
 -- In that case, requiredSize is not necessary and ignored, replaced by the current value for
 -- other pawns of the map.
 --
-function createPawns( map , sx, sy, requiredSize )
-
+function createPawns( map , sx, sy, requiredSize ) 
   assert(map)
 
+  requiredSize = math.floor(requiredSize) -- round it, to avoid issues when sending to projector
   local createAgain = map.pawns and #map.pawns > 0
   if createAgain then requiredSize = map.pawns[1].size end
-  margin = requiredSize / 10 
+  margin = math.floor(requiredSize / 10)
 
   local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
   sx, sy = ( sx - zx ) * map.mag, ( sy - zy ) * map.mag -- position relative to the map
-  local a,b = sx - 2 * (requiredSize + margin) , sy - 2 * (requiredSize + margin) -- set position of 1st pawn to draw (relative to the map)
+  local a,b = math.floor(sx - 2 * (requiredSize + margin)) , math.floor(sy - 2 * (requiredSize + margin)) -- set position of 1st pawn to draw (relative to the map)
   -- FIXME: a,b could be outside the map...
   --
   for i=1,PNJnum-1 do
@@ -1112,8 +1112,10 @@ function createPawns( map , sx, sy, requiredSize )
 	 end
 
 	 if needCreate then
+	  local f
 	  if PNJTable[i].snapshot then
-	  	p = Pawn.new( PNJTable[i].id , PNJTable[i].snapshot.im, PNJTable[i].snapshot.filename , requiredSize, a , b ) 
+		f = PNJTable[i].snapshot.filename 
+	  	p = Pawn.new( PNJTable[i].id , PNJTable[i].snapshot.im, f , requiredSize, a , b ) 
 		local w,h = PNJTable[i].snapshot.im:getDimensions()
 		local f1,f2 = requiredSize/w, requiredSize/h
 		p.f = math.min(f1,f2)
@@ -1121,7 +1123,8 @@ function createPawns( map , sx, sy, requiredSize )
 		p.offsety = (requiredSize - h * p.f ) / 2
 	  else
 		assert(defaultPawnSnapshot,"no default image available. You should refrain from using pawns on the map...")
-	  	p = Pawn.new( PNJTable[i].id , defaultPawnSnapshot.im, defaultPawnSnapshot.filename , requiredSize, a , b ) 
+		f = defaultPawnSnapshot.filename
+	  	p = Pawn.new( PNJTable[i].id , defaultPawnSnapshot.im, f , requiredSize, a , b ) 
 		local w,h = defaultPawnSnapshot.im:getDimensions()
 		local f1,f2 = requiredSize/w, requiredSize/h
 		p.f = math.min(f1,f2)
@@ -1131,9 +1134,15 @@ function createPawns( map , sx, sy, requiredSize )
 	  io.write("creating pawn " .. i .. " with id " .. p.id .. "\n")
 	  p.PJ = PNJTable[i].PJ
 	  map.pawns[#map.pawns+1] = p
+
+	  -- send to projector...
+	  local flag
+	  if p.PJ then flag = "1" else flag = "0" end
+	  io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. requiredSize .. " " .. flag .. " " .. f .. "\n")
+	  udp:send("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. requiredSize .. " " .. flag .. " " .. f)
 	  -- set position for next image: we display pawns on 4x4 line/column around the mouse position
 	  if i % 4 == 0 then
-		a =  sx - 2 * (requiredSize + margin)
+		a =  math.floor(sx - 2 * (requiredSize + margin))
 		b = b + requiredSize + margin
 	  else
 		a = a + requiredSize + margin	
@@ -1639,7 +1648,7 @@ if mouseMove then
 	if zy > H - margin or zy + map.h / map.mag < margin then map.y = oldy end	
 
 	-- send move to the projector
-	if map.x ~= oldx or map.y ~= oldy and atlas:isVisible(map) then udp:send("CHXY " .. map.x .. " " .. map.y ) end
+	if map.x ~= oldx or map.y ~= oldy and atlas:isVisible(map) then udp:send("CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) ) end
 
     end
 end
