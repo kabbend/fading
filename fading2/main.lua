@@ -256,6 +256,7 @@ function love.filedropped(file)
 	
     	  	-- send the filename over the socket
 		local filename = file:getFilename()
+		filename = string.gsub(filename,baseDirectory,"")
 		udpsend("OPEN " .. filename)
 		udpsend("DISP") 	-- display immediately
 		
@@ -369,6 +370,7 @@ function love.update(dt)
 	  end
 	end
 
+--[[
 	if displayPJSnapshots then
 
 	  -- if focus changed, send a new PJ snapshot to the projector, or a HIDe command, eventually
@@ -392,6 +394,7 @@ function love.update(dt)
 	  end
 
 	end
+--]]
 
 	-- change snapshot offset if mouse  at bottom right or left
 	local snapMax = #snapshots * (snapshotSize + snapshotMargin) - W
@@ -1155,6 +1158,7 @@ function createPawns( map , sx, sy, requiredSize )
 	  -- send to projector...
 	  local flag
 	  if p.PJ then flag = "1" else flag = "0" end
+	  f = string.gsub(f,baseDirectory,"")
 	  io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. requiredSize .. " " .. flag .. " " .. f .. "\n")
 	  udpsend("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. requiredSize .. " " .. flag .. " " .. f)
 	  -- set position for next image: we display pawns on 4x4 line/column around the mouse position
