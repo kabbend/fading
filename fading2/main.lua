@@ -2605,25 +2605,7 @@ function readScenario( filename )
     fontDice = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",90)
     fontRound = love.graphics.newFont("yui/yaoui/fonts/OpenSans-Bold.ttf",12)
     fontSearch = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",16)
-    
-    -- load dice images
-    diceB = {} 
-    diceB[1] = love.graphics.newImage( 'dice/b1.png' )
-    diceB[2] = love.graphics.newImage( 'dice/b2.png' )
-    diceB[3] = love.graphics.newImage( 'dice/b3.png' )
-    diceB[4] = love.graphics.newImage( 'dice/b4.png' )
-    diceB[5] = love.graphics.newImage( 'dice/b5.png' )
-    diceB[6] = love.graphics.newImage( 'dice/b6.png' )
-
-    diceW = {} 
-    diceW[1] = love.graphics.newImage( 'dice/w1.png' )
-    diceW[2] = love.graphics.newImage( 'dice/w2.png' )
-    diceW[3] = love.graphics.newImage( 'dice/w3.png' )
-    diceW[4] = love.graphics.newImage( 'dice/w4.png' )
-    diceW[5] = love.graphics.newImage( 'dice/w5.png' )
-    diceW[6] = love.graphics.newImage( 'dice/w6.png' )
-
-
+   
     -- create view structure
     love.graphics.setBackgroundColor( 248, 245, 244 )
     view = yui.View(0, 0, W, viewh, {
