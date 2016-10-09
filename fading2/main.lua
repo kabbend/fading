@@ -215,7 +215,7 @@ function doSearch( sentence )
 -- send an image (already stored in memory) to the projector
 function sendOver( map )
 
-  udpsend("OPEN " .. map.filename )
+  udpsend("OPEN " .. map.baseFilename )
 
   -- send mask if applicable
   if map.mask then
@@ -1036,7 +1036,7 @@ function love.mousepressed( x, y , button )
 	      -- remove the 'visible' flag from maps (eventually)
 	      atlas:removeVisible()
     	      -- send the filename over the socket
-	      udpsend("OPEN " .. snapshots[index].filename)
+	      udpsend("OPEN " .. snapshots[index].baseFilename)
 	      udpsend("DISP") 	-- display immediately
       else
 	      -- not selected, select it now
@@ -1088,6 +1088,7 @@ function Pawn.new( id, img, imageFilename, size, x, y )
   new.id = id
   new.x, new.y = x or 0, y or 0 	-- relative to the map
   new.filename = imageFilename
+  new.baseFilename = string.gsub(imageFilename,baseDirectory,"")
   new.im = img 
   new.size = size 			-- size of the image in pixels, for map at scale 1
   new.f = 1.0
@@ -1191,6 +1192,7 @@ function Map.new( kind, imageFilename )
   assert(img, "sorry, could not load image at '" .. imageFilename .. "'")  
   
   new.filename = imageFilename
+  new.baseFilename = string.gsub(imageFilename,baseDirectory,"")
   new.im = img 
   new.w, new.h = new.im:getDimensions() 
   new.x = new.w / 2
@@ -1216,6 +1218,7 @@ function loadSnap( imageFilename )
   assert(img, "sorry, could not load image at '" .. imageFilename .. "'")  
   
   new.filename = imageFilename
+  new.baseFilename = string.gsub(imageFilename,baseDirectory,"")
   new.im = img 
   new.w, new.h = new.im:getDimensions() 
   local f1, f2 = snapshotSize / new.w , snapshotSize / new.h
@@ -2661,9 +2664,10 @@ function readScenario( filename )
     -- later on, an image might be attached to them, if we find one
     createPJ()
 
-    -- get images & scenario directory, either provided at command line or default one
-    local fadingDirectory = args[ 2 ] 
-    local sep = '/'
+    -- get images & scenario directory, provided at command line
+    baseDirectory = args[ 2 ] 
+    fadingDirectory = args[ 3 ] 
+    sep = '/'
     local PJImageNum, mapsNum, scenarioImageNum, scenarioTextNum = 0,0,0,0
 
     -- some small differences in windows: separator is not the same, and some weird completion
@@ -2680,16 +2684,17 @@ function readScenario( filename )
 
     -- default directory is 'fading2' (application folder)
     if not fadingDirectory or fadingDirectory == "" then fadingDirectory = "fading2" end
-    io.write("directory : |" .. fadingDirectory .. "|\n")
+    io.write("base directory   : |" .. baseDirectory .. "|\n")
+    io.write("fading directory : |" .. fadingDirectory .. "|\n")
 
     -- list all files in that directory, by executing a command ls or dir
     local allfiles = {}, command
     if love.system.getOS() == "OS X" then
-	    io.write("ls '" .. fadingDirectory .. "' > .temp\n")
-	    os.execute("ls '" .. fadingDirectory .. "' > .temp")
+	    io.write("ls '" .. baseDirectory .. sep .. fadingDirectory .. "' > .temp\n")
+	    os.execute("ls '" .. baseDirectory .. sep .. fadingDirectory .. "' > .temp")
     elseif love.system.getOS() == "Windows" then
-	    io.write("dir /b \"" .. fadingDirectory .. "\" > .temp\n")
-	    os.execute("dir /b \"" .. fadingDirectory .. "\" > .temp ")
+	    io.write("dir /b \"" .. baseDirectory .. sep .. fadingDirectory .. "\" > .temp\n")
+	    os.execute("dir /b \"" .. baseDirectory .. sep ..fadingDirectory .. "\" > .temp ")
     end
 
     -- store output
@@ -2716,19 +2721,19 @@ function readScenario( filename )
       
       if f == 'scenario.txt' then 
 
-	      readScenario( fadingDirectory .. sep .. f ) 
-	      io.write("Loaded scenario at " .. fadingDirectory .. sep .. f .. "\n")
+	      readScenario( baseDirectory .. sep .. fadingDirectory .. sep .. f ) 
+	      io.write("Loaded scenario at " .. baseDirectory .. sep .. fadingDirectory .. sep .. f .. "\n")
 	      scenarioTextNum = scenarioTextNum + 1
 
       elseif f == 'scenario.jpg' then
 
-	atlas:addMap( Map.new( "scenario", fadingDirectory .. sep .. f ) )
-	io.write("Loaded scenario image file at " .. fadingDirectory .. sep .. f .. "\n")
+	atlas:addMap( Map.new( "scenario", baseDirectory .. sep .. fadingDirectory .. sep .. f ) )
+	io.write("Loaded scenario image file at " .. baseDirectory .. sep .. fadingDirectory .. sep .. f .. "\n")
 	scenarioImageNum = scenarioImageNum + 1
 
       elseif f == 'defaultPawn.jpg' then
 
-	defaultPawnSnapshot = loadSnap( fadingDirectory .. sep .. f )  
+	defaultPawnSnapshot = loadSnap( baseDirectory .. sep ..fadingDirectory .. sep .. f )  
 
       elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
@@ -2738,18 +2743,18 @@ function readScenario( filename )
 		io.write("Looking for PJ " .. pjname .. "\n")
 		local index = findPNJByClass( pjname ) 
 		if index then
-			PNJTable[index].snapshot = loadSnap( fadingDirectory .. sep .. f )  
+			PNJTable[index].snapshot = loadSnap( baseDirectory .. sep .. fadingDirectory .. sep .. f )  
 			PJImageNum = PJImageNum + 1
 		end
 
 	elseif string.sub(f,1,3) == 'map' then
 
-	  atlas:addMap( Map.new( "map", fadingDirectory .. sep .. f ) )
+	  atlas:addMap( Map.new( "map", baseDirectory .. sep ..fadingDirectory .. sep .. f ) )
 	  mapsNum = mapsNum + 1
 
  	else
 
-	  table.insert( snapshots, loadSnap( fadingDirectory .. sep .. f ) ) 
+	  table.insert( snapshots, loadSnap( baseDirectory .. sep ..fadingDirectory .. sep .. f ) ) 
 	  
         end
 

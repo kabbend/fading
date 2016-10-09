@@ -24,11 +24,13 @@ function Pawn.new( id, filename, size, x, y , pj )
   local new = {}
   setmetatable(new,Pawn)
 
+  filename = baseDirectory .. sep .. filename
+
   -- get basic data
   new.id = id
   new.PJ = pj or false 
   new.x, new.y = x or 0, y or 0         -- relative to the map
-  new.filename = imageFilename
+  new.filename = filename
   new.size = size                       -- size of the image in pixels, for map at scale 1
 
   -- set flags
@@ -158,10 +160,10 @@ function love.update( dt )
 	--timer = 0
 
   	  local data, msg = udp:receive()
- 	  io.write(tostring(data) .. " / msg = " .. tostring(msg) .. "\n")
 
 	  if data then 
 
+	  io.write("receiving data: " .. data .. "\n")
 
 	-- supported commands are:
 	--
@@ -203,6 +205,9 @@ function love.update( dt )
 	  if command == "OPEN" then
 
 		local filename = string.sub( data , 6)
+
+		filename = baseDirectory .. sep .. filename 
+
 		local file = assert(io.open( filename , "rb" ))
 		local image = file:read( "*a" )	
 		file:close()
@@ -274,8 +279,6 @@ function love.update( dt )
 
           socket.sleep(0.01)
 
-  --end
-
 end
 
 function love.keypressed( key )
@@ -287,19 +290,25 @@ end
 --
 function love.load( args )
 
- --timer = 0
-
- local address = args[2] or defaultAddress
 
  -- log file
  logFile = io.open("proj.log","w")
  io.output(logFile)
+
+ address = args[2]
+ baseDirectory = args[3]
+
+ io.write("IP address = " .. address .. "\n")
+ io.write("base directory = " .. baseDirectory .. "\n")
+ 
+ if love.system.getOS() == "OS X" then sep = "/" else sep = "\\" end
 
  -- create socket and connect to the server
  udp = socket.udp()
  udp:settimeout(0)
  udp:setpeername(address, port)
 
+ io.write("CONNECT " .. address .. " " .. port .. "\n")
  udp:send("CONNECT")
 
   -- GUI initializations
