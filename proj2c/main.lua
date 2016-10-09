@@ -1,7 +1,7 @@
 local socket = require "socket"
  
 -- the address and port of the server
-local defaultAddress, port = "*", 12345
+local defaultAddress, port = "localhost", 12345
 local updaterate = 0.05 	-- how long to wait, in seconds, before requesting an update
 
 -- image information
@@ -158,9 +158,10 @@ function love.update( dt )
 	--timer = 0
 
   	  local data, msg = udp:receive()
+ 	  io.write(tostring(data) .. " / msg = " .. tostring(msg) .. "\n")
+
 	  if data then 
 
- 	  io.write(data .. "\n")
 
 	-- supported commands are:
 	--
@@ -297,7 +298,9 @@ function love.load( args )
  -- create socket and connect to the server
  udp = socket.udp()
  udp:settimeout(0)
- udp:setsockname(address, port)
+ udp:setpeername(address, port)
+
+ udp:send("CONNECT")
 
   -- GUI initializations
   -- we try to go to 2nd display

@@ -18,8 +18,8 @@ require 'default/config'
 --
 -- GLOBAL VARIABLES
 --
--- the address and port of the projector client
-address, port = "localhost", 12345
+-- the base address and port, and ip of the projector client
+address, port, ip = "*", 12345, nil
 
 -- main screen size
 W, H = 1420, 730 	-- main window size default values (may be changed dynamically on some systems)
@@ -122,6 +122,13 @@ arrowStopIndex 		 = nil		-- index of the PNJ at the ending point
 arrowModeMap		 = nil		-- either nil (not in map mode), "RECT" or "CIRC" shape used to draw map maskt
 maskType		 = "RECT"	-- shape to use, rectangle by default
 
+-- send over the network
+function udpsend( data )
+  if not ip then return end -- no projector connected yet !
+  io.write("send(ip".. ip .. ",port:"..port.. "):" .. data .. "\n")
+  udp:sendto(data, ip, port)  
+  end
+
 -- capture text input (for text search)
 function love.textinput(t)
 	if not searchActive then return end
@@ -208,18 +215,18 @@ function doSearch( sentence )
 -- send an image (already stored in memory) to the projector
 function sendOver( map )
 
-  udp:send("OPEN " .. map.filename )
+  udpsend("OPEN " .. map.filename )
 
   -- send mask if applicable
   if map.mask then
 	for k,v in pairs( map.mask ) do
-		udp:send( v )
+		udpsend( v )
 	end
   end
 
-  udp:send("MAGN " .. 1/map.mag)
-  udp:send("CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) )
-  udp:send("DISP")
+  udpsend("MAGN " .. 1/map.mag)
+  udpsend("CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) )
+  udpsend("DISP")
 
   end
 
@@ -249,8 +256,8 @@ function love.filedropped(file)
 	
     	  	-- send the filename over the socket
 		local filename = file:getFilename()
-		udp:send("OPEN " .. filename)
-		udp:send("DISP") 	-- display immediately
+		udpsend("OPEN " .. filename)
+		udpsend("DISP") 	-- display immediately
 		
 		end
 
@@ -353,25 +360,34 @@ function rollAttack( rollType )
 -- GUI basic functions
 function love.update(dt)
 
+ 	if not ip then 
+ 	  local data, lip, lport = udp:receivefrom()
+ 	  if data then
+	    io.write("receiving data .. '" .. tostring(data) .. "' from ip " .. tostring(ip).. " port " .. lport .. "\n")
+	    ip = lip
+	    port = lport
+	  end
+	end
+
 	if displayPJSnapshots then
 
 	  -- if focus changed, send a new PJ snapshot to the projector, or a HIDe command, eventually
 	  if focus and lastFocus ~= focus then
 		if PNJTable[focus].PJ and PNJTable[focus].snapshot then
-			udp:send("SNAP " .. PNJTable[focus].snapshot.filename ) 
+			udpsend("SNAP " .. PNJTable[focus].snapshot.filename ) 
 		elseif not PNJTable[focus].PJ then
     			local index = findPNJ(PNJTable[focus].target)
 			if index and PNJTable[index].PJ and PNJTable[index].snapshot then
-				udp:send("SNAP " .. PNJTable[index].snapshot.filename ) 
+				udpsend("SNAP " .. PNJTable[index].snapshot.filename ) 
 			else 
-				udp:send("HIDS") 
+				udpsend("HIDS") 
 
 			end
 		end
 		lastFocus = focus -- avoid to do this next time...
 	  end
 	  if not focus and lastFocus ~= focus then
-		udp:send("HIDS") 
+		udpsend("HIDS") 
 		lastFocus = nil -- avoid to do this next time...
 	  end
 
@@ -862,7 +878,7 @@ function love.mousereleased( x, y )
   			local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
 			pawnMove.x, pawnMove.y = (x - zx) * map.mag - pawnMove.size / 2 , (y - zy) * map.mag - pawnMove.size / 2
 			
-			udp:send("MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.x) .. " " .. math.floor(pawnMove.y) )		
+			udpsend("MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.x) .. " " .. math.floor(pawnMove.y) )		
 			
 		end
 		pawnMove = nil; 
@@ -918,7 +934,7 @@ function love.mousereleased( x, y )
 			table.insert( map.mask , command ) 
 			io.write("inserting new mask " .. command .. "\n")
 	  		-- send over if requested
-	  		if atlas:isVisible( map ) then udp:send( command ) end
+	  		if atlas:isVisible( map ) then udpsend( command ) end
 	  	end
 
 		arrowModeMap = nil
@@ -1020,8 +1036,8 @@ function love.mousepressed( x, y , button )
 	      -- remove the 'visible' flag from maps (eventually)
 	      atlas:removeVisible()
     	      -- send the filename over the socket
-	      udp:send("OPEN " .. snapshots[index].filename)
-	      udp:send("DISP") 	-- display immediately
+	      udpsend("OPEN " .. snapshots[index].filename)
+	      udpsend("DISP") 	-- display immediately
       else
 	      -- not selected, select it now
 	    for i,v in ipairs(snapshots) do
@@ -1139,7 +1155,7 @@ function createPawns( map , sx, sy, requiredSize )
 	  local flag
 	  if p.PJ then flag = "1" else flag = "0" end
 	  io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. requiredSize .. " " .. flag .. " " .. f .. "\n")
-	  udp:send("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. requiredSize .. " " .. flag .. " " .. f)
+	  udpsend("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. requiredSize .. " " .. flag .. " " .. f)
 	  -- set position for next image: we display pawns on 4x4 line/column around the mouse position
 	  if i % 4 == 0 then
 		a =  math.floor(sx - 2 * (requiredSize + margin))
@@ -1269,7 +1285,7 @@ function Atlas:toggleVisible()
 		-- erase snapshot !
 		currentImage = nil 
 	  	-- send hide command to projector
-		udp:send("HIDE")
+		udpsend("HIDE")
 	else    
 		self.visible = self.index 
 		-- change snapshot !
@@ -1631,7 +1647,7 @@ if mouseMove then
 	if zy > H - margin or zy + map.h / map.mag < margin then map.y = oldy end	
 
 	-- send move to the projector
-	if map.x ~= oldx or map.y ~= oldy and atlas:isVisible(map) then udp:send("CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) ) end
+	if map.x ~= oldx or map.y ~= oldy and atlas:isVisible(map) then udpsend("CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) ) end
 
     end
 end
@@ -1693,7 +1709,7 @@ function love.keypressed( key, isrepeat )
 	if map.mag == 0.5 then map.mag = 1 end	
 	if map.mag == 0.25 then map.mag = 0.5 end	
 	ignoreLastChar = true
-	if atlas:isVisible(map) then udp:send("MAGN " .. 1/map.mag ) end	
+	if atlas:isVisible(map) then udpsend("MAGN " .. 1/map.mag ) end	
     end 
 
     if key == keyZoomOut then
@@ -1706,7 +1722,7 @@ function love.keypressed( key, isrepeat )
 	end	
 	if map.mag == 0 then map.mag = 0.25 end
 	ignoreLastChar = true
-	if atlas:isVisible(map) then udp:send("MAGN " .. 1/map.mag ) end	
+	if atlas:isVisible(map) then udpsend("MAGN " .. 1/map.mag ) end	
     end 
 
     -- V for VISIBLE
@@ -1960,7 +1976,7 @@ function createPNJGUIFrame()
               if (PNJTable[i].hits == 0) then 
                 PNJTable[i].is_dead = true; 
 
-		udp:send("KILL " .. PNJTable[i].id )
+		udpsend("KILL " .. PNJTable[i].id )
 
                 self.parent.done.checkbox.set = true -- a dead character is done
                 PNJTable[i].done = true
@@ -2010,7 +2026,7 @@ function createPNJGUIFrame()
               PNJTable[i].hits = 0
               PNJTable[i].is_dead = true 
 
-	      udp:send("KILL " .. PNJTable[i].id )
+	      udpsend("KILL " .. PNJTable[i].id )
 
               self.parent.done.checkbox.set = true -- a dead character is done
               PNJTable[i].done = true
@@ -2651,10 +2667,10 @@ function readScenario( filename )
     armButton.button.black = true
     clnButton.button.black = true
     
-    -- create socket and connect to the client
+    -- create socket and listen to any projector client
     udp = socket.udp()
     udp:settimeout(0)
-    udp:setpeername(address, port)
+    udp:setsockname(address, port)
 
     -- some initialization stuff
     generateUID = UIDiterator()
