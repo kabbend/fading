@@ -218,7 +218,7 @@ function sendOver( map )
   end
 
   udp:send("MAGN " .. 1/map.mag)
-  udp:send("CHXY " .. map.x .. " " .. map.y )
+  udp:send("CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) )
   udp:send("DISP")
 
   end

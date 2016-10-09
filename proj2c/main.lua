@@ -160,6 +160,8 @@ function love.update( dt )
   	  local data, msg = udp:receive()
 	  if data then 
 
+ 	  io.write(data .. "\n")
+
 	-- supported commands are:
 	--
 	-- OPEN filename	open a new filename from disk, store it but do not display it yet (waiting DISP command)
@@ -217,12 +219,12 @@ function love.update( dt )
   		xfactor = W2 / W
   		yfactor = H2 / H
 
-		-- default position, centered
+		-- default values
 		X, Y = W / 2 , H / 2
+		mag = 0
 
 		-- reset previous image
 		currentImage = nil
-		mag = 0
 	    	mask = nil
 
 	  elseif command == "PAWN" then
@@ -287,7 +289,11 @@ function love.load( args )
  --timer = 0
 
  local address = args[2] or defaultAddress
- 
+
+ -- log file
+ logFile = io.open("proj.log","w")
+ io.output(logFile)
+
  -- create socket and connect to the server
  udp = socket.udp()
  udp:settimeout(0)
