@@ -3,6 +3,7 @@
 local yui 	= require 'yui.yaoui' 	-- Graphical library on top of Love2D
 local socket 	= require 'socket'
 local utf8 	= require 'utf8'
+local parser    = require 'parse'
 
 -- dice3d code
 require	'base'
@@ -2560,19 +2561,32 @@ function readScenario( filename )
 
 	end
 
+options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="." },
+	    { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false },
+	    { opcode="", mandatory=true, varname="fadingDirectory" } }
+	    
 --
 -- Main function
 -- Load PNJ class file, print (empty) GUI, then go on
 --
-  function love.load( args )
+function love.load( args )
+
+    local parse = doParse( args )
+
+    -- get images & scenario directory, provided at command line
+    baseDirectory = parse.baseDirectory 
+    fadingDirectory = parse.arguments[1]
+    sep = '/'
+
+    -- log file
+    if parse.debug then
+      logFile = io.open("fading.log","w")
+      io.output(logFile)
+    end
 
     -- GUI initializations...
     yui.UI.registerEvents()
     love.window.setTitle( "Fading Suns Combat Tracker" )
-
-    -- log file
-    logFile = io.open("fading.log","w")
-    io.output(logFile)
 
     -- adjust number of rows in screen
     PNJmax = math.floor( viewh / 42 )
@@ -2668,10 +2682,6 @@ function readScenario( filename )
     -- later on, an image might be attached to them, if we find one
     createPJ()
 
-    -- get images & scenario directory, provided at command line
-    baseDirectory = args[ 2 ] 
-    fadingDirectory = args[ 3 ] 
-    sep = '/'
     local PJImageNum, mapsNum, scenarioImageNum, scenarioTextNum = 0,0,0,0
 
     -- some small differences in windows: separator is not the same, and some weird completion

@@ -1,4 +1,5 @@
 local socket = require "socket"
+local parser = require "parse"
  
 -- the address and port of the server
 local defaultAddress, port = "localhost", 12345
@@ -285,18 +286,28 @@ function love.keypressed( key )
  if key == "q" then love.event.quit() end
 end
 
+options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="." },
+            { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false },
+            { opcode="-i", longopcode="--ip", mandatory=false, varname="address", value=true, default="localhost" },
+            { opcode="-p", longopcode="--port", mandatory=false, varname="port", value=true, default="12345" },
+	   }
+
 --
 -- Main function
 --
 function love.load( args )
 
+ local parse = doParse( args )
 
  -- log file
- logFile = io.open("proj.log","w")
- io.output(logFile)
+ if parse.debug then
+   logFile = io.open("proj.log","w")
+   io.output(logFile)
+ end
 
- address = args[2]
- baseDirectory = args[3]
+ address = parse.address 
+ baseDirectory = parse.baseDirectory 
+ port = parse.port
 
  io.write("IP address = " .. address .. "\n")
  io.write("base directory = " .. baseDirectory .. "\n")
@@ -308,7 +319,7 @@ function love.load( args )
  udp:settimeout(0)
  udp:setpeername(address, port)
 
- io.write("CONNECT " .. address .. " " .. port .. "\n")
+ io.write("Connecting to " .. address .. " " .. port .. "\n")
  udp:send("CONNECT")
 
   -- GUI initializations
