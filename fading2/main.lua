@@ -775,9 +775,9 @@ function love.draw()
 		     	local dead = false
 		     	dead = PNJTable[ index ].is_dead
 		     	if map.pawns[i].im then
-  		       		local zx,zy = map.pawns[i].x * 1/map.mag + x , map.pawns[i].y * 1/map.mag + y
+  		       		local zx,zy = (map.pawns[i].x) * 1/map.mag + x , (map.pawns[i].y) * 1/map.mag + y
 		       		if PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
-		       		love.graphics.rectangle( "fill", zx-3, zy-3, map.pawns[i].size / map.mag + 6, map.pawns[i].size / map.mag + 6)
+		       		love.graphics.rectangle( "fill", zx, zy, (map.pawns[i].size+6) / map.mag, (map.pawns[i].size+6) / map.mag)
 		       		if dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
 		       		zx = zx + map.pawns[i].offsetx / map.mag
 		       		zy = zy + map.pawns[i].offsety / map.mag
@@ -1112,16 +1112,33 @@ function Pawn.new( id, img, imageFilename, size, x, y )
 function createPawns( map , sx, sy, requiredSize ) 
   assert(map)
 
-  requiredSize = math.floor(requiredSize) -- round it, to avoid issues when sending to projector
-  local createAgain = map.pawns and #map.pawns > 0
-  if createAgain then requiredSize = map.pawns[1].size end
-  margin = math.floor(requiredSize / 10)
+  local border = 3 -- size of a colored border, in pixels, at scale 1 (3 pixels on all sides)
 
+  -- get actual size at scale 1. We round it to avoid issue when sending to projector
+  local createAgain = map.pawns and #map.pawns > 0
+  if createAgain then pawnSize = map.pawns[1].size else
+  pawnSize = math.floor((requiredSize) / map.mag - border * 2) end
+
+  margin = math.floor(pawnSize / 10) -- small space between 2 pawns
+
+  -- position of the upper-left corner of the map on screen
   local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
-  sx, sy = ( sx - zx ) * map.mag, ( sy - zy ) * map.mag -- position relative to the map
-  local a,b = math.floor(sx - 2 * (requiredSize + margin)) , math.floor(sy - 2 * (requiredSize + margin)) -- set position of 1st pawn to draw (relative to the map)
-  -- FIXME: a,b could be outside the map...
-  --
+
+  -- position of the mouse, relative to the map at scale 1 (and not to the screen)
+  sx, sy = ( sx - zx ) * map.mag, ( sy - zy ) * map.mag 
+
+  -- set position of 1st pawn to draw (relative to the map)
+  local starta,startb = math.floor(sx - 2 * (pawnSize + border*2 + margin)) , math.floor(sy - 2 * (pawnSize + border*2 + margin)) 
+
+  -- a,b could be outside the map, check for this...
+  local aw, bh = (pawnSize + border*2 + margin) * 4, (pawnSize + border*2 + margin) * 4
+  if starta < 0 then starta = 0 end
+  if starta + aw > map.w then starta = map.w - aw end
+  if startb < 0 then startb = 0 end
+  if startb + bh > map.h then startb = map.h - bh end
+
+  local a,b = starta, startb
+
   for i=1,PNJnum-1 do
 
 	 local p
@@ -1136,21 +1153,21 @@ function createPawns( map , sx, sy, requiredSize )
 	  local f
 	  if PNJTable[i].snapshot then
 		f = PNJTable[i].snapshot.filename 
-	  	p = Pawn.new( PNJTable[i].id , PNJTable[i].snapshot.im, f , requiredSize, a , b ) 
+	  	p = Pawn.new( PNJTable[i].id , PNJTable[i].snapshot.im, f , pawnSize, a , b ) 
 		local w,h = PNJTable[i].snapshot.im:getDimensions()
-		local f1,f2 = requiredSize/w, requiredSize/h
+		local f1,f2 = pawnSize/w, pawnSize/h
 		p.f = math.min(f1,f2)
-		p.offsetx = (requiredSize - w * p.f ) / 2
-		p.offsety = (requiredSize - h * p.f ) / 2
+		p.offsetx = (pawnSize + border*2 - w * p.f ) / 2
+		p.offsety = (pawnSize + border*2 - h * p.f ) / 2
 	  else
 		assert(defaultPawnSnapshot,"no default image available. You should refrain from using pawns on the map...")
 		f = defaultPawnSnapshot.filename
-	  	p = Pawn.new( PNJTable[i].id , defaultPawnSnapshot.im, f , requiredSize, a , b ) 
+	  	p = Pawn.new( PNJTable[i].id , defaultPawnSnapshot.im, f , pawnSize, a , b ) 
 		local w,h = defaultPawnSnapshot.im:getDimensions()
-		local f1,f2 = requiredSize/w, requiredSize/h
+		local f1,f2 = pawnSize/w, pawnSize/h
 		p.f = math.min(f1,f2)
-		p.offsetx = (requiredSize - w * p.f ) / 2
-		p.offsety = (requiredSize - h * p.f ) / 2
+		p.offsetx = (pawnSize + border*2 - w * p.f ) / 2
+		p.offsety = (pawnSize + border*2 - h * p.f ) / 2
 	  end
 	  io.write("creating pawn " .. i .. " with id " .. p.id .. "\n")
 	  p.PJ = PNJTable[i].PJ
@@ -1160,14 +1177,14 @@ function createPawns( map , sx, sy, requiredSize )
 	  local flag
 	  if p.PJ then flag = "1" else flag = "0" end
 	  f = string.gsub(f,baseDirectory,"")
-	  io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. requiredSize .. " " .. flag .. " " .. f .. "\n")
-	  udpsend("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. requiredSize .. " " .. flag .. " " .. f)
+	  io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. pawnSize .. " " .. flag .. " " .. f .. "\n")
+	  udpsend("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. pawnSize .. " " .. flag .. " " .. f)
 	  -- set position for next image: we display pawns on 4x4 line/column around the mouse position
 	  if i % 4 == 0 then
-		a =  math.floor(sx - 2 * (requiredSize + margin))
-		b = b + requiredSize + margin
+		a = starta 
+		b = b + pawnSize + border*2 + margin
 	  else
-		a = a + requiredSize + margin	
+		a = a + pawnSize + border*2 + margin	
 	  end
   	end
 
