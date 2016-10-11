@@ -899,7 +899,7 @@ function love.mousereleased( x, y )
 	if arrowPawn then
 		-- this gives the required size for the pawns
   	  	local map = atlas:getMap()
-		local w = distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY) * map.mag
+		local w = distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY)
 		createPawns( map, arrowX, arrowY, w )
 		arrowPawn = false
 		return
@@ -1117,7 +1117,7 @@ function createPawns( map , sx, sy, requiredSize )
   -- get actual size at scale 1. We round it to avoid issue when sending to projector
   local createAgain = map.pawns and #map.pawns > 0
   if createAgain then pawnSize = map.pawns[1].size else
-  pawnSize = math.floor((requiredSize) / map.mag - border * 2) end
+  pawnSize = math.floor((requiredSize) * map.mag - border * 2) end
 
   margin = math.floor(pawnSize / 10) -- small space between 2 pawns
 
