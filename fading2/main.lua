@@ -865,8 +865,11 @@ function love.mousereleased( x, y )
 
 		arrowMode = false
 
-		-- check if we are just stopping on another pawn
+		-- check that we are in the map...
 		local map = atlas:getMap()
+		if not map:isInside(x,y) then pawnMove = nil; return end
+	
+		-- check if we are just stopping on another pawn
 		local target = map:isInsidePawn(x,y)
 		if target and target ~= pawnMove then
 
@@ -881,7 +884,13 @@ function love.mousereleased( x, y )
 			-- we consider that the mouse position is at the center of the new image
   			local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
 			pawnMove.x, pawnMove.y = (x - zx) * map.mag - pawnMove.size / 2 , (y - zy) * map.mag - pawnMove.size / 2
-			
+	
+			-- we must stay within the limits of the map	
+			if pawnMove.x < 0 then pawnMove.x = 0 end
+			if pawnMove.y < 0 then pawnMove.y = 0 end
+			if pawnMove.x + pawnMove.size + 6 > map.w then pawnMove.x = math.floor(map.w - pawnMove.size - 6) end
+			if pawnMove.y + pawnMove.size + 6 > map.h then pawnMove.y = math.floor(map.h - pawnMove.size - 6) end
+	
 			udpsend("MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.x) .. " " .. math.floor(pawnMove.y) )		
 			
 		end
