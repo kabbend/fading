@@ -21,6 +21,18 @@ local tempfile = nil
 -- pawns
 local pawns = {}
 
+
+function redressFilename( filename )
+  local f = ""
+  local i = 1
+  repeat 
+    local char = string.sub( filename , i , i )
+    if char == antisep then f = f .. sep else f = f .. char end 
+    i = i + 1
+  until char == ""
+  return f
+end
+
 --[[ 
   Pawn object 
 --]]
@@ -147,7 +159,7 @@ function love.draw()
                      -- we do some checks before displaying the pawn: it might happen that the character corresponding to the pawn is dead
                      local px,py = p.x * mag + zx , p.y * mag + zy
                      love.graphics.setColor(50,50,250)
-                     love.graphics.rectangle( "fill", px-3, py-3, p.size * mag + 6, p.size * mag + 6)
+                     love.graphics.rectangle( "fill", px, py, p.size * mag + 6, p.size * mag + 6)
                      if p.dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
                      px = px + p.offsetx * mag
                      py = py + p.offsety * mag
@@ -265,7 +277,11 @@ function love.update( dt )
 
 	  if command == "OPEN" then
 
-		local filename = string.sub( data , 6)
+		local rawfilename = string.sub( data , 6)
+
+		local filename = redressFilename ( rawfilename )
+
+		io.write("redressing filename, from " .. rawfilename .. " to " .. filename .. "\n")
 
 		filename = baseDirectory .. sep .. filename 
 
@@ -372,7 +388,7 @@ function love.load( args )
  io.write("IP address = " .. address .. "\n")
  io.write("base directory = " .. baseDirectory .. "\n")
  
- if love.system.getOS() == "OS X" then sep = "/" else sep = "\\" end
+ if love.system.getOS() == "OS X" then sep = "/"; antisep = "\\";  else sep = "\\" ; antisep = "/" end
 
  -- create socket and connect to the server
  udp = socket.udp()
