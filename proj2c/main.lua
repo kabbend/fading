@@ -14,6 +14,10 @@ local mask = nil		-- array of mask shapes, if any
 local mag = 0 			-- a priori
 local W,H  			-- image dimensions, at scale 1
 
+-- file loaded over the network
+local binary = false
+local tempfile = nil
+
 -- pawns
 local pawns = {}
 
@@ -210,8 +214,49 @@ function love.update( dt )
 	--
 	-- MPAW id x y		move pawn id to new position x,y (relative to the map at scale 1)
 	--
+	-- BNRY 		binary file is about to be sent. Will be done when BEOF is received
+	--
+	-- BEOF			end of binary file
+	--
 	
 	  local command = string.sub( data, 1, 4)
+
+	  if command == "BNRY" then
+
+		tempfile = io.open("image.tmp",'wb')
+
+	  	repeat	
+		 socket.sleep(0.01)
+  		 local data, msg = udp:receive()
+		 if data and data ~= "BEOF" then tempfile:write(data); io.write("receiving " .. string.len(data) .. " bytes\n") end
+		until data == "BEOF"
+
+		tempfile:close()
+
+		tempfile = io.open("image.tmp", 'rb')
+            	local image = tempfile:read("*a")
+            	tempfile:close()
+
+            	local lfn = love.filesystem.newFileData
+            	local lin = love.image.newImageData
+            	local lgn = love.graphics.newImage
+            	local success, img = pcall(function() return lgn(lin(lfn(image, 'img', 'file'))) end)
+
+		-- store new image
+    	    	storedImage = img
+  		W, H = storedImage:getDimensions()
+  		xfactor = W2 / W
+  		yfactor = H2 / H
+
+		-- default values
+		X, Y = W / 2 , H / 2
+		mag = 0
+
+		-- reset previous image
+		currentImage = nil
+	    	mask = nil
+
+	  end
 
 	  if command == "CONN" then
 		connect = true

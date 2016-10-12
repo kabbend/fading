@@ -21,6 +21,7 @@ require 'default/config'
 --
 -- the base address and port, and ip of the projector client
 address, port, ip = "*", 12345, nil
+chunksize = 8192 
 
 -- main screen size
 W, H = 1420, 730 	-- main window size default values (may be changed dynamically on some systems)
@@ -124,9 +125,10 @@ arrowModeMap		 = nil		-- either nil (not in map mode), "RECT" or "CIRC" shape us
 maskType		 = "RECT"	-- shape to use, rectangle by default
 
 -- send over the network
-function udpsend( data )
+function udpsend( data , verbose )
+  if verbose == nil then verbose = true end -- by default, verbose.
   if not ip then return end -- no projector connected yet !
-  io.write("send(to ip ".. ip .. ", port: "..port.. "):" .. data .. "\n")
+  if verbose then  io.write("send(to ip ".. ip .. ", port: "..port.. "):" .. data .. "\n") end
   udp:sendto(data, ip, port)  
   end
 
@@ -280,10 +282,29 @@ function love.filedropped(file)
 	  	currentImage = img 
 		-- remove the 'visible' flag from maps (eventually)
 		atlas:removeVisible()
-    	  	-- send the filename over the socket
-		filename = string.gsub(filename,baseDirectory,"")
-		udpsend("OPEN " .. filename)
-		udpsend("DISP") 	-- display immediately
+		if not is_local then
+    	  	  -- send the filename (without path) over the socket
+		  filename = string.gsub(filename,baseDirectory,"")
+		  udpsend("OPEN " .. filename)
+		  udpsend("DISP") 	-- display immediately
+		else
+		  -- send the file itself... not the same story...
+    	  	  udpsend("BNRY")
+   	  	  file:open('r')
+    	  	  local data, size = file:read( chunksize )
+    	  	  while size ~= 0 do
+            		udpsend(data,false)
+            		socket.sleep(0.01)
+            		data, size = file:read( chunksize )
+    	  	  end
+    	  	  file:close()
+	  	  -- send a EOF agreed sequence
+    	  	  udpsend("BEOF")
+		 
+		  -- display it
+		  udpsend("DISP")
+
+		end
 	    else
 	        io.write("cannot load image file " .. filename .. "\n")
 	    end	
