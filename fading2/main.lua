@@ -231,39 +231,67 @@ function sendOver( map )
 
   end
 
+--
 -- dropping a file over the main window will: 
--- * create a snapshot at bottom right of the screen,
--- * send this same image over the socket to the projector client
--- * if a map was visible, it is now hidden
+--
+-- if it's not a map:
+--  * create a snapshot at bottom right of the screen,
+--  * send this same image over the socket to the projector client
+--  * if a map was visible, it is now hidden
+--
+-- if it's a map ("map*.jpg or map*.png"):
+--  * load it as a new map
+--
 function love.filedropped(file)
 
-  	if file:open('r') then
+	  local filename = file:getFilename()
+	  local is_a_map = false
+	  local is_local = false
 
-   		-- create a snapshot
-        	local image = file:read()
-        	file:close()
+	  -- if filename does not contain the base directory, it is local
+	  local i = string.find( filename, baseDirectory )
+	  is_local = (i == nil) 
+	  io.write("is local : " .. tostring(is_local) .. "\n")
 
-        	local lfn = love.filesystem.newFileData
-        	local lin = love.image.newImageData
-        	local lgn = love.graphics.newImage
-        	success, img = pcall(function() return lgn(lin(lfn(image, 'img', 'file'))) end)
-        	if success then 
+	  local _,_,basefile = string.find( filename, ".*" .. sep .. "(.*)")
+	  io.write("basefile: " .. tostring(basefile) .. "\n")
 
+	  -- check if is a map or not 
+	  if string.sub(basefile,1,3) == "map" and 
+	    (string.sub(basefile,-4) == ".jpg" or string.sub(basefile,-4) == ".png") then
+	 	is_a_map = true
+	  end
+
+	  io.write("is map?: " .. tostring(is_a_map) .. "\n")
+
+	  if not is_a_map then
+
+   	    -- load image 
+  	    assert(file:open('r'))
+            local image = file:read()
+            file:close()
+
+            local lfn = love.filesystem.newFileData
+            local lin = love.image.newImageData
+            local lgn = love.graphics.newImage
+            success, img = pcall(function() return lgn(lin(lfn(image, 'img', 'file'))) end)
+            if success then 
 	  	-- set the local image
 	  	currentImage = img 
-
 		-- remove the 'visible' flag from maps (eventually)
 		atlas:removeVisible()
-	
     	  	-- send the filename over the socket
-		local filename = file:getFilename()
 		filename = string.gsub(filename,baseDirectory,"")
 		udpsend("OPEN " .. filename)
 		udpsend("DISP") 	-- display immediately
-		
-		end
-
-  	end
+	    else
+	        io.write("cannot load image file " .. filename .. "\n")
+	    end	
+	
+	  else
+	    -- add map to the atlas
+	    atlas:addMap( Map.new( "map" , filename ) )
+	  end
 
 	end
 
@@ -2610,10 +2638,11 @@ function love.load( args )
     -- get images & scenario directory, provided at command line
     baseDirectory = parse.baseDirectory 
     fadingDirectory = parse.arguments[1]
+    debug = parse.debug
     sep = '/'
 
     -- log file
-    if parse.debug then
+    if debug then
       logFile = io.open("fading.log","w")
       io.output(logFile)
     end
