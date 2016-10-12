@@ -126,7 +126,7 @@ maskType		 = "RECT"	-- shape to use, rectangle by default
 -- send over the network
 function udpsend( data )
   if not ip then return end -- no projector connected yet !
-  io.write("send(ip".. ip .. ",port:"..port.. "):" .. data .. "\n")
+  io.write("send(to ip ".. ip .. ", port: "..port.. "):" .. data .. "\n")
   udp:sendto(data, ip, port)  
   end
 
@@ -362,14 +362,22 @@ function rollAttack( rollType )
 -- GUI basic functions
 function love.update(dt)
 
- 	if not ip then 
+ 	--if not ip then 
  	  local data, lip, lport = udp:receivefrom()
  	  if data then
-	    io.write("receiving data .. '" .. tostring(data) .. "' from ip " .. tostring(ip).. " port " .. lport .. "\n")
-	    ip = lip
-	    port = lport
+
+	    if data == "CONNECT" then 
+	    
+		io.write("receiving connection call .. '" .. tostring(data) .. "' from ip " .. tostring(lip).. " port " .. lport .. "\n")
+	    	if ip then io.write("reconnecting...\n") end
+		ip = lip
+	    	port = lport
+	    	udpsend("CONN")
+
+	    end
+
 	  end
-	end
+	--end
 
 --[[
 	if displayPJSnapshots then

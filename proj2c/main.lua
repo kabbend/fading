@@ -3,7 +3,9 @@ local parser = require "parse"
  
 -- the address and port of the server
 local defaultAddress, port = "localhost", 12345
-local updaterate = 0.05 	-- how long to wait, in seconds, before requesting an update
+local connect = false		-- connection status to server
+local timer = 0
+local connectRetryTime = 5
 
 -- image information
 local currentImage = nil	-- displayed image
@@ -122,7 +124,7 @@ function love.draw()
                      -- we do some checks before displaying the pawn: it might happen that the character corresponding to the pawn is dead
                      local px,py = p.x * mag + zx , p.y * mag + zy
                      love.graphics.setColor(250,50,50)
-                     love.graphics.rectangle( "fill", px-3, py-3, p.size * mag + 6, p.size * mag + 6)
+                     love.graphics.rectangle( "fill", px, py, p.size * mag + 6, p.size * mag + 6)
                      if p.dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
                      px = px + p.offsetx * mag
                      py = py + p.offsety * mag
@@ -155,18 +157,24 @@ function love.draw()
 
 function love.update( dt )
 
-  --timer = timer + dt
-  --if (timer > updaterate) then
+	timer = timer + dt
 
-	--timer = 0
+	if not connect and timer > connectRetryTime then
+		-- nobody was listening, probably. we retry
+		io.write("calling server...\n")
+		udp:send("CONNECT")
+		timer = 0
+	end
 
-  	  local data, msg = udp:receive()
+  	local data, msg = udp:receive()
 
-	  if data then 
+	if data then 
 
 	  io.write("receiving data: " .. data .. "\n")
 
 	-- supported commands are:
+	--
+	-- CONN			Connected. Answer from server
 	--
 	-- OPEN filename	open a new filename from disk, store it but do not display it yet (waiting DISP command)
 	--			remove current image from screen if any. Reset position, scaling (magnifier) factor and mask
@@ -198,10 +206,17 @@ function love.update( dt )
 	--
 	-- KILL id		kill pawn with id given
 	--
+	-- ERAS 		remove all pawns from the map
+	--
 	-- MPAW id x y		move pawn id to new position x,y (relative to the map at scale 1)
 	--
 	
 	  local command = string.sub( data, 1, 4)
+
+	  if command == "CONN" then
+		connect = true
+ 	  	io.write("Connected to " .. address .. " " .. port .. "\n")
+	  end
 
 	  if command == "OPEN" then
 
@@ -318,8 +333,7 @@ function love.load( args )
  udp = socket.udp()
  udp:settimeout(0)
  udp:setpeername(address, port)
-
- io.write("Connecting to " .. address .. " " .. port .. "\n")
+ -- trying to reach server
  udp:send("CONNECT")
 
   -- GUI initializations
