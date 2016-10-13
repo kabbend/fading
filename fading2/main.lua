@@ -27,6 +27,7 @@ chunkrepeat = 6
 -- main screen size
 W, H = 1420, 730 	-- main window size default values (may be changed dynamically on some systems)
 viewh = H - 170 	-- view height
+vieww = W - 300		-- view width
 size = 19 		-- base font size
 margin = 20		-- screen margin in map mode
 
@@ -290,6 +291,7 @@ function love.filedropped(file)
 		  udpsend("DISP") 	-- display immediately
 		else
 		  -- send the file itself... not the same story...
+		  if ip then
     	  	  udpsend("BNRY")
    	  	  file:open('r')
 		  repeat
@@ -320,6 +322,7 @@ function love.filedropped(file)
 		  -- display it
 		  udpsend("DISP")
 
+		end
 		end
 	    else
 	        io.write("cannot load image file " .. filename .. "\n")
@@ -2730,10 +2733,9 @@ function love.load( args )
    
     -- create view structure
     love.graphics.setBackgroundColor( 248, 245, 244 )
-    view = yui.View(0, 0, W, viewh, {
+    view = yui.View(0, 0, vieww, viewh, {
         margin_top = 5,
         margin_left = 5,
-        --yui.Flow({name="tabs",
 	yui.Stack({name="s",
             yui.Flow({name="t",
                 yui.HorizontalSpacing({w=10}),
