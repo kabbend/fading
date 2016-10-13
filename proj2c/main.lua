@@ -6,6 +6,7 @@ local defaultAddress, port = "localhost", 12345
 local connect = false		-- connection status to server
 local timer = 0
 local connectRetryTime = 5
+local chunkrepeat = 6
 
 -- image information
 local currentImage = nil	-- displayed image
@@ -235,13 +236,24 @@ function love.update( dt )
 
 	  if command == "BNRY" then
 
+		io.write("receiving BNRY\n") 
 		tempfile = io.open("image.tmp",'wb')
 
-	  	repeat	
-		 socket.sleep(0.01)
-  		 local data, msg = udp:receive()
-		 if data and data ~= "BEOF" then tempfile:write(data); io.write("receiving " .. string.len(data) .. " bytes\n") end
+		local data, msg
+	  	repeat
+		 local i = 1	
+  		 repeat
+		  data, msg = udp:receive()
+		  if data and data ~= "BEOF" then 
+			tempfile:write(data); 
+			i = i + 1
+			io.write("receiving " .. string.len(data) .. " bytes\n") 
+		  end
+		 until i == chunkrepeat or data == "BEOF"
+		 if data ~= "BEOF" then udp:send("OK");  io.write("sending OK\n") end
+		 socket.sleep(0.05)
 		until data == "BEOF"
+		io.write("receiving BEOF\n") 
 
 		tempfile:close()
 

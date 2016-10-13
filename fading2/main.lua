@@ -21,7 +21,8 @@ require 'default/config'
 --
 -- the base address and port, and ip of the projector client
 address, port, ip = "*", 12345, nil
-chunksize = 8192 
+chunksize = 8192
+chunkrepeat = 6
 
 -- main screen size
 W, H = 1420, 730 	-- main window size default values (may be changed dynamically on some systems)
@@ -129,7 +130,7 @@ function udpsend( data , verbose )
   if verbose == nil then verbose = true end -- by default, verbose.
   if not ip then return end -- no projector connected yet !
   if verbose then  io.write("send(to ip ".. ip .. ", port: "..port.. "):" .. data .. "\n") end
-  udp:sendto(data, ip, port)  
+  udp:send(data)  
   end
 
 -- capture text input (for text search)
@@ -291,12 +292,27 @@ function love.filedropped(file)
 		  -- send the file itself... not the same story...
     	  	  udpsend("BNRY")
    	  	  file:open('r')
-    	  	  local data, size = file:read( chunksize )
-    	  	  while size ~= 0 do
+		  repeat
+    	  	   local data, size = file:read( chunksize )
+		   local i = 1
+    	  	   while size ~= 0 do
             		udpsend(data,false)
-            		socket.sleep(0.01)
+			io.write("sending " .. size .. " bytes. \n")
+			i = i + 1
+			if i == chunkrepeat then break end
             		data, size = file:read( chunksize )
-    	  	  end
+		   end
+		   local timer = 0
+		   local answer = nil
+		   if size ~= 0 then
+		     while true do
+            		  socket.sleep(0.05)
+			  answer, msg = udp:receive()
+			  timer = timer + 1
+			  if answer == 'OK' or timer > 50 then break end
+		     end
+		   end
+		  until size == 0
     	  	  file:close()
 	  	  -- send a EOF agreed sequence
     	  	  udpsend("BEOF")
@@ -411,7 +427,7 @@ function rollAttack( rollType )
 -- GUI basic functions
 function love.update(dt)
 
- 	--if not ip then 
+ 	if not ip then 
  	  local data, lip, lport = udp:receivefrom()
  	  if data then
 
@@ -421,12 +437,13 @@ function love.update(dt)
 	    	if ip then io.write("reconnecting...\n") end
 		ip = lip
 	    	port = lport
+		udp:setpeername( lip, lport )
 	    	udpsend("CONN")
 
 	    end
 
 	  end
-	--end
+	end
 
 --[[
 	if displayPJSnapshots then
