@@ -22,6 +22,8 @@ local tempfile = nil
 -- pawns
 local pawns = {}
 
+local oldiowrite = io.write
+function io.write( data ) if debug then oldiowrite( data ) end end
 
 function redressFilename( filename )
   local f = ""
@@ -70,8 +72,8 @@ function Pawn.new( id, filename, size, x, y , pj )
   local w,h = new.im:getDimensions()
   local f1,f2 = size/w, size/h
   new.f = math.min(f1,f2)
-  new.offsetx = (size - w * new.f ) / 2
-  new.offsety = (size - h * new.f ) / 2
+  new.offsetx = (size + 6 - w * new.f ) / 2
+  new.offsety = (size + 6 - h * new.f ) / 2
 
   return new
   end
@@ -338,6 +340,9 @@ function love.update( dt )
 		local _,_,id = string.find( str, "(%a+)" )
 		for i=1,#pawns do if pawns[i].id == id then pawns[i].dead = true end end
 
+	  elseif command == "ERAS" then
+		pawns = {}
+
 	  elseif command == "HIDE" then
 		currentImage = nil
 
@@ -346,7 +351,7 @@ function love.update( dt )
 
 	  elseif command == "CHXY" then
 		local str = string.sub(data , 6)
-		local _,_,x,y = string.find( str, "(%d+) (%d+)" )
+		local _,_,x,y = string.find( str, "(%-?%d+) (%-?%d+)" )
 		X, Y = x , y 
 
 	  elseif command == "MAGN" then
@@ -376,6 +381,7 @@ end
 
 options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="." },
             { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false },
+            { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false },
             { opcode="-i", longopcode="--ip", mandatory=false, varname="address", value=true, default="localhost" },
             { opcode="-p", longopcode="--port", mandatory=false, varname="port", value=true, default="12345" },
 	   }
@@ -388,7 +394,7 @@ function love.load( args )
  local parse = doParse( args )
 
  -- log file
- if parse.debug then
+ if parse.log then
    logFile = io.open("proj.log","w")
    io.output(logFile)
  end
@@ -396,6 +402,7 @@ function love.load( args )
  address = parse.address 
  baseDirectory = parse.baseDirectory 
  port = parse.port
+ debug = parse.debug
 
  io.write("IP address = " .. address .. "\n")
  io.write("base directory = " .. baseDirectory .. "\n")

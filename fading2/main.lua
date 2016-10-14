@@ -131,6 +131,9 @@ arrowModeMap		 = nil		-- either nil (not in map mode), "RECT" or "CIRC" shape us
 maskType		 = "RECT"	-- shape to use, rectangle by default
 
 
+local oldiowrite = io.write
+function io.write( data ) if debug then oldiowrite( data ) end end
+ 
 -- send a command or data over the network
 function udpsend( data , verbose )
   if not ip then return end -- no projector connected yet !
@@ -1418,7 +1421,7 @@ function Atlas:toggleVisible()
 	if not self.maps[ self.index ] then return end
 	if self.maps[ self.index ].kind == "scenario" then return end -- a scenario is never displayed to the players
 	if self.visible == self.index then 
-		self.visible = nil 
+		self.visible = 0 
 		-- erase snapshot !
 		currentImage = nil 
 	  	-- send hide command to projector
@@ -1433,7 +1436,7 @@ function Atlas:toggleVisible()
 	end
 
 function Atlas:removeVisible()
-	self.visible = nil
+	self.visible = 0 
 	end
 
 function Atlas:isVisible(map)
@@ -1446,7 +1449,7 @@ function Atlas.new()
   local new = {}
   setmetatable(new,Atlas)
   new.maps = {}
-  new.visible = nil -- index of the map currently visible (or nil if none)
+  new.visible = 0 -- index of the map currently visible (or 0 if none)
   new.index = 0 -- index of the current map with focus in map mode (or 0 if none) 
   new.display = true -- a priori
   return new
@@ -1784,7 +1787,7 @@ if mouseMove then
 	if zy > H - margin or zy + map.h / map.mag < margin then map.y = oldy end	
 
 	-- send move to the projector
-	if map.x ~= oldx or map.y ~= oldy and atlas:isVisible(map) then udpsend("CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) ) end
+	if (map.x ~= oldx or map.y ~= oldy) and atlas:isVisible(map) then udpsend("CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) ) end
 
     end
 end
@@ -2692,6 +2695,7 @@ function readScenario( filename )
 
 options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="." },
 	    { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false },
+	    { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false },
 	    { opcode="-c", longopcode="--connect", mandatory=false, varname="connect", value=false, default=false },
 	    { opcode="", mandatory=true, varname="fadingDirectory" } }
 	    
@@ -2711,7 +2715,7 @@ function love.load( args )
     sep = '/'
 
     -- log file
-    if debug then
+    if parse.log then
       logFile = io.open("fading.log","w")
       io.output(logFile)
     end
