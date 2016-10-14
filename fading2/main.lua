@@ -19,10 +19,14 @@ require 'default/config'
 --
 -- GLOBAL VARIABLES
 --
--- the base address and port, and ip of the projector client
-address, port, ip = "*", 12345, nil
-chunksize = 8192
-chunkrepeat = 6
+
+debug = false
+
+-- udp information for network udp
+address, port, ip 	= "*", 12345, nil
+chunksize 		= 8192			-- size of the datagram when sending binary file
+chunkrepeat 		= 6			-- number of chunks to send before requesting an acknowledge
+connected 		= false			-- udp in connected mode or not ?
 
 -- main screen size
 W, H = 1420, 730 	-- main window size default values (may be changed dynamically on some systems)
@@ -126,12 +130,62 @@ arrowStopIndex 		 = nil		-- index of the PNJ at the ending point
 arrowModeMap		 = nil		-- either nil (not in map mode), "RECT" or "CIRC" shape used to draw map maskt
 maskType		 = "RECT"	-- shape to use, rectangle by default
 
--- send over the network
+
+-- send a command or data over the network
 function udpsend( data , verbose )
-  if verbose == nil then verbose = true end -- by default, verbose.
   if not ip then return end -- no projector connected yet !
-  if verbose then  io.write("send(to ip ".. ip .. ", port: "..port.. "):" .. data .. "\n") end
-  udp:send(data)  
+  if verbose == nil or verbose == true then  io.write("send(to ip ".. ip .. ", port: "..port.. "):" .. data .. "\n") end
+  if connected then 
+	  udp:send(data) 
+  else
+	  udp:sendto(data,ip,port)
+  end
+  end
+
+-- send a whole binary file over the network
+function udpsendBinary( file )
+
+  if not ip then return end -- no projector connected yet !
+
+  udpsend("BNRY")
+
+  file:open('r')
+  repeat
+
+	-- we send a given number of chunks in a row.
+	-- At the end of file, we might send a smaller one, then
+	-- nothing...
+  	local data, size = file:read( chunksize )
+   	local i = 1
+
+    	while size ~= 0 do
+        	udpsend(data,false) -- send chunk, not verbose
+		if debug then io.write("sending " .. size .. " bytes. \n") end
+		i = i + 1
+		if i == chunkrepeat then break end
+            	data, size = file:read( chunksize )
+	end
+
+	-- ... then, if something was actually sent, we wait some time
+	-- for an acknowledge
+	local timer = 0
+	local answer = nil
+   	if size ~= 0 then 
+		while true do
+            		socket.sleep(0.05)
+			answer, msg = udp:receive()
+			timer = timer + 1
+			if answer == 'OK' or timer > 50 then break end
+		 end
+	end
+
+  until size == 0
+
+  file:close()
+
+  -- send a EOF agreed sequence: Binary EOF
+  udpsend("BEOF")
+
   end
 
 -- capture text input (for text search)
@@ -291,38 +345,10 @@ function love.filedropped(file)
 		  udpsend("DISP") 	-- display immediately
 		else
 		  -- send the file itself... not the same story...
-		  if ip then
-    	  	  udpsend("BNRY")
-   	  	  file:open('r')
-		  repeat
-    	  	   local data, size = file:read( chunksize )
-		   local i = 1
-    	  	   while size ~= 0 do
-            		udpsend(data,false)
-			io.write("sending " .. size .. " bytes. \n")
-			i = i + 1
-			if i == chunkrepeat then break end
-            		data, size = file:read( chunksize )
-		   end
-		   local timer = 0
-		   local answer = nil
-		   if size ~= 0 then
-		     while true do
-            		  socket.sleep(0.05)
-			  answer, msg = udp:receive()
-			  timer = timer + 1
-			  if answer == 'OK' or timer > 50 then break end
-		     end
-		   end
-		  until size == 0
-    	  	  file:close()
-	  	  -- send a EOF agreed sequence
-    	  	  udpsend("BEOF")
-		 
+		  udpsendBinary( file )
 		  -- display it
 		  udpsend("DISP")
 
-		end
 		end
 	    else
 	        io.write("cannot load image file " .. filename .. "\n")
@@ -430,7 +456,7 @@ function rollAttack( rollType )
 -- GUI basic functions
 function love.update(dt)
 
- 	if not ip then 
+ 	if not ip or not connected then 
  	  local data, lip, lport = udp:receivefrom()
  	  if data then
 
@@ -440,7 +466,7 @@ function love.update(dt)
 	    	if ip then io.write("reconnecting...\n") end
 		ip = lip
 	    	port = lport
-		udp:setpeername( lip, lport )
+		if connected then udp:setpeername( lip, lport ) end
 	    	udpsend("CONN")
 
 	    end
@@ -2666,6 +2692,7 @@ function readScenario( filename )
 
 options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="." },
 	    { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false },
+	    { opcode="-c", longopcode="--connect", mandatory=false, varname="connect", value=false, default=false },
 	    { opcode="", mandatory=true, varname="fadingDirectory" } }
 	    
 --
@@ -2679,6 +2706,7 @@ function love.load( args )
     -- get images & scenario directory, provided at command line
     baseDirectory = parse.baseDirectory 
     fadingDirectory = parse.arguments[1]
+    connected = parse.connect
     debug = parse.debug
     sep = '/'
 
