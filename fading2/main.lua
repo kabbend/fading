@@ -148,6 +148,8 @@ function udpsendBinary( file )
   udpsend("BNRY")
 
   file:open('r')
+  local timerlimit = 50 
+  local timerAbsoluteLimit = 100
   repeat
 
 	-- we send a given number of chunks in a row.
@@ -169,11 +171,23 @@ function udpsendBinary( file )
 	local timer = 0
 	local answer = nil
    	if size ~= 0 then 
+		io.write("waiting ................... " .. timerlimit .. " cycles\n")
 		while true do
             		socket.sleep(0.05)
 			answer, msg = udp:receive()
 			timer = timer + 1
-			if answer == 'OK' or timer > 50 then break end
+			if answer == 'OK' then 
+			 	io.write("OK in " .. timer .. " cycles\n") 
+				break 
+			end
+			if timer > timerlimit then break end
+		 end
+		 if timer > timerlimit then 
+			 io.write("warning: did not receive OK within " .. timerlimit .. " cycles. Adjusting timer\n") 
+			 timerlimit = timerlimit * 2
+			 if timerlimit > timerAbsoluteLimit then timerlimit = timerAbsoluteLimit end
+		 else
+		   	 timerlimit = math.ceil(( timerlimit - timer ) / 1.5 ) + 1 
 		 end
 	end
 

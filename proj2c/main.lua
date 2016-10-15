@@ -353,7 +353,7 @@ function love.update( dt )
 		  end
 		 until i == chunkrepeat or data == "BEOF"
 		 if data ~= "BEOF" then udp:send("OK");  io.write("sending OK\n") end
-		 socket.sleep(0.05)
+		 socket.sleep(0.1)
 		until data == "BEOF"
 		io.write("receiving BEOF\n") 
 
@@ -370,14 +370,19 @@ function love.update( dt )
 
 		-- store new image
     	    	storedImage = img
-  		W, H = storedImage:getDimensions()
-  		xfactor = W2 / W
-  		yfactor = H2 / H
+  		success, W, H = pcall( function() return storedImage:getDimensions() end )
+		if not success then 
+			io.write("sorry, something bad happened in getDimensions() ... \n")
+			storedImage = nil
+		else
+  			xfactor = W2 / W
+  			yfactor = H2 / H
 
-		-- default values
-		X, Y = W / 2 , H / 2
-		mag = 0
-
+			-- default values
+			X, Y = W / 2 , H / 2
+			mag = 0
+		end
+		
 		-- reset previous image
 		currentImage = nil
 	    	mask = nil
