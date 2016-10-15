@@ -22,6 +22,9 @@ require 'default/config'
 
 debug = false
 
+-- messages zone
+messages = {}
+
 -- udp information for network udp
 address, port, ip 	= "*", 12345, nil
 chunksize 		= 8192			-- size of the datagram when sending binary file
@@ -132,6 +135,12 @@ maskType		 = "RECT"	-- shape to use, rectangle by default
 
 local oldiowrite = io.write
 function io.write( data ) if debug then oldiowrite( data ) end end
+
+-- insert a new message to display
+function addMessage( text, time )
+  if not time then time = 5 end
+  table.insert( messages, { text=text , time=time, offset=0 } )
+end
  
 -- send a command or data over the network
 function udpsend( data , verbose )
@@ -448,6 +457,16 @@ function rollAttack( rollType )
 -- GUI basic functions
 function love.update(dt)
 
+	-- decrease timelength of 1st message if any
+	if messages[1] then 
+	  if messages[1].time < 0 then
+		messages[1].offset = messages[1].offset + 1
+		if messages[1].offset > 21 then table.remove( messages, 1 ) end
+	  else	  
+		messages[1].time = messages[1].time - dt 
+	end	
+	end
+
 	-- listening to projector
  	local data, lip, lport = udp:receivefrom()
  	if data then
@@ -455,6 +474,7 @@ function love.update(dt)
 	    if data == "CONNECT" then 
 	    
 		io.write("receiving connection call .. '" .. tostring(data) .. "' from ip " .. tostring(lip).. " port " .. lport .. "\n")
+		addMessage("receiving connection call .. '" .. tostring(data) .. "' from ip " .. tostring(lip).. " port " .. lport .. "\n")
 	    	if ip then io.write("reconnecting...\n") end
 		ip = lip
 	    	port = lport
@@ -932,6 +952,15 @@ function love.draw()
       end
  
  end  
+
+ -- print messages eventually
+ if messages[1] then
+        love.graphics.setColor(10,60,220)
+        love.graphics.setFont(fontRound)
+	love.graphics.setScissor( 10, 40, 1000, 30 )
+	love.graphics.printf( messages[1].text, 10 , 40 - messages[1].offset ,1000)
+	love.graphics.setScissor()
+ end
 
 end
 
@@ -2773,6 +2802,7 @@ function love.load( args )
       end  
     end
 
+    addMessage("Loading character data file", 3)
     dofile "fading2/data"
 
     local current_class = opt[1]
@@ -2853,7 +2883,9 @@ function love.load( args )
     -- default directory is 'fading2' (application folder)
     if not fadingDirectory or fadingDirectory == "" then fadingDirectory = "fading2" end
     io.write("base directory   : |" .. baseDirectory .. "|\n")
+    addMessage("base directory   : |" .. baseDirectory .. "|\n")
     io.write("fading directory : |" .. fadingDirectory .. "|\n")
+    addMessage("fading directory : |" .. fadingDirectory .. "|\n")
 
     -- list all files in that directory, by executing a command ls or dir
     local allfiles = {}, command
@@ -2932,7 +2964,10 @@ function love.load( args )
 
     io.write("Loaded " .. #snapshots .. " snapshots, " .. mapsNum .. " maps, " .. PJImageNum .. " PJ images, " .. scenarioImageNum .. " scenario image, " .. 
     		scenarioTextNum .. " scenario text\n" )
- 
+
+    addMessage("Loaded " .. #snapshots .. " snapshots, " .. mapsNum .. " maps, " .. PJImageNum .. " PJ images, " .. scenarioImageNum .. " scenario image, " .. 
+    		scenarioTextNum .. " scenario text\n" )
+	 
   -- create a reverted table of faces, in which point numbers are index,
   -- not value. This will ease face retrieval when knowing the points
   d6.revertedfaces = {}
