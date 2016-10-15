@@ -438,9 +438,9 @@ function rollAttack( rollType )
 -- GUI basic functions
 function love.update(dt)
 
- 	if not ip or not connected then 
- 	  local data, lip, lport = udp:receivefrom()
- 	  if data then
+	-- listening to projector
+ 	local data, lip, lport = udp:receivefrom()
+ 	if data then
 
 	    if data == "CONNECT" then 
 	    
@@ -448,39 +448,40 @@ function love.update(dt)
 	    	if ip then io.write("reconnecting...\n") end
 		ip = lip
 	    	port = lport
-		if connected then udp:setpeername( lip, lport ) end
 	    	udpsend("CONN")
+		
+	    end
+
+	    io.write("receiving command: " .. data .. "\n")
+
+	    local command = string.sub( data , 1, 4 )
+
+	    if command == "TARG" then
+
+		local map = atlas:getMap()
+		if map and map.pawns then
+		else
+		  io.write("inconsistent TARG command received while no map or no pawns\n")
+		end
 
 	    end
 
-	  end
-	end
+	    if command == "MPAW" then
 
---[[
-	if displayPJSnapshots then
-
-	  -- if focus changed, send a new PJ snapshot to the projector, or a HIDe command, eventually
-	  if focus and lastFocus ~= focus then
-		if PNJTable[focus].PJ and PNJTable[focus].snapshot then
-			udpsend("SNAP " .. PNJTable[focus].snapshot.filename ) 
-		elseif not PNJTable[focus].PJ then
-    			local index = findPNJ(PNJTable[focus].target)
-			if index and PNJTable[index].PJ and PNJTable[index].snapshot then
-				udpsend("SNAP " .. PNJTable[index].snapshot.filename ) 
-			else 
-				udpsend("HIDS") 
-
-			end
+		local map = atlas:getMap()
+		if map and map.pawns then
+		  local str = string.sub(data , 6)
+                  local _,_,id,x,y = string.find( str, "(%a+) (%d+) (%d+)" )
+		  for i=1,#map.pawns do 
+			if map.pawns[i].id == id then map.pawns[i].x = x; map.pawns[i].y = y; break; end 
+		  end 
+		else
+		  io.write("inconsistent MPAW command received while no map or no pawns\n")
 		end
-		lastFocus = focus -- avoid to do this next time...
-	  end
-	  if not focus and lastFocus ~= focus then
-		udpsend("HIDS") 
-		lastFocus = nil -- avoid to do this next time...
-	  end
+
+	    end
 
 	end
---]]
 
 	-- change snapshot offset if mouse  at bottom right or left
 	local snapMax = #snapshots * (snapshotSize + snapshotMargin) - W
