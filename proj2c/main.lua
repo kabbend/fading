@@ -53,7 +53,7 @@ function Pawn.new( id, filename, size, x, y , pj )
   local new = {}
   setmetatable(new,Pawn)
 
-  filename = baseDirectory .. sep .. filename
+  filename = redress( baseDirectory .. sep .. filename )
 
   -- get basic data
   new.id = id
