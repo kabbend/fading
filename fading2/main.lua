@@ -26,7 +26,6 @@ debug = false
 address, port, ip 	= "*", 12345, nil
 chunksize 		= 8192			-- size of the datagram when sending binary file
 chunkrepeat 		= 6			-- number of chunks to send before requesting an acknowledge
-connected 		= false			-- udp in connected mode or not ?
 
 -- main screen size
 W, H = 1420, 730 	-- main window size default values (may be changed dynamically on some systems)
@@ -138,11 +137,7 @@ function io.write( data ) if debug then oldiowrite( data ) end end
 function udpsend( data , verbose )
   if not ip then return end -- no projector connected yet !
   if verbose == nil or verbose == true then  io.write("send(to ip ".. ip .. ", port: "..port.. "):" .. data .. "\n") end
-  if connected then 
-	  udp:send(data) 
-  else
-	  udp:sendto(data,ip,port)
-  end
+  udp:sendto(data,ip,port)
   end
 
 -- send a whole binary file over the network
@@ -458,8 +453,13 @@ function love.update(dt)
 
 	    if command == "TARG" then
 
-		local map = atlas:getMap()
+		local map = atlas:getVisible()
 		if map and map.pawns then
+		  local str = string.sub(data , 6)
+                  local _,_,id1,id2 = string.find( str, "(%a+) (%a+)" )
+		  local indexP = findPNJ( id1 )
+		  local indexT = findPNJ( id2 )
+		  updateTargetByArrow( indexP, indexT )
 		else
 		  io.write("inconsistent TARG command received while no map or no pawns\n")
 		end
@@ -468,7 +468,7 @@ function love.update(dt)
 
 	    if command == "MPAW" then
 
-		local map = atlas:getMap()
+		local map = atlas:getVisible()
 		if map and map.pawns then
 		  local str = string.sub(data , 6)
                   local _,_,id,x,y = string.find( str, "(%a+) (%d+) (%d+)" )
@@ -1405,6 +1405,8 @@ function Atlas:nextMap()
 	end 
 
 function Atlas:getMap() if not self.display then return nil else return self.maps[ self.index ] end end
+
+function Atlas:getVisible() if self.visible then return self.maps[ self.visible ] else return nil end end
 
 function Atlas:toggleVisible()
 	local map = self.maps[ self.index ]
@@ -2700,7 +2702,6 @@ function readScenario( filename )
 options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="." },
 	    { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false },
 	    { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false },
-	    { opcode="-c", longopcode="--connect", mandatory=false, varname="connect", value=false, default=false },
 	    { opcode="", mandatory=true, varname="fadingDirectory" } }
 	    
 --
@@ -2714,7 +2715,6 @@ function love.load( args )
     -- get images & scenario directory, provided at command line
     baseDirectory = parse.baseDirectory 
     fadingDirectory = parse.arguments[1]
-    connected = parse.connect
     debug = parse.debug
     sep = '/'
 
