@@ -535,9 +535,14 @@ function love.load( args )
  -- trying to reach server
  udp:send("CONNECT")
 
-  -- GUI initializations
-  -- we try to go to 2nd display
- love.window.setMode( 0, 0 , { x = 5, y = 5 , fullscreen=false, resizable=true, display=2} )
+ -- GUI initializations
+ -- in remote: we go to 1st display fullscreen
+ -- in local: we try to go to 2nd display fullscreen, otherwise go to 1st display standard 
+ local disp = 1
+ local full = true
+ if address == "localhost" then disp = 2; full = false end
+
+ love.window.setMode( 0, 0 , { x = 0, y = 0 , fullscreen=full, resizable=true, display=disp} )
 
  -- check if we are on a 2nd display or not
  W2,H2,f = love.window.getMode()
