@@ -66,14 +66,17 @@ function Pawn.new( id, filename, size, x, y , pj )
   new.dead = false 			-- so far
 
   -- load pawn image
-  local file = assert(io.open( filename , "rb" ))
+  local file = io.open( filename , "rb" )
+  if not file then
+	  io.write("cannot open file " .. filename .. "\n")
+	  return nil
+  end
   local image = file:read( "*a" )	
   file:close()
   local lfn = love.filesystem.newFileData
   local lin = love.image.newImageData
   local lgn = love.graphics.newImage
   new.im = lgn(lin(lfn(image, 'img', 'file')))
-  assert(new.im, "sorry, could not load image at '" .. filename .. "'")
 
   -- compute scaling factor f, offsets (to center the image within the square)
   local w,h = new.im:getDimensions()
@@ -441,7 +444,8 @@ function love.update( dt )
 		local str = string.sub(data , 6)
 		local _,_,id,x,y,size,pj,f = string.find( str, "(%a+) (%d+) (%d+) (%d+) (%d) (.*)" )
  		if pj == "1" then pj = true; else pj = false end
-		table.insert( pawns, Pawn.new(id,f,size,x,y,pj) )
+		local p = Pawn.new(id,f,size,x,y,pj) 
+		if p then table.insert( pawns, p ) end
 		
 	  elseif command == "MPAW" then
 		local str = string.sub(data , 6)
