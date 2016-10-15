@@ -9,11 +9,12 @@ local connectRetryTime = 5
 local chunkrepeat = 6
 
 -- image information
-local currentImage = nil	-- displayed image
-local storedImage = nil		-- stored image (buffer before display)
-local mask = nil		-- array of mask shapes, if any 
-local mag = 0 			-- a priori
-local W,H  			-- image dimensions, at scale 1
+currentImage = nil	-- displayed image
+storedImage = nil	-- stored image (buffer before display)
+mask = nil		-- array of mask shapes, if any 
+mag = 0 		-- a priori
+W,H = 0,0 		-- image dimensions, at scale 1
+X,Y = 0,0		-- current center position of the image
 
 -- file loaded over the network
 local binary = false
@@ -21,6 +22,12 @@ local tempfile = nil
 
 -- pawns
 local pawns = {}
+
+-- mouse interaction
+local pawnMove = nil		-- information on the current pawn movement
+local arrowMode = false		-- are we currently drawing an arrow ?
+local arrowStartX, arrowStartY	-- starting point of the move (and the arrow)
+local arrowX, arrowY		-- current end point
 
 local oldiowrite = io.write
 function io.write( data ) if debug then oldiowrite( data ) end end
@@ -78,6 +85,83 @@ function Pawn.new( id, filename, size, x, y , pj )
   return new
   end
 
+
+function distanceFrom(x1,y1,x2,y2) return math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2) end
+
+-- compute the "head" of the arrow, given 2 points (x1,y1) the starting point of the arrow,
+-- and (x2,y2) the ending point. Return 4 values x3,y3,x4,y4 which are the positions of
+-- 2 other points which constitute, with (x2,y2), the head triangle
+function computeTriangle( x1, y1, x2, y2 )
+  local L1 = distanceFrom(x1,y1,x2,y2)
+  local L2 = 30
+  if L1 < L2 then return nil end -- too small
+  local theta = 15
+  local x3 = x2 - (L2/L1)*((x1-x2)*math.cos(theta) + (y1 - y2)*math.sin(theta))
+  local y3 = y2 - (L2/L1)*((y1-y2)*math.cos(theta) - (x1 - x2)*math.sin(theta))
+  local x4 = x2 - (L2/L1)*((x1-x2)*math.cos(theta) - (y1 - y2)*math.sin(theta))
+  local y4 = y2 - (L2/L1)*((y1-y2)*math.cos(theta) + (x1 - x2)*math.sin(theta))
+  return x3,y3,x4,y4
+  end
+
+-- return a pawn if position x,y on the screen (typically, the mouse), is
+-- inside any pawn of the map 
+function isInsidePawn(x,y)
+  local zx,zy = -( X * mag - W2 / 2), -( Y * mag - H2 / 2)
+  for i=1,#pawns do
+                local lx,ly = pawns[i].x, pawns[i].y -- position x,y relative to the map, at scale 1
+                local tx,ty = zx + lx * mag, zy + ly * mag -- position tx,ty relative to the screen
+                local size = pawns[i].size * mag -- size relative to the screen
+                if x >= tx and x <= tx + size and y >= ty and y <= ty + size then return pawns[i] end
+  end
+  return nil
+end
+
+function love.mousepressed (x,y)
+	
+	local p = isInsidePawn(x,y)
+
+        if p then
+
+                  -- clicking on a pawn will start an arrow that will represent
+                  -- * either an attack, if the arrow ends on another pawn
+                  -- * or a move, if the arrow ends somewhere else on the map
+                  pawnMove = p
+                  arrowMode = true
+                  arrowStartX, arrowStartY = x, y
+	end
+end
+
+function love.mousereleased (x,y)
+        -- we were moving a pawn. we stop now
+        if pawnMove then
+
+                arrowMode = false
+
+                local target = isInsidePawn(x,y)
+                if target and target ~= pawnMove then
+
+                        -- we have a target
+                        udp:send( "TARG " .. pawnMove.id .. " " ..  target.id ) -- FIXME
+
+                else
+
+                        -- it was just a move, change the pawn position
+                        -- we consider that the mouse position is at the center of the new image
+			local zx,zy = -( X * mag - W2 / 2), -( Y * mag - H2 / 2)
+                        pawnMove.x, pawnMove.y = (x - zx) / mag - pawnMove.size / 2 , (y - zy) / mag - pawnMove.size / 2
+
+                        -- we must stay within the limits of the map    
+                        if pawnMove.x < 0 then pawnMove.x = 0 end
+                        if pawnMove.y < 0 then pawnMove.y = 0 end
+                        if pawnMove.x + pawnMove.size + 6 > W then pawnMove.x = math.floor(W - pawnMove.size - 6) end
+                        if pawnMove.y + pawnMove.size + 6 > H then pawnMove.y = math.floor(H - pawnMove.size - 6) end
+
+                        udp:send("MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.x) .. " " .. math.floor(pawnMove.y) )
+
+                end
+                pawnMove = nil;
+        end
+end
 
 function myStencilFunction() 
         love.graphics.rectangle("fill",zx,zy,w,h)
@@ -170,12 +254,28 @@ function love.draw()
 		 end
         end
 
+  	if arrowMode then
+      		-- draw arrow and arrow head
+      		love.graphics.setColor(250,0,0)
+      		love.graphics.line( arrowStartX, arrowStartY, arrowX, arrowY )
+      		local x3, y3, x4, y4 = computeTriangle( arrowStartX, arrowStartY, arrowX, arrowY)
+      		if x3 then
+        		love.graphics.polygon( "fill", arrowX, arrowY, x3, y3, x4, y4 )
+      		end
+  	end
+
      end
  
   end
 
 function love.update( dt )
 
+	-- store current mouse position in arrow mode
+        if arrowMode then
+                arrowX, arrowY = love.mouse.getPosition()
+        end
+
+	-- socket communication
 	timer = timer + dt
 
 	if not connect and timer > connectRetryTime then
@@ -384,6 +484,7 @@ options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDi
             { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false },
             { opcode="-i", longopcode="--ip", mandatory=false, varname="address", value=true, default="localhost" },
             { opcode="-p", longopcode="--port", mandatory=false, varname="port", value=true, default="12345" },
+            { opcode="-I", longopcode="--interact", mandatory=false, varname="interact", value=false, default=false },
 	   }
 
 --
@@ -403,6 +504,7 @@ function love.load( args )
  baseDirectory = parse.baseDirectory 
  port = parse.port
  debug = parse.debug
+ interact = parse.interact
 
  io.write("IP address = " .. address .. "\n")
  io.write("base directory = " .. baseDirectory .. "\n")
