@@ -404,7 +404,11 @@ function love.update( dt )
 
 		filename = baseDirectory .. sep .. filename 
 
-		local file = assert(io.open( filename , "rb" ))
+		local file = io.open( filename , "rb" )
+		if not file then
+			io.write("sorry, cannot open file at " .. filename .. "\n")
+			return
+		end
 		local image = file:read( "*a" )	
 		file:close()
 
@@ -413,17 +417,21 @@ function love.update( dt )
   	    	local lgn = love.graphics.newImage
 
     	    	img = lgn(lin(lfn(image, 'img', 'file')))
-		assert(img, "sorry, could not load image at '" .. filename .. "'")
 
 		-- store new image
     	    	storedImage = img
-  		W, H = storedImage:getDimensions()
-  		xfactor = W2 / W
-  		yfactor = H2 / H
+  		success, W, H = pcall( function() return storedImage:getDimensions() end )
+		if not success then 
+			io.write("sorry, something bad happened in getDimensions() ... \n")
+			storedImage = nil
+		else
+  			xfactor = W2 / W
+  			yfactor = H2 / H
 
-		-- default values
-		X, Y = W / 2 , H / 2
-		mag = 0
+			-- default values
+			X, Y = W / 2 , H / 2
+			mag = 0
+		end
 
 		-- reset previous image
 		currentImage = nil

@@ -148,6 +148,7 @@ function udpsendBinary( file )
   udpsend("BNRY")
 
   file:open('r')
+  local lowlimit = 5 
   local timerlimit = 50 
   local timerAbsoluteLimit = 100
   repeat
@@ -187,7 +188,7 @@ function udpsendBinary( file )
 			 timerlimit = timerlimit * 2
 			 if timerlimit > timerAbsoluteLimit then timerlimit = timerAbsoluteLimit end
 		 else
-		   	 timerlimit = math.ceil(( timerlimit - timer ) / 1.5 ) + 1 
+		   	 timerlimit = math.min( lowlimit, math.ceil(( timerlimit - timer ) / 1.5 ) + 1 )
 		 end
 	end
 
