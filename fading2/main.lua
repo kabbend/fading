@@ -137,9 +137,9 @@ local oldiowrite = io.write
 function io.write( data ) if debug then oldiowrite( data ) end end
 
 -- insert a new message to display
-function addMessage( text, time )
+function addMessage( text, time , important )
   if not time then time = 5 end
-  table.insert( messages, { text=text , time=time, offset=0 } )
+  table.insert( messages, { text=text , time=time, offset=0, important=important } )
 end
  
 -- send a command or data over the network
@@ -485,6 +485,15 @@ function love.update(dt)
 	    io.write("receiving command: " .. data .. "\n")
 
 	    local command = string.sub( data , 1, 4 )
+
+	    if string.lower(command) == "eric" or
+	       string.lower(command) ==" phil" or
+	       string.lower(command) ==" bibi" or
+	       string.lower(command) ==" gui " or
+	       string.lower(command) ==" gay " 
+	    then
+		addMessage( string.upper(data) , 30 , true ) 
+	    end
 
 	    if command == "TARG" then
 
@@ -955,7 +964,11 @@ function love.draw()
 
  -- print messages eventually
  if messages[1] then
-        love.graphics.setColor(10,60,220)
+        if messages[1].important then 
+		love.graphics.setColor(255,0,0)
+	else
+		love.graphics.setColor(10,60,220)
+	end
         love.graphics.setFont(fontRound)
 	love.graphics.setScissor( 10, 40, 1000, 30 )
 	love.graphics.printf( messages[1].text, 10 , 40 - messages[1].offset ,1000)
@@ -2883,9 +2896,9 @@ function love.load( args )
     -- default directory is 'fading2' (application folder)
     if not fadingDirectory or fadingDirectory == "" then fadingDirectory = "fading2" end
     io.write("base directory   : |" .. baseDirectory .. "|\n")
-    addMessage("base directory   : |" .. baseDirectory .. "|\n")
+    addMessage("base directory : " .. baseDirectory .. "\n")
     io.write("fading directory : |" .. fadingDirectory .. "|\n")
-    addMessage("fading directory : |" .. fadingDirectory .. "|\n")
+    addMessage("fading directory : " .. fadingDirectory .. "\n")
 
     -- list all files in that directory, by executing a command ls or dir
     local allfiles = {}, command
