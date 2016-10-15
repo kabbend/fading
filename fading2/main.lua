@@ -274,24 +274,6 @@ function doSearch( sentence )
 
 	end
 
--- send an image (already stored in memory) to the projector
-function sendOver( map )
-
-  udpsend("OPEN " .. map.baseFilename )
-
-  -- send mask if applicable
-  if map.mask then
-	for k,v in pairs( map.mask ) do
-		udpsend( v )
-	end
-  end
-
-  udpsend("MAGN " .. 1/map.mag)
-  udpsend("CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) )
-  udpsend("DISP")
-
-  end
-
 --
 -- dropping a file over the main window will: 
 --
@@ -325,9 +307,7 @@ function love.filedropped(file)
 
 	  io.write("is map?: " .. tostring(is_a_map) .. "\n")
 
-	  if not is_a_map then
-
-   	    -- load image 
+	  if not is_a_map then -- load image 
   	    assert(file:open('r'))
             local image = file:read()
             file:close()
@@ -357,9 +337,8 @@ function love.filedropped(file)
 	        io.write("cannot load image file " .. filename .. "\n")
 	    end	
 	
-	  else
-	    -- add map to the atlas
-	    atlas:addMap( Map.new( "map" , filename ) )
+	  else -- add map to the atlas
+	    atlas:addMap( Map.new( "map" , nil , file ) ) -- no filename, and file object means local 
 	  end
 
 	end
@@ -1311,25 +1290,34 @@ function createPawns( map , sx, sy, requiredSize )
 --]]
 Map = {}
 Map.__index = Map
-function Map.new( kind, imageFilename ) 
+function Map.new( kind, imageFilename , file ) 
   local new = {}
   setmetatable(new,Map)
   assert( kind == "map" or kind == "scenario" , "sorry, cannot create a map of such kind" )
-  assert( imageFilename , "please provide a filename" )
   new.kind = kind
-  local file = assert(io.open( imageFilename , "rb" ))
-  local image = file:read( "*a" )
-  file:close()
+  local image
+  if file then 
+	new.is_local = true 
+	new.file = file
+        new.file:open('r')
+  	image = new.file:read()
+  	new.file:close()
+  else 
+	new.is_local = false 
+  	new.file = assert(io.open( imageFilename , "rb" ))
+  	image = new.file:read('*a')
+  	new.file:close()
+  end
 
   local lfn = love.filesystem.newFileData
   local lin = love.image.newImageData
   local lgn = love.graphics.newImage
 
   local img = lgn(lin(lfn(image, 'img', 'file')))
-  assert(img, "sorry, could not load image at '" .. imageFilename .. "'")  
+  if not img then io.write("sorry, could not load image at '" .. tostring(imageFilename) .. "'") end  
   
   new.filename = imageFilename
-  new.baseFilename = string.gsub(imageFilename,baseDirectory,"")
+  if not new.is_local then new.baseFilename = string.gsub(imageFilename,baseDirectory,"") end
   new.im = img 
   new.w, new.h = new.im:getDimensions() 
   new.x = new.w / 2
@@ -1418,8 +1406,9 @@ function Atlas:nextMap()
 function Atlas:getMap() if not self.display then return nil else return self.maps[ self.index ] end end
 
 function Atlas:toggleVisible()
-	if not self.maps[ self.index ] then return end
-	if self.maps[ self.index ].kind == "scenario" then return end -- a scenario is never displayed to the players
+	local map = self.maps[ self.index ]
+	if not map then return end
+	if map.kind == "scenario" then return end -- a scenario is never displayed to the players
 	if self.visible == self.index then 
 		self.visible = 0 
 		-- erase snapshot !
@@ -1429,9 +1418,23 @@ function Atlas:toggleVisible()
 	else    
 		self.visible = self.index 
 		-- change snapshot !
-		currentImage = self.maps[ self.index ].im
+		currentImage = map.im
 		-- send to projector
-		sendOver( self.maps[ self.index ] )
+		if map.is_local then
+		  udpsendBinary( map.file )
+		else 
+  		  udpsend("OPEN " .. map.baseFilename )
+		end
+  		-- send mask if applicable
+  		if map.mask then
+			for k,v in pairs( map.mask ) do
+				udpsend( v )
+			end
+  		end
+  		udpsend("MAGN " .. 1/map.mag)
+  		udpsend("CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) )
+  		udpsend("DISP")
+
 	end
 	end
 
