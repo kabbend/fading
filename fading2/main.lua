@@ -62,7 +62,7 @@ clnButton	= nil		-- button Cleanup
 thereIsDead	= false		-- is there a dead character in the list ? (if so, cleanup button is clickable)
 
 -- maps & scenario stuff
-textBase		= "Search : "
+textBase		= "Search: "
 text 			= textBase		-- text printed on the screen when typing search keywords
 searchActive		= false
 ignoreLastChar		= false
@@ -74,6 +74,11 @@ dictionnary 		= {}			-- dictionnary indexed by word, with value a couple positio
 						-- and level (integer) as in { "((x,y))", lvl } 
 keyZoomIn		= ':'			-- default on macbookpro keyboard. Changed at runtime for windows
 keyZoomOut 		= '=' 			-- default on macbookpro keyboard. Changed at runtime for windows
+
+-- dialog stuff
+dialogBase		= "Message: "
+dialog 			= dialogBase		-- text printed on the screen when typing dialog 
+dialogActive		= false
 
 -- some basic colors
 color = {
@@ -210,11 +215,34 @@ function udpsendBinary( file )
 
   end
 
+-- send dialog message to player
+function doDialog( text )
+  io.write("must send message '" .. text .. "'\n")
+  local _,_,playername = string.find(text,"(%a+) .*")
+  if not playername then return end
+  io.write("to player " .. playername .. "\n")
+  local index = findPNJByClass( playername )
+  if not index then 
+  	io.write("player not found\n")
+	return 
+  end
+  if PNJTable[index].ip then
+    io.write("send to " .. PNJTable[index].ip .. " " .. PNJTable[index].port .. "\n")
+    udp:sendto( text , PNJTable[index].ip, PNJTable[index].port ) 
+  else
+  	io.write("no known IP for this player...\n")
+  end
+end
+
 -- capture text input (for text search)
 function love.textinput(t)
-	if not searchActive then return end
+	if (not searchActive) and (not dialogActive) then return end
 	if ignoreLastChar then ignoreLastChar = false; return end
-	text = text .. t
+	if searchActive then
+		text = text .. t
+	else
+		dialog = dialog .. t
+	end
 	end
 
 -- perform a search in the scenario text on one or several
@@ -940,7 +968,7 @@ function love.draw()
       love.graphics.printf(text, 800, H - 60, 400)
 
       -- activate search input zone if needed
-      if not searchActive then searchActive = true end
+      if not searchActive then searchActive = true; dialogActive = false end
 
       -- print number of the search result is needed
       if searchIterator then love.graphics.printf( "( " .. searchIndex .. " [" .. string.format("%.2f", searchPertinence) .. "] out of " .. 
@@ -981,6 +1009,13 @@ function love.draw()
 	love.graphics.setScissor( 10, 40, 1000, 30 )
 	love.graphics.printf( messages[1].text, 10 , 40 - messages[1].offset ,1000)
 	love.graphics.setScissor()
+ end
+
+ -- print dialog zone eventually
+ if dialogActive then
+      love.graphics.setColor(0,0,0)
+      love.graphics.setFont(fontSearch)
+      love.graphics.printf(dialog, 800, 40, 400)
  end
 
 end
@@ -1896,8 +1931,20 @@ function love.keypressed( key, isrepeat )
     return
   end
 
+  -- "d" open dialog zone
+  if (not searchActive) and (key == "d") then
+	dialogActive = true 
+	ignoreLastChar = true 
+  end
+
+  if dialogActive and (key == "return") then
+	  doDialog( string.gsub( dialog, dialogBase, "" , 1) )
+	  dialog = dialogBase
+	  dialogActive = false 
+  end
+
   -- SPACE moves to next map
-  if key == "space" then
+  if (not dialogActive) and key == "space" then
 	  map = atlas:nextMap()
 	  if not map then	
 	    -- reset search input
@@ -1918,8 +1965,6 @@ function love.keypressed( key, isrepeat )
   -- ALL MAPS
   --
   if map then
-
-
 
     -- ZOOM in and out
     if key == keyZoomIn then
@@ -1944,18 +1989,18 @@ function love.keypressed( key, isrepeat )
     end 
 
     -- V for VISIBLE
-    if key == "v" and map.kind == "map" then
+    if (not dialogActive) and key == "v" and map.kind == "map" then
 	atlas:toggleVisible()
     end
 
     -- C for RECENTER
-    if key == "c" then
+    if (not dialogActive) and key == "c" then
 	map.x = map.w / 2
 	map.y = map.h / 2
     end
 
    -- REMOVE ALL PAWNS
-   if key == "x" and love.keyboard.isDown("lctrl") then
+   if (not dialogActive) and key == "x" and love.keyboard.isDown("lctrl") then
 	   map.pawns = {} 
    end
 
