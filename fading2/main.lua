@@ -24,6 +24,7 @@ debug = false
 
 -- messages zone
 messages = {}
+callerMessNumber = 1
 
 -- udp information for network udp
 address, port, ip 	= "*", 12345, nil
@@ -468,8 +469,13 @@ function love.update(dt)
 	end
 
 	-- listening to projector
+	local playerip, playerport
  	local data, lip, lport = udp:receivefrom()
  	if data then
+
+	    io.write("receiving command: " .. data .. "\n")
+
+	    local command = string.sub( data , 1, 4 )
 
 	    if data == "CONNECT" then 
 	    
@@ -479,12 +485,12 @@ function love.update(dt)
 		ip = lip
 	    	port = lport
 	    	udpsend("CONN")
-		
+	
+	    else
+
+		-- store current caller
+		playerip, playerport = lip, lport	
 	    end
-
-	    io.write("receiving command: " .. data .. "\n")
-
-	    local command = string.sub( data , 1, 4 )
 
 	    if string.lower(command) == "eric" or
 	       string.lower(command) == "phil" or
@@ -492,7 +498,9 @@ function love.update(dt)
 	       string.lower(command) == "gui " or
 	       string.lower(command) == "gay " 
 	    then
-		addMessage( string.upper(data) , 30 , true ) 
+		addMessage( string.upper(data) , 8 , true ) 
+		udp:sendto( "received #" .. callerMessNumber .. ", " .. os.date("%X"), playerip, playerport )
+		callerMessNumber = callerMessNumber + 1
 	    end
 
 	    if command == "TARG" then
