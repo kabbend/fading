@@ -24,7 +24,6 @@ debug = false
 
 -- messages zone
 messages = {}
-callerMessNumber = 1
 
 -- udp information for network udp
 address, port, ip 	= "*", 12345, nil
@@ -499,8 +498,9 @@ function love.update(dt)
 	       string.lower(command) == "gay " 
 	    then
 		addMessage( string.upper(data) , 8 , true ) 
-		udp:sendto( "received #" .. callerMessNumber .. ", " .. os.date("%X"), playerip, playerport )
-		callerMessNumber = callerMessNumber + 1
+		local index = findPNJByClass( command )
+		PNJTable[index].ip, PNJTable[index].port = playerip, playerport
+		udp:sendto( "received at " .. os.date("%X"), playerip, playerport )
 	    end
 
 	    if command == "TARG" then
@@ -1652,6 +1652,9 @@ function PNJConstructor( template )
   aNewPNJ.is_dead         = false  			-- so far 
   aNewPNJ.snapshot	  = nil				-- image (and some other information) for the PJ
 
+  aNewPNJ.ip	  	  = nil				-- for PJ only: ip, if the player is using udp remote communication 
+  aNewPNJ.port	  	  = nil				-- for PJ only: port, if the player is using udp remote communication 
+
   -- GRAPHICAL INTERFACE (focus, timers...)
   aNewPNJ.focus	  	  = false			-- has the focus currently ?
 
@@ -1783,11 +1786,15 @@ function updateLineColor( i )
   end
 end
 
+function trim(s)
+  return (s:gsub("^%s*(.-)%s*$", "%1"))
+end
 
--- return the 1st character of a class, or nil if not found
+-- return the index of the 1st character of a class, or nil if not found
 function findPNJByClass( class )
   if not class then return nil end
-  for i=1,PNJnum-1 do if PNJTable[i].class == class then return i end end
+  class = string.lower( trim(class) )
+  for i=1,PNJnum-1 do if string.lower(PNJTable[i].class) == class then return i end end
   return nil
   end
 
