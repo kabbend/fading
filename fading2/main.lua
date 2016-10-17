@@ -26,7 +26,8 @@ debug = false
 messages = {}
 
 -- udp information for network udp
-address, port, ip 	= "*", "12345", nil
+address, serverport	= "*", "12345"		-- server
+ip,port 		= nil, nil		-- projector
 chunksize 		= 8192			-- size of the datagram when sending binary file
 chunkrepeat 		= 6			-- number of chunks to send before requesting an acknowledge
 
@@ -147,7 +148,7 @@ function addMessage( text, time , important )
   table.insert( messages, { text=text , time=time, offset=0, important=important } )
 end
  
--- send a command or data over the network
+-- send a command or data to the projector over the network
 function udpsend( data , verbose )
   if not ip then return end -- no projector connected yet !
   if verbose == nil or verbose == true then  io.write("send(to ip ".. ip .. ", port: "..port.. "):" .. data .. "\n") end
@@ -217,21 +218,17 @@ function udpsendBinary( file )
 
 -- send dialog message to player
 function doDialog( text )
-  io.write("must send message '" .. text .. "'\n")
-  local _,_,playername = string.find(text,"(%a+) .*")
-  if not playername then return end
-  io.write("to player " .. playername .. "\n")
+  local _,_,playername,rest = string.find(text,"(%a+)%A?(.*)")
+  io.write("send message '" .. text .. "': player=" .. tostring(playername) .. ", text=" .. tostring(rest) .. "\n")
   local index = findPNJByClass( playername )
-  if not index then 
-  	io.write("player not found\n")
-	return 
-  end
+  if not index then io.write("player not found\n") return end
   if PNJTable[index].ip then
-    io.write("send to " .. PNJTable[index].ip .. " " .. PNJTable[index].port .. "\n")
     if dynamic then 
-	udp:sendto( text , PNJTable[index].ip, PNJTable[index].port ) 
+	udp:sendto( rest , PNJTable[index].ip, PNJTable[index].port ) 
+        io.write("send to " .. PNJTable[index].ip .. " " .. PNJTable[index].port .. "\n")
     else
-	udp:sendto( text , PNJTable[index].ip, port ) 
+	udp:sendto( rest , PNJTable[index].ip, serverport ) 
+        io.write("send to " .. PNJTable[index].ip .. " " .. serverport .. "\n")
     end
   else
   	io.write("no known IP for this player...\n")
@@ -499,9 +496,11 @@ function love.update(dt)
 	end	
 	end
 
-	-- listening to projector
-	local playerip, playerport
+	-- listening to anyone calling on our port 
+	local calling_player = nil
+
  	local data, lip, lport = udp:receivefrom()
+
  	if data then
 
 	    io.write("receiving command: " .. data .. "\n")
@@ -510,20 +509,32 @@ function love.update(dt)
 
 	    if data == "CONNECT" then 
 	    
-		io.write("receiving connection call .. '" .. tostring(data) .. "' from ip " .. tostring(lip).. " port " .. lport .. "\n")
-		addMessage("receiving connection call .. '" .. tostring(data) .. "' from ip " .. tostring(lip).. " port " .. lport .. "\n")
-	    	if ip then io.write("reconnecting...\n") end
-		ip = lip
-	    	port = lport
+		io.write("receiving projector call .. '" .. tostring(data) .. "' from ip " .. tostring(lip).. " port " .. lport .. "\n")
+		addMessage("receiving projector call .. '" .. tostring(data) .. "' from ip " .. tostring(lip).. " port " .. lport .. "\n")
+		ip, port = lip, lport
 	    	udpsend("CONN")
 	
 	    else
-
-		-- store current caller
-		playerip, playerport = lip, lport	
+		-- this is not a connection request from projector, so it might be a player sending message
+		-- do we know this address already ?
+		for i=1,PNJnum-1 do
+			if PNJTable[i].ip == lip and PNJTable[i].port == lport then calling_player = i; break end
+		end
 	    end
 
-	    if string.lower(command) == "eric" or
+	    if calling_player then
+		-- this is a player calling us, from a known device. We answer
+		addMessage( string.upper(PNJTable[calling_player].class) .. " : " .. string.upper(data) , 8 , true ) 
+		if dynamic then 
+			udp:sendto( "received at " .. os.date("%X"), PNJTable[calling_player].ip, PNJTable[calling_player].port )
+		else
+			udp:sendto( "received at " .. os.date("%X"), PNJTable[calling_player].ip, serverport )
+		end
+
+	    elseif 
+		-- We don't know this device, but it might still be a player trying to reach us
+		-- scan for the command itself to find the player's name
+	       string.lower(command) == "eric" or
 	       string.lower(command) == "phil" or
 	       string.lower(command) == "bibi" or
 	       string.lower(command) == "gui " or
@@ -531,11 +542,11 @@ function love.update(dt)
 	    then
 		addMessage( string.upper(data) , 8 , true ) 
 		local index = findPNJByClass( command )
-		PNJTable[index].ip, PNJTable[index].port = playerip, playerport
+		PNJTable[index].ip, PNJTable[index].port = lip, lport -- we store the ip,port for further communications 
 		if dynamic then 
-			udp:sendto( "received at " .. os.date("%X"), playerip, playerport )
+			udp:sendto( "received at " .. os.date("%X"), lip, lport )
 		else
-			udp:sendto( "received at " .. os.date("%X"), playerip, port )
+			udp:sendto( "received at " .. os.date("%X"), lip, serverport )
 		end
 	    end
 
@@ -2838,7 +2849,7 @@ options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDi
 	    { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false },
 	    { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false },
 	    { opcode="-D", longopcode="--dynamic", mandatory=false, varname="dynamic", value=false, default=false },
-	    { opcode="-p", longopcode="--port", mandatory=false, varname="port", value=true, default=port },
+	    { opcode="-p", longopcode="--port", mandatory=false, varname="port", value=true, default=serverport },
 	    { opcode="", mandatory=true, varname="fadingDirectory" } }
 	    
 --
@@ -2854,7 +2865,7 @@ function love.load( args )
     fadingDirectory = parse.arguments[1]
     debug = parse.debug
     dynamic = parse.dynamic
-    port = parse.port
+    serverport = parse.port
     sep = '/'
 
     -- log file
@@ -2952,7 +2963,7 @@ function love.load( args )
     -- create socket and listen to any projector client
     udp = socket.udp()
     udp:settimeout(0)
-    udp:setsockname(address, port)
+    udp:setsockname(address, serverport)
 
     -- some initialization stuff
     generateUID = UIDiterator()
