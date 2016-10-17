@@ -228,7 +228,11 @@ function doDialog( text )
   end
   if PNJTable[index].ip then
     io.write("send to " .. PNJTable[index].ip .. " " .. PNJTable[index].port .. "\n")
-    udp:sendto( text , PNJTable[index].ip, PNJTable[index].port ) 
+    if dynamic then 
+	udp:sendto( text , PNJTable[index].ip, PNJTable[index].port ) 
+    else
+	udp:sendto( text , PNJTable[index].ip, port ) 
+    end
   else
   	io.write("no known IP for this player...\n")
   end
@@ -528,7 +532,11 @@ function love.update(dt)
 		addMessage( string.upper(data) , 8 , true ) 
 		local index = findPNJByClass( command )
 		PNJTable[index].ip, PNJTable[index].port = playerip, playerport
-		udp:sendto( "received at " .. os.date("%X"), playerip, playerport )
+		if dynamic then 
+			udp:sendto( "received at " .. os.date("%X"), playerip, playerport )
+		else
+			udp:sendto( "received at " .. os.date("%X"), playerip, port )
+		end
 	    end
 
 	    if command == "TARG" then
@@ -2819,6 +2827,7 @@ function readScenario( filename )
 options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="." },
 	    { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false },
 	    { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false },
+	    { opcode="-D", longopcode="--dynamic", mandatory=false, varname="dynamic", value=false, default=false },
 	    { opcode="", mandatory=true, varname="fadingDirectory" } }
 	    
 --
@@ -2833,6 +2842,7 @@ function love.load( args )
     baseDirectory = parse.baseDirectory 
     fadingDirectory = parse.arguments[1]
     debug = parse.debug
+    dynamic = parse.dynamic
     sep = '/'
 
     -- log file
