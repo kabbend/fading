@@ -26,7 +26,7 @@ debug = false
 messages = {}
 
 -- udp information for network udp
-address, port, ip 	= "*", 12345, nil
+address, port, ip 	= "*", "12345", nil
 chunksize 		= 8192			-- size of the datagram when sending binary file
 chunkrepeat 		= 6			-- number of chunks to send before requesting an acknowledge
 
@@ -1951,14 +1951,24 @@ function love.keypressed( key, isrepeat )
 	  dialogActive = false 
   end
 
+  if dialogActive and (key == "backspace") and (dialog ~= dialogBase) then
+        -- get the byte offset to the last UTF-8 character in the string.
+        local byteoffset = utf8.offset(dialog, -1)
+ 
+        if byteoffset then
+            -- remove the last UTF-8 character.
+            -- string.sub operates on bytes rather than UTF-8 characters, so we couldn't do string.sub(text, 1, -2).
+            dialog = string.sub(dialog, 1, byteoffset - 1)
+        end
+  end
+
   -- SPACE moves to next map
   if (not dialogActive) and key == "space" then
 	  map = atlas:nextMap()
-	  if not map then	
-	    -- reset search input
-	    searchActive = false
-	    text = textBase
-	  else
+	  -- reset search input
+	  searchActive = false
+	  text = textBase
+	  if map then	
 	    -- if we switch to another map, we display it, whatever the previous display flag
 	    atlas:goDisplay()
 	  end
@@ -2828,6 +2838,7 @@ options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDi
 	    { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false },
 	    { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false },
 	    { opcode="-D", longopcode="--dynamic", mandatory=false, varname="dynamic", value=false, default=false },
+	    { opcode="-p", longopcode="--port", mandatory=false, varname="port", value=true, default=port },
 	    { opcode="", mandatory=true, varname="fadingDirectory" } }
 	    
 --
@@ -2843,6 +2854,7 @@ function love.load( args )
     fadingDirectory = parse.arguments[1]
     debug = parse.debug
     dynamic = parse.dynamic
+    port = parse.port
     sep = '/'
 
     -- log file
