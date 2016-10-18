@@ -80,8 +80,9 @@ keyZoomOut 		= '=' 			-- default on macbookpro keyboard. Changed at runtime for 
 dialogBase		= "Message: "
 dialog 			= dialogBase		-- text printed on the screen when typing dialog 
 dialogActive		= false
-dialogLog		= {}			-- logs all dialogs for complete display
+dialogLog		= {}			-- store all dialogs for complete display
 displayDialogLog	= false
+ack			= false			-- automatic acknowledge when message received ?
 
 -- some basic colors
 color = {
@@ -529,13 +530,14 @@ function love.update(dt)
 		-- this is a player calling us, from a known device. We answer
 		addMessage( string.upper(PNJTable[calling_player].class) .. " : " .. string.upper(data) , 8 , true ) 
 		table.insert( dialogLog , string.upper(PNJTable[calling_player].class) .. " : " .. string.upper(data) .. " (" .. os.date("%X") .. ")" )
-		
-		if dynamic then 
-			udp:sendto( "received at " .. os.date("%X"), PNJTable[calling_player].ip, PNJTable[calling_player].port )
-		else
-			udp:sendto( "received at " .. os.date("%X"), PNJTable[calling_player].ip, serverport )
+		if ack then	
+		  if dynamic then 
+			udp:sendto( "(ack. " .. os.date("%X") .. ")", PNJTable[calling_player].ip, PNJTable[calling_player].port )
+		  else
+			udp:sendto( "(ack. " .. os.date("%X") .. ")", PNJTable[calling_player].ip, serverport )
+		  end
+		  table.insert( dialogLog , "-- automatic ack. sent at " .. os.date("%X") )
 		end
-		table.insert( dialogLog , "automatic ack.: received at " .. os.date("%X") )
 
 	    elseif 
 		-- We don't know this device, but it might still be a player trying to reach us
@@ -550,12 +552,14 @@ function love.update(dt)
 		table.insert( dialogLog , string.upper(data) .. " (" .. os.date("%X") .. ")" )
 		local index = findPNJByClass( command )
 		PNJTable[index].ip, PNJTable[index].port = lip, lport -- we store the ip,port for further communications 
-		if dynamic then 
-			udp:sendto( "received at " .. os.date("%X"), lip, lport )
-		else
-			udp:sendto( "received at " .. os.date("%X"), lip, serverport )
+		if ack then
+		  if dynamic then 
+			udp:sendto( "(ack. " .. os.date("%X") .. ")", lip, lport )
+		  else
+			udp:sendto( "(ack. " .. os.date("%X") .. ")", lip, serverport )
+		  end
+		  table.insert( dialogLog , "-- automatic ack. sent at (" .. os.date("%X") .. ")" )
 		end
-		table.insert( dialogLog , "automatic ack.: received at (" .. os.date("%X") .. ")" )
 	    end
 
 	    if command == "TARG" then
@@ -1027,14 +1031,16 @@ function love.draw()
 
  -- print messages eventually
  if messages[1] then
+	love.graphics.setColor(248,245,244)
+	love.graphics.rectangle( "fill", 10, 40, 700, 22 )
         if messages[1].important then 
 		love.graphics.setColor(255,0,0)
 	else
 		love.graphics.setColor(10,60,220)
 	end
         love.graphics.setFont(fontRound)
-	love.graphics.setScissor( 10, 40, 1000, 30 )
-	love.graphics.printf( messages[1].text, 10 , 40 - messages[1].offset ,1000)
+	love.graphics.setScissor( 10, 40, 700, 22 )
+	love.graphics.printf( messages[1].text, 10 , 40 - messages[1].offset ,700)
 	love.graphics.setScissor()
  end
 
@@ -1043,6 +1049,18 @@ function love.draw()
       love.graphics.setColor(167,20,255)
       love.graphics.setFont(fontRound)
       love.graphics.printf(dialog, 800, 40, 600)
+ end
+
+ -- print dialogLog eventually
+ if displayDialogLog then
+   love.graphics.setColor(255,255,255)
+   love.graphics.rectangle( "fill", 5 , 5 , W - 5 , H - 5 )  
+   local start
+   if #dialogLog > 50 then start = #dialogLog - 50 else start = 1 end
+   love.graphics.setColor(20,10,20)
+   for i=start,#dialogLog do 
+	love.graphics.printf( dialogLog[i] , 10 , i*14 , 1000 )	
+   end
  end
 
 end
@@ -1964,13 +1982,10 @@ function love.keypressed( key, isrepeat )
 	ignoreLastChar = true 
   end
 
-  --  "D" open dialog log. Escape closes it
-  if (key == "D") then
-	displayDialogLog = true 
-  end
-
-  if displayDialogLog and key == "escape" then
-	displayDialogLog = false 
+  --  "left ctrl + f" open dialog log. same thing to close it 
+  if (key == "f") and love.keyboard.isDown("lctrl") then
+	displayDialogLog = not displayDialogLog 
+	ignoreLastChar = true 
   end
 
   if dialogActive and (key == "return") then
@@ -2866,6 +2881,7 @@ options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDi
 	    { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false },
 	    { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false },
 	    { opcode="-D", longopcode="--dynamic", mandatory=false, varname="dynamic", value=false, default=false },
+	    { opcode="-a", longopcode="--ack", mandatory=false, varname="acknowledge", value=false, default=false },
 	    { opcode="-p", longopcode="--port", mandatory=false, varname="port", value=true, default=serverport },
 	    { opcode="", mandatory=true, varname="fadingDirectory" } }
 	    
@@ -2883,6 +2899,7 @@ function love.load( args )
     debug = parse.debug
     dynamic = parse.dynamic
     serverport = parse.port
+    ack = parse.acknowledge
     sep = '/'
 
     -- log file
