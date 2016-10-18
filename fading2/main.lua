@@ -80,6 +80,8 @@ keyZoomOut 		= '=' 			-- default on macbookpro keyboard. Changed at runtime for 
 dialogBase		= "Message: "
 dialog 			= dialogBase		-- text printed on the screen when typing dialog 
 dialogActive		= false
+dialogLog		= {}			-- logs all dialogs for complete display
+displayDialogLog	= false
 
 -- some basic colors
 color = {
@@ -230,6 +232,7 @@ function doDialog( text )
 	udp:sendto( rest , PNJTable[index].ip, serverport ) 
         io.write("send to " .. PNJTable[index].ip .. " " .. serverport .. "\n")
     end
+    table.insert( dialogLog , "MJ: " .. text .. "(" .. os.date("%X") .. ")" )
   else
   	io.write("no known IP for this player...\n")
   end
@@ -525,11 +528,14 @@ function love.update(dt)
 	    if calling_player then
 		-- this is a player calling us, from a known device. We answer
 		addMessage( string.upper(PNJTable[calling_player].class) .. " : " .. string.upper(data) , 8 , true ) 
+		table.insert( dialogLog , string.upper(PNJTable[calling_player].class) .. " : " .. string.upper(data) .. " (" .. os.date("%X") .. ")" )
+		
 		if dynamic then 
 			udp:sendto( "received at " .. os.date("%X"), PNJTable[calling_player].ip, PNJTable[calling_player].port )
 		else
 			udp:sendto( "received at " .. os.date("%X"), PNJTable[calling_player].ip, serverport )
 		end
+		table.insert( dialogLog , "automatic ack.: received at " .. os.date("%X") )
 
 	    elseif 
 		-- We don't know this device, but it might still be a player trying to reach us
@@ -541,6 +547,7 @@ function love.update(dt)
 	       string.lower(command) == "gay " 
 	    then
 		addMessage( string.upper(data) , 8 , true ) 
+		table.insert( dialogLog , string.upper(data) .. " (" .. os.date("%X") .. ")" )
 		local index = findPNJByClass( command )
 		PNJTable[index].ip, PNJTable[index].port = lip, lport -- we store the ip,port for further communications 
 		if dynamic then 
@@ -548,6 +555,7 @@ function love.update(dt)
 		else
 			udp:sendto( "received at " .. os.date("%X"), lip, serverport )
 		end
+		table.insert( dialogLog , "automatic ack.: received at (" .. os.date("%X") .. ")" )
 	    end
 
 	    if command == "TARG" then
@@ -1032,9 +1040,9 @@ function love.draw()
 
  -- print dialog zone eventually
  if dialogActive then
-      love.graphics.setColor(0,0,0)
-      love.graphics.setFont(fontSearch)
-      love.graphics.printf(dialog, 800, 40, 400)
+      love.graphics.setColor(167,20,255)
+      love.graphics.setFont(fontRound)
+      love.graphics.printf(dialog, 800, 40, 600)
  end
 
 end
@@ -1951,9 +1959,18 @@ function love.keypressed( key, isrepeat )
   end
 
   -- "d" open dialog zone
-  if (not searchActive) and (key == "d") then
+  if (not searchActive) and (not dialogActive) and (key == "d") then
 	dialogActive = true 
 	ignoreLastChar = true 
+  end
+
+  --  "D" open dialog log. Escape closes it
+  if (key == "D") then
+	displayDialogLog = true 
+  end
+
+  if displayDialogLog and key == "escape" then
+	displayDialogLog = false 
   end
 
   if dialogActive and (key == "return") then
