@@ -1055,11 +1055,12 @@ function love.draw()
 
  -- print dialogLog eventually
  if displayDialogLog then
-   love.graphics.setColor(253,253,253)
+   love.graphics.setFont(fontSearch)
+   love.graphics.setColor(10,10,10,150)
    love.graphics.rectangle( "fill", W - 600 , H - 300 , 590 , 250 )  
    local start
    if #dialogLog > 12 then start = #dialogLog - 12 else start = 1 end
-   love.graphics.setColor(20,10,20)
+   love.graphics.setColor(255,255,255)
    for i=start,#dialogLog do 
 	love.graphics.printf( dialogLog[i] , W - 590 , H - 290 + (i-start)*18 , 580 )	
    end
