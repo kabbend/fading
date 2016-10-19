@@ -2066,6 +2066,7 @@ function love.keypressed( key, isrepeat )
    -- REMOVE ALL PAWNS
    if (not dialogActive) and key == "x" and love.keyboard.isDown("lctrl") then
 	   map.pawns = {} 
+	   udpsend( "ERAS" )    
    end
 
    -- display PJ snapshots or not

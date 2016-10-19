@@ -123,9 +123,9 @@ function love.mousepressed (x,y)
 	
 	local p = isInsidePawn(x,y)
 
-        if p then
+        if p and p.PJ and not p.dead then
 
-                  -- clicking on a pawn will start an arrow that will represent
+                  -- clicking on an (alive PJ) pawn will start an arrow that will represent
                   -- * either an attack, if the arrow ends on another pawn
                   -- * or a move, if the arrow ends somewhere else on the map
                   pawnMove = p
