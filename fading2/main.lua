@@ -235,7 +235,7 @@ function doDialog( text )
 	udp:sendto( rest , PNJTable[index].ip, serverport ) 
         io.write("send to " .. PNJTable[index].ip .. " " .. serverport .. "\n")
     end
-    table.insert( dialogLog , "MJ: " .. text .. "(" .. os.date("%X") .. ")" )
+    table.insert( dialogLog , "MJ: " .. string.upper(text) .. "(" .. os.date("%X") .. ")" )
   else
   	io.write("no known IP for this player...\n")
   end
@@ -538,7 +538,6 @@ function love.update(dt)
 		  else
 			udp:sendto( "(ack. " .. os.date("%X") .. ")", PNJTable[calling_player].ip, serverport )
 		  end
-		  table.insert( dialogLog , "-- automatic ack. sent at " .. os.date("%X") )
 		end
 
 	    elseif 
@@ -560,7 +559,6 @@ function love.update(dt)
 		  else
 			udp:sendto( "(ack. " .. os.date("%X") .. ")", lip, serverport )
 		  end
-		  table.insert( dialogLog , "-- automatic ack. sent at (" .. os.date("%X") .. ")" )
 		end
 	    end
 
@@ -1050,20 +1048,20 @@ function love.draw()
 
  -- print dialog zone eventually
  if dialogActive then
-      love.graphics.setColor(167,20,255)
+      love.graphics.setColor(10,60,220)
       love.graphics.setFont(fontRound)
-      love.graphics.printf(dialog, 800, 40, 600)
+      love.graphics.printf(dialog, 800, messagesH, W-800)
  end
 
  -- print dialogLog eventually
  if displayDialogLog then
-   love.graphics.setColor(255,255,255)
-   love.graphics.rectangle( "fill", 5 , 5 , W - 5 , H - 5 )  
+   love.graphics.setColor(253,253,253)
+   love.graphics.rectangle( "fill", W - 600 , H - 300 , 590 , 250 )  
    local start
-   if #dialogLog > 50 then start = #dialogLog - 50 else start = 1 end
+   if #dialogLog > 12 then start = #dialogLog - 12 else start = 1 end
    love.graphics.setColor(20,10,20)
    for i=start,#dialogLog do 
-	love.graphics.printf( dialogLog[i] , 10 , i*14 , 1000 )	
+	love.graphics.printf( dialogLog[i] , W - 590 , H - 290 + (i-start)*18 , 580 )	
    end
  end
 
@@ -2929,7 +2927,11 @@ function love.load( args )
     if love.system.getOS() == "Windows" then
 
     	W, H = love.window.getDesktopDimensions()
-    	W, H = W * 0.96, H * 0.90
+    	W, H = W*0.98, H*0.92 
+
+	messagesH		= H - 22
+	snapshotH 		= messagesH - snapshotSize - snapshotMargin
+
         PNJmax = 14 
 	keyZoomIn, keyZoomOut = ':', '!'
 
@@ -2952,7 +2954,6 @@ function love.load( args )
       end  
     end
 
-    addMessage("Loading character data file", 3)
     dofile "fading2/data"
 
     local current_class = opt[1]
