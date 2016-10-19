@@ -1,7 +1,7 @@
 -- simple help print
 function printHelp( basePrgm )
 
-  io.write( basePrgm .. ": " .. basePrgm .. " ")
+  print( basePrgm .. ": " .. basePrgm .. " ")
   for _,op in ipairs(options) do
     local s,e = "", ""
     if not op.mandatory then s="["; e="]"; end 
@@ -9,10 +9,8 @@ function printHelp( basePrgm )
     if op.value or op.opcode == "" then value = " " .. op.varname end
     local longopt = ""
     if op.longopcode then longopt = "|"..op.longopcode end
-    io.write(s .. op.opcode .. longopt .. value .. e .. " ") 
+    print(s .. op.opcode .. longopt .. value .. e .. " :  " .. op.desc ) 
   end
-  io.write("\n")
-
 end
 
 -- simple parser

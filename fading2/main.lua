@@ -22,9 +22,6 @@ require 'default/config'
 
 debug = false
 
--- messages zone
-messages = {}
-
 -- udp information for network udp
 address, serverport	= "*", "12345"		-- server
 ip,port 		= nil, nil		-- projector
@@ -32,18 +29,23 @@ chunksize 		= 8192			-- size of the datagram when sending binary file
 chunkrepeat 		= 6			-- number of chunks to send before requesting an acknowledge
 
 -- main screen size
-W, H = 1420, 730 	-- main window size default values (may be changed dynamically on some systems)
+W, H = 1420, 790 	-- main window size default values (may be changed dynamically on some systems)
 viewh = H - 170 	-- view height
 vieww = W - 300		-- view width
 size = 19 		-- base font size
 margin = 20		-- screen margin in map mode
 
+-- messages zone
+messages 		= {}
+messagesH		= H - 22
+
 -- snapshots
 snapshots = {}
-snapshotIndex = 1	-- which image is first
-snapshotSize = 70 	-- w and h of each snapshot
-snapshotMargin = 7 	-- space between images and screen border
-snapshotOffset = 0	-- current offset to display
+snapshotIndex 		= 1	-- which image is first
+snapshotSize 		= 70 	-- w and h of each snapshot
+snapshotMargin 		= 7 	-- space between images and screen border
+snapshotOffset 		= 0	-- current offset to display
+snapshotH 		= messagesH - snapshotSize - snapshotMargin
 
 -- pawns and PJ snapshots
 pawnMove 		= nil		-- pawn currently moved by mouse movement
@@ -598,11 +600,11 @@ function love.update(dt)
 	local snapMax = #snapshots * (snapshotSize + snapshotMargin) - W
 	if snapMax < 0 then snapMax = 0 end
 	local x,y = love.mouse.getPosition()
-	if (x < snapshotMargin * 4 ) and (y > H - snapshotMargin - snapshotSize ) then
+	if (x < snapshotMargin * 4 ) and (y > snapshotH) and (y < messagesH) then
 	  snapshotOffset = snapshotOffset + snapshotMargin * 2
 	  if snapshotOffset > 0 then snapshotOffset = 0  end
 	end
-	if (x > W - snapshotMargin * 4 ) and (y > H - snapshotMargin - snapshotSize ) then
+	if (x > W - snapshotMargin * 4 ) and (y > snapshotH) and (y < messagesH) then
 	  snapshotOffset = snapshotOffset - snapshotMargin * 2
 	  if snapshotOffset < -snapMax then snapshotOffset = -snapMax end
 	end
@@ -791,21 +793,21 @@ function love.draw()
   			love.graphics.setColor(unpack(color.red))
 			love.graphics.rectangle("line", 
 				snapshotOffset + (snapshotSize + snapshotMargin) * (i-1),
-				H - snapshotSize - snapshotMargin, 
+				snapshotH, 
 				snapshotSize, 
 				snapshotSize)
   			love.graphics.setColor(255,255,255)
 		end
 		love.graphics.draw( 	snapshots[i].im , 
 				x,
-				H - snapshotSize - snapshotMargin - ( snapshots[i].h * snapshots[i].mag - snapshotSize ) / 2, 
+				snapshotH - ( snapshots[i].h * snapshots[i].mag - snapshotSize ) / 2, 
 			    	0 , snapshots[i].mag, snapshots[i].mag )
 	end
   end
 
   -- small snapshot
-  love.graphics.setColor(255,255,255)
-  love.graphics.rectangle("line", W - W1 - 10, H - H1 - snapshotSize - snapshotMargin * 2 - 10 , W1 , H1 )
+  love.graphics.setColor(230,230,230)
+  love.graphics.rectangle("line", W - W1 - 10, H - H1 - snapshotSize - snapshotMargin * 6 , W1 , H1 )
   if currentImage then 
     local w, h = currentImage:getDimensions()
     -- compute magnifying factor f to fit to screen, with max = 2
@@ -814,7 +816,7 @@ function love.draw()
     local f = math.min( xfactor, yfactor )
     if f > 2 then f = 2 end
     w , h = f * w , f * h
-    love.graphics.draw( currentImage , W - W1 - 10 +  (W1 - w) / 2, H - H1 - snapshotSize - snapshotMargin * 2 - 10 + ( H1 - h ) / 2, 0 , f, f )
+    love.graphics.draw( currentImage , W - W1 - 10 +  (W1 - w) / 2, H - H1 - snapshotSize - snapshotMargin * 6 + ( H1 - h ) / 2, 0 , f, f )
   end
 
     love.graphics.setLineWidth(3)
@@ -1029,18 +1031,20 @@ function love.draw()
  
  end  
 
+ -- print messages zone in any case 
+ love.graphics.setColor(255,255,255)
+ love.graphics.rectangle( "fill", 0, messagesH, W, 22 )
+
  -- print messages eventually
  if messages[1] then
-	love.graphics.setColor(248,245,244)
-	love.graphics.rectangle( "fill", 10, 40, 700, 22 )
         if messages[1].important then 
 		love.graphics.setColor(255,0,0)
 	else
 		love.graphics.setColor(10,60,220)
 	end
         love.graphics.setFont(fontRound)
-	love.graphics.setScissor( 10, 40, 700, 22 )
-	love.graphics.printf( messages[1].text, 10 , 40 - messages[1].offset ,700)
+	love.graphics.setScissor( 0, messagesH, W, 22 )
+	love.graphics.printf( messages[1].text, 10 , messagesH - messages[1].offset ,W)
 	love.graphics.setScissor()
  end
 
@@ -2877,13 +2881,19 @@ function readScenario( filename )
 
 	end
 
-options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="." },
-	    { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false },
-	    { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false },
-	    { opcode="-D", longopcode="--dynamic", mandatory=false, varname="dynamic", value=false, default=false },
-	    { opcode="-a", longopcode="--ack", mandatory=false, varname="acknowledge", value=false, default=false },
-	    { opcode="-p", longopcode="--port", mandatory=false, varname="port", value=true, default=serverport },
-	    { opcode="", mandatory=true, varname="fadingDirectory" } }
+options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="." , 
+		desc="Path to a base (network) directory, common with projector" },
+	    { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false , 
+		desc="Run in debug mode"},
+	    { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false , 
+		desc="Log to file (fading.log) instead of stdout"},
+	    { opcode="-D", longopcode="--dynamic", mandatory=false, varname="dynamic", value=false, default=false,
+		desc="With FS mobile: Use the port specified by the client to communicate, not the standard one (ie. 12345 by default)" },
+	    { opcode="-a", longopcode="--ack", mandatory=false, varname="acknowledge", value=false, default=false ,
+		desc="With FS mobile: Send an automatic acknowledge reply for each message received"},
+	    { opcode="-p", longopcode="--port", mandatory=false, varname="port", value=true, default=serverport,
+		desc="Specify server local port, by default 12345" },
+	    { opcode="", mandatory=true, varname="fadingDirectory" , desc="Path to scenario directory"} }
 	    
 --
 -- Main function
@@ -2953,7 +2963,7 @@ function love.load( args )
     fontSearch = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",16)
    
     -- create view structure
-    love.graphics.setBackgroundColor( 248, 245, 244 )
+    love.graphics.setBackgroundColor( 255, 255, 255 )
     view = yui.View(0, 0, vieww, viewh, {
         margin_top = 5,
         margin_left = 5,
