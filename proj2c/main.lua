@@ -464,7 +464,14 @@ function love.update( dt )
 	  elseif command == "MPAW" then
 		local str = string.sub(data , 6)
 		local _,_,id,x,y = string.find( str, "(%a+) (%d+) (%d+)" )
-		for i=1,#pawns do if pawns[i].id == id then pawns[i].x = x; pawns[i].y = y end end
+		for i=1,#pawns do 
+			if pawns[i].id == id then 
+				pawns[i].x = x; pawns[i].y = y 
+				maxLayer = maxLayer + 1
+				pawns[i].layer = maxLayer
+			end 
+		end
+		table.sort( pawns , function (a,b) return a.layer < b.layer end )
 
 	  elseif command == "KILL" then
 		local str = string.sub(data , 6)
