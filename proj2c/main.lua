@@ -2,11 +2,11 @@ local socket = require "socket"
 local parser = require "parse"
  
 -- the address and port of the server
-local defaultAddress, port = "localhost", 12345
-local connect = false		-- connection status to server
-local timer = 0
-local connectRetryTime = 5
-local chunkrepeat = 6
+defaultAddress, port 	= "localhost", 12345
+connect 		= false		-- connection status to server
+timer 			= 0
+connectRetryTime 	= 5
+chunkrepeat 		= 6
 
 -- image information
 currentImage = nil	-- displayed image
@@ -17,17 +17,18 @@ W,H = 0,0 		-- image dimensions, at scale 1
 X,Y = 0,0		-- current center position of the image
 
 -- file loaded over the network
-local binary = false
-local tempfile = nil
+binary 		= false
+tempfile 	= nil
 
 -- pawns
-local pawns = {}
+pawns 		= {}
+maxLayer 	= 1		-- current layer value
 
 -- mouse interaction
-local pawnMove = nil		-- information on the current pawn movement
-local arrowMode = false		-- are we currently drawing an arrow ?
-local arrowStartX, arrowStartY	-- starting point of the move (and the arrow)
-local arrowX, arrowY		-- current end point
+pawnMove 	= nil			-- information on the current pawn movement
+arrowMode 	= false			-- are we currently drawing an arrow ?
+arrowStartX, arrowStartY = nil, nil	-- starting point of the move (and the arrow)
+arrowX, arrowY	= nil, nil		-- current end point
 
 local oldiowrite = io.write
 function io.write( data ) if debug then oldiowrite( data ) end end
@@ -55,15 +56,15 @@ function Pawn.new( id, filename, size, x, y , pj )
 
   filename = redressFilename( baseDirectory .. sep .. filename )
 
-  -- get basic data
+  -- set basic data
   new.id = id
   new.PJ = pj or false 
-  new.x, new.y = x or 0, y or 0         -- relative to the map
-  new.filename = filename
-  new.size = size                       -- size of the image in pixels, for map at scale 1
-
-  -- set flags
   new.dead = false 			-- so far
+  new.x, new.y = x or 0, y or 0         -- position of the upper left corner of the pawn, relative to the map
+  new.layer = maxLayer			-- determine if a pawn is drawn on top (or below) another one
+  new.filename = filename
+  new.size = size                       -- size of the image in pixels, for map at scale 1. The image is 
+					-- modified (with factor f) to fit a square
 
   -- load pawn image
   local file = io.open( filename , "rb" )
@@ -107,16 +108,21 @@ function computeTriangle( x1, y1, x2, y2 )
   end
 
 -- return a pawn if position x,y on the screen (typically, the mouse), is
--- inside any pawn of the map 
+-- inside any pawn of the map. If several pawns are superposed at this position,
+-- take the one with highest layer value 
 function isInsidePawn(x,y)
+  local maxlayer , indexWithMaxLayer = 0 , 0
   local zx,zy = -( X * mag - W2 / 2), -( Y * mag - H2 / 2)
   for i=1,#pawns do
                 local lx,ly = pawns[i].x, pawns[i].y -- position x,y relative to the map, at scale 1
                 local tx,ty = zx + lx * mag, zy + ly * mag -- position tx,ty relative to the screen
                 local size = pawns[i].size * mag -- size relative to the screen
-                if x >= tx and x <= tx + size and y >= ty and y <= ty + size then return pawns[i] end
+                if x >= tx and x <= tx + size and y >= ty and y <= ty + size and pawns[i].layer > maxlayer then  
+			maxlayer = pawns[i].layer
+			indexWithMaxLayer = i
+		end
   end
-  return nil
+  if indexWithMaxLayer == 0 then return nil else return pawns[ indexWithMaxLayer ] end 
 end
 
 function love.mousepressed (x,y)
@@ -152,6 +158,11 @@ function love.mousereleased (x,y)
                         -- we consider that the mouse position is at the center of the new image
 			local zx,zy = -( X * mag - W2 / 2), -( Y * mag - H2 / 2)
                         pawnMove.x, pawnMove.y = (x - zx) / mag - pawnMove.size / 2 , (y - zy) / mag - pawnMove.size / 2
+
+			-- the last pawn to move is always on top
+			maxLayer = maxLayer + 1
+			pawnMove.layer = maxLayer
+			table.sort( pawns , function (a,b) return a.layer < b.layer end )
 
                         -- we must stay within the limits of the map    
                         if pawnMove.x < 0 then pawnMove.x = 0 end
@@ -216,14 +227,14 @@ function love.draw()
 
   	love.graphics.draw( currentImage , zx , zy , 0 , mag, mag )
 
+	-- draw PNJ pawns, the lowest layer value first
 
      	if mask and #mask > 0 then
 
        		love.graphics.setStencilTest("gequal", 2)
        		love.graphics.setColor(255,255,255)
        		love.graphics.draw( currentImage, zx, zy, 0, mag, mag )
-	
-		-- draw PNJ pawns 
+
 		for i =1,#pawns do
 		 local p = pawns[i]
 		 if not p.PJ then 
@@ -242,7 +253,7 @@ function love.draw()
 
      	end
 
-	-- draw PJ pawns (always on top)
+	-- draw PJ pawns (always visible, even if there is a mask)
 	for i =1,#pawns do
 		 local p = pawns[i]
 		 if p.PJ then 
@@ -445,8 +456,11 @@ function love.update( dt )
 		local _,_,id,x,y,size,pj,f = string.find( str, "(%a+) (%d+) (%d+) (%d+) (%d) (.*)" )
  		if pj == "1" then pj = true; else pj = false end
 		local p = Pawn.new(id,f,size,x,y,pj) 
-		if p then table.insert( pawns, p ) end
-		
+		if p then 
+			table.insert( pawns, p ) 
+			table.sort( pawns , function (a,b) return a.layer < b.layer end )
+		end
+	
 	  elseif command == "MPAW" then
 		local str = string.sub(data , 6)
 		local _,_,id,x,y = string.find( str, "(%a+) (%d+) (%d+)" )
