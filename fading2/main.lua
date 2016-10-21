@@ -50,7 +50,7 @@ snapshotH 		= messagesH - snapshotSize - snapshotMargin
 -- pawns and PJ snapshots
 pawnMove 		= nil		-- pawn currently moved by mouse movement
 defaultPawnSnapshot	= nil		-- default image to be used for pawns
---displayPJSnapshots 	= false 	-- deprecated
+pawnMaxLayer		= 1
 
 -- snapshot size and image
 H1, W1 = 140, 140
@@ -584,8 +584,14 @@ function love.update(dt)
 		  local str = string.sub(data , 6)
                   local _,_,id,x,y = string.find( str, "(%a+) (%d+) (%d+)" )
 		  for i=1,#map.pawns do 
-			if map.pawns[i].id == id then map.pawns[i].x = x; map.pawns[i].y = y; break; end 
+			if map.pawns[i].id == id then 
+				map.pawns[i].x = x; map.pawns[i].y = y; 
+				pawnMaxLayer = pawnMaxLayer + 1
+				map.pawns[i].layer = pawnMaxLayer
+				break; 
+			end 
 		  end 
+		  table.sort( map.pawns, function(a,b) return a.layer < b.layer end )
 		else
 		  io.write("inconsistent MPAW command received while no map or no pawns\n")
 		end
@@ -1118,6 +1124,9 @@ function love.mousereleased( x, y )
 			-- we consider that the mouse position is at the center of the new image
   			local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
 			pawnMove.x, pawnMove.y = (x - zx) * map.mag - pawnMove.size / 2 , (y - zy) * map.mag - pawnMove.size / 2
+			pawnMaxLayer = pawnMaxLayer + 1
+			pawnMove.layer = pawnMaxLayer
+			table.sort( map.pawns , function (a,b) return a.layer < b.layer end )
 	
 			-- we must stay within the limits of the map	
 			if pawnMove.x < 0 then pawnMove.x = 0 end
@@ -1144,6 +1153,7 @@ function love.mousereleased( x, y )
   	  	local map = atlas:getMap()
 		local w = distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY)
 		createPawns( map, arrowX, arrowY, w )
+		table.sort( map.pawns, function(a,b) return a.layer < b.layer end )
 		arrowPawn = false
 		return
 	end
@@ -1333,6 +1343,7 @@ function Pawn.new( id, img, imageFilename, size, x, y )
   local new = {}
   setmetatable(new,Pawn)
   new.id = id
+  new.layer = pawnMaxLayer 
   new.x, new.y = x or 0, y or 0 	-- relative to the map
   new.filename = imageFilename
   new.baseFilename = string.gsub(imageFilename,baseDirectory,"")
@@ -1510,18 +1521,23 @@ function Map:isInside(x,y)
 end
 
 -- return a pawn if position x,y on the screen (typically, the mouse), is
--- inside any pawn of the map 
+-- inside any pawn of the map. If several pawns at same location, return the
+-- one with highest layer value
 function Map:isInsidePawn(x,y)
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2) -- position of the map on the screen
   if self.pawns then
+	local indexWithMaxLayer, maxlayer = 0, 0
 	for i=1,#self.pawns do
 		local lx,ly = self.pawns[i].x, self.pawns[i].y -- position x,y relative to the map, at scale 1
 		local tx,ty = zx + lx / self.mag, zy + ly / self.mag -- position tx,ty relative to the screen
 		local size = self.pawns[i].size / self.mag -- size relative to the screen
-		if x >= tx and x <= tx + size and y >= ty and y <= ty + size then return self.pawns[i] end
+		if x >= tx and x <= tx + size and y >= ty and y <= ty + size and self.pawns[i].layer > maxlayer then
+			maxlayer = self.pawns[i].layer
+			indexWithMaxLayer = i
+		end
   	end
+	if indexWithMaxLayer == 0 then return nil else return self.pawns[ indexWithMaxLayer ] end
   end
-  return nil
 end
 
 Atlas = {}
