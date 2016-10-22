@@ -12,7 +12,7 @@ Le repository contient 3 programmes qui fonctionnent ensemble :
 
 ## Prérequis:
 - un compilateur/interpreteur Lua
-- le moteur graphique LÖVE (love2d)
+- le moteur graphique LÖVE (love2d, version 0.10.0)
 - pour l'application mobile, le framework Corona SDK (qui permet de développer également en Lua)
 
 Note: l'editeur de texte ZeroBrane Studio a un support natif pour Lua et Love. Corona a son propre IDE
