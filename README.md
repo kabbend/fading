@@ -18,6 +18,28 @@ Le repository contient 3 programmes qui fonctionnent ensemble :
 Note: l'editeur de texte ZeroBrane Studio a un support natif pour Lua et Love. Corona a son propre IDE
 
 ## Configuration
+Aucune au moment de l'installation du code.
+Le code s'execute pour le moment en ligne de commande, en passant un certain nombre d'options eventuellement.
+le lancement se fait depuis le répertoire parent qui contient fading2/ et proj2c/
+
+Serveur:
+
+
+```
+#!c
+
+love fading2 [options] args
+
+[-b|--base baseDirectory] : Path to a base (network) directory, common with projector
+[-d|--debug] :              Run in debug mode
+[-l|--log] :                Log to file (fading.log) instead of stdout
+[-D|--dynamic] :            With FS mobile: Use the port specified by the client to communicate, not the standard one (ie. 12345 by default)
+[-a|--ack] :                With FS mobile: Send an automatic acknowledge reply for each message received
+[-p|--port port] :          Specify server local port, by default 12345
+arg = fadingDirectory :     Path to scenario directory
+```
+
+
 
 ## Dependencies
 
@@ -27,4 +49,3 @@ Aucune. Pas de database
 ## How to run tests
 
 ## Deployment instructions
-
