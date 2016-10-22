@@ -471,7 +471,7 @@ function rollAttack( rollType )
 		{ star=newD6star(1.5):set({math.random(10),math.random(10),math.random(10)}, -- position
 					  {-math.random(8,40),-math.random(8,40),-10}, -- velocity
 					  {math.random(10),math.random(10),math.random(10)}), -- angular mvmt
-    		  die=clone(d6,{material=light.plastic,color={127,10,255,255},text={255,255,255},shadow={20,0,0,150}}) })
+    		  die=clone(d6,{material=light.plastic,color={127,70,255,255},text={255,255,255},shadow={20,0,0,190}}) })
   	end
 
   	for i=1,#dice do box[i]=dice[i].star end
