@@ -36,16 +36,15 @@ love fading2 [options] args
 [-D|--dynamic] :            With FS mobile: Use the port specified by the client to communicate, not the standard one (ie. 12345 by default)
 [-a|--ack] :                With FS mobile: Send an automatic acknowledge reply for each message received
 [-p|--port port] :          Specify server local port, by default 12345
-arg = fadingDirectory :     Path to scenario directory
+arg = fadingDirectory :     Path to scenario directory (not absolute, relative to the base directory)
 ```
 
-
-
-## Dependencies
 
 ## Database configuration
 Aucune. Pas de database
 
 ## How to run tests
+Et bien, directement. L'option --debug (associée à --log sous Windows, qui a la mauvaise idée de ne pas retranscrire les sorties sur stdout directement dans la console, ce qui oblige a les écrire dans un fichier) permet de savoir ce qui se passe. Sous ZeroBrane Studio existe un mode debug pas à pas pour le moteur Löve, mais très lent je trouve (sur ma config) donc pas utilisable en pratique.
+
 
 ## Deployment instructions
