@@ -39,6 +39,22 @@ love fading2 [options] args
 arg = fadingDirectory :     Path to scenario directory (not absolute, relative to the base directory)
 ```
 
+projecteur:
+
+
+```
+#!c
+
+love proj2c [options]
+
+[-b|--base baseDirectory] : Path to a base (network) directory, common with server
+[-d|--debug] :              Run in debug mode
+[-l|--log] :                Log to file (proj.log) instead of stdout
+[-i|--ip address] :         server IP 
+[-p|--port port] :          server port (default 12345)
+[-I|--interact] :           (reserved for future use)
+
+```
 
 ## Database configuration
 Aucune. Pas de database
@@ -48,3 +64,5 @@ Et bien, directement. L'option --debug (associée à --log sous Windows, qui a l
 
 
 ## Deployment instructions
+
+pour le client mobile, utiliser le menu Build de Corona SDK qui se charge de tout et créé une application .apk (pour android)
