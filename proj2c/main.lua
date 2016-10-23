@@ -150,7 +150,7 @@ function love.mousereleased (x,y)
                 if target and target ~= pawnMove then
 
                         -- we have a target
-                        udp:send( "TARG " .. pawnMove.id .. " " ..  target.id ) -- FIXME
+                        tcp:send( "TARG " .. pawnMove.id .. " " ..  target.id .. "\n") 
 
                 else
 
@@ -170,7 +170,7 @@ function love.mousereleased (x,y)
                         if pawnMove.x + pawnMove.size + 6 > W then pawnMove.x = math.floor(W - pawnMove.size - 6) end
                         if pawnMove.y + pawnMove.size + 6 > H then pawnMove.y = math.floor(H - pawnMove.size - 6) end
 
-                        udp:send("MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.x) .. " " .. math.floor(pawnMove.y) )
+                        tcp:send("MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.x) .. " " .. math.floor(pawnMove.y) .. "\n")
 
                 end
                 pawnMove = nil;
@@ -295,11 +295,11 @@ function love.update( dt )
 	if not connect and timer > connectRetryTime then
 		-- nobody was listening, probably. we retry
 		io.write("calling server...\n")
-		udp:send("CONNECT")
+		tcp:send("CONNECT\n")
 		timer = 0
 	end
 
-  	local data, msg = udp:receive()
+  	local data, msg = tcp:receive()
 
 	if data then 
 
@@ -358,17 +358,27 @@ function love.update( dt )
 		local data, msg
 	  	repeat
 		 local i = 1	
+		 local stop = false
   		 repeat
-		  data, msg = udp:receive()
-		  if data and data ~= "BEOF" then 
+		  data, msg, partial = tcp:receive(8192)
+		  if partial then
+			data = partial
+			stop = true
+		  end
+		  data = string.sub( data , 1, string.len(data) - 1)
+		  if partial then io.write("DATA:'"..data.."'\n") end
+		  if data then 
 			tempfile:write(data); 
 			i = i + 1
 			io.write("receiving " .. string.len(data) .. " bytes\n") 
 		  end
-		 until i == chunkrepeat or data == "BEOF"
-		 if data ~= "BEOF" then udp:send("OK");  io.write("sending OK\n") end
+		 until i == chunkrepeat or stop 
+		 tcp:send("OK\n");  io.write("sending OK\n") 
 		 socket.sleep(0.1)
-		until data == "BEOF"
+		until stop 
+
+	   elseif command == "BEOF" then
+
 		io.write("receiving BEOF\n") 
 
 		tempfile:close()
@@ -550,11 +560,12 @@ function love.load( args )
  if love.system.getOS() == "OS X" then sep = "/"; antisep = "\\";  else sep = "\\" ; antisep = "/" end
 
  -- create socket and connect to the server
- udp = socket.udp()
- udp:settimeout(0)
- udp:setpeername(address, port)
+ tcp = socket.tcp()
+ tcp:settimeout(0)
  -- trying to reach server
- udp:send("CONNECT")
+ --tcp:setpeername(address, port)
+ tcp:connect(address, port) 
+ tcp:send("CONNECT\n")
 
  -- GUI initializations
  -- in remote: we go to 1st display fullscreen

@@ -22,10 +22,14 @@ require 'default/config'
 
 debug = false
 
--- udp information for network udp
-address, serverport	= "*", "12345"		-- server
-ip,port 		= nil, nil		-- projector
-chunksize 		= 8192			-- size of the datagram when sending binary file
+-- tcp information for network
+address, serverport	= "*", "12345"		-- server information
+server			= nil			-- server tcp object
+ip,port 		= nil, nil		-- projector information
+clients			= {}			-- list of clients. A client is a couple { tcp-object , id } where id is a PJ-id or "*proj"
+projector		= nil			-- direct access to tcp object for projector
+projectorId		= "*proj"		-- special ID to distinguish projector from other clients
+chunksize 		= (8192 - 1)		-- size of the datagram when sending binary file
 chunkrepeat 		= 6			-- number of chunks to send before requesting an acknowledge
 
 -- main screen size
@@ -154,21 +158,21 @@ function addMessage( text, time , important )
 end
  
 -- send a command or data to the projector over the network
-function udpsend( data , verbose )
-  if not ip then return end -- no projector connected yet !
-  if verbose == nil or verbose == true then  io.write("send(to ip ".. ip .. ", port: "..port.. "):" .. data .. "\n") end
-  udp:sendto(data,ip,port)
+function tcpsend( tcp, data , verbose )
+  if not tcp then return end -- no client connected yet !
+  if verbose == nil or verbose == true then  io.write("send to " .. tcp:getpeername() .. ":" .. data .. "\n") end
+  tcp:send(data .. "\n")
   end
 
 -- send a whole binary file over the network
-function udpsendBinary( file )
+function tcpsendBinary( file )
 
-  if not ip then return end -- no projector connected yet !
+  if not projector then return end -- no projector connected yet !
 
-  udpsend("BNRY")
+  tcpsend( projector, "BNRY")
 
   file:open('r')
-  local lowlimit = 5 
+  local lowlimit = 50 
   local timerlimit = 50 
   local timerAbsoluteLimit = 100
   repeat
@@ -178,9 +182,11 @@ function udpsendBinary( file )
 	-- nothing...
   	local data, size = file:read( chunksize )
    	local i = 1
+	local sizeSent = 0
 
     	while size ~= 0 do
-        	udpsend(data,false) -- send chunk, not verbose
+        	tcpsend(projector,data,false) -- send chunk, not verbose
+		sizeSent = size
 		if debug then io.write("sending " .. size .. " bytes. \n") end
 		i = i + 1
 		if i == chunkrepeat then break end
@@ -191,11 +197,11 @@ function udpsendBinary( file )
 	-- for an acknowledge
 	local timer = 0
 	local answer = nil
-   	if size ~= 0 then 
+   	if sizeSent ~= 0 then 
 		io.write("waiting ................... " .. timerlimit .. " cycles\n")
 		while true do
             		socket.sleep(0.05)
-			answer, msg = udp:receive()
+			answer, msg = projector:receive()
 			timer = timer + 1
 			if answer == 'OK' then 
 			 	io.write("OK in " .. timer .. " cycles\n") 
@@ -208,16 +214,16 @@ function udpsendBinary( file )
 			 timerlimit = timerlimit * 2
 			 if timerlimit > timerAbsoluteLimit then timerlimit = timerAbsoluteLimit end
 		 else
-		   	 timerlimit = math.min( lowlimit, math.ceil(( timerlimit - timer ) / 1.5 ) + 1 )
+		   	 timerlimit = math.max( lowlimit, math.ceil(( timerlimit - timer ) / 1.5 ) + 1 )
 		 end
 	end
 
-  until size == 0
+  until sizeSent == 0
 
   file:close()
 
   -- send a EOF agreed sequence: Binary EOF
-  udpsend("BEOF")
+  tcpsend(projector,"BEOF")
 
   end
 
@@ -225,21 +231,11 @@ function udpsendBinary( file )
 function doDialog( text )
   local _,_,playername,rest = string.find(text,"(%a+)%A?(.*)")
   io.write("send message '" .. text .. "': player=" .. tostring(playername) .. ", text=" .. tostring(rest) .. "\n")
-  local index = findPNJByClass( playername )
-  if not index then io.write("player not found\n") return end
-  if PNJTable[index].ip then
-    if dynamic then 
-	udp:sendto( rest , PNJTable[index].ip, PNJTable[index].port ) 
-        io.write("send to " .. PNJTable[index].ip .. " " .. PNJTable[index].port .. "\n")
-    else
-	udp:sendto( rest , PNJTable[index].ip, serverport ) 
-        io.write("send to " .. PNJTable[index].ip .. " " .. serverport .. "\n")
-    end
-    table.insert( dialogLog , "MJ: " .. string.upper(text) .. "(" .. os.date("%X") .. ")" )
-  else
-  	io.write("no known IP for this player...\n")
+  local tcp = findClientByName( playername )
+  if not tcp then io.write("player not found or not connected\n") return end
+  tcpsend( tcp, rest ) 
+  table.insert( dialogLog , "MJ: " .. string.upper(text) .. "(" .. os.date("%X") .. ")" )
   end
-end
 
 -- capture text input (for text search)
 function love.textinput(t)
@@ -378,13 +374,13 @@ function love.filedropped(file)
 		if not is_local then
     	  	  -- send the filename (without path) over the socket
 		  filename = string.gsub(filename,baseDirectory,"")
-		  udpsend("OPEN " .. filename)
-		  udpsend("DISP") 	-- display immediately
+		  tcpsend(projector,"OPEN " .. filename)
+		  tcpsend(projector,"DISP") 	-- display immediately
 		else
 		  -- send the file itself... not the same story...
-		  udpsendBinary( file )
+		  tcpsendBinary( file )
 		  -- display it
-		  udpsend("DISP")
+		  tcpsend(projector,"DISP")
 
 		end
 	    else
@@ -503,66 +499,64 @@ function love.update(dt)
 	end
 
 	-- listening to anyone calling on our port 
-	local calling_player = nil
+	local tcp = server:accept()
+	if tcp then
+		-- add it to the client list, we don't know who is it for the moment
+		table.insert( clients , { tcp = tcp, id = nil } )
+		tcp:settimeout(0)
+	end
 
- 	local data, lip, lport = udp:receivefrom()
+	-- listen to connected clients 
+	for i=1,#clients do
 
- 	if data then
+ 	 local data, msg = clients[i].tcp:receive()
+
+ 	 if data then
 
 	    io.write("receiving command: " .. data .. "\n")
 
 	    local command = string.sub( data , 1, 4 )
 
-	    if data == "CONNECT" then 
-	    
-		io.write("receiving projector call .. '" .. tostring(data) .. "' from ip " .. tostring(lip).. " port " .. lport .. "\n")
-		addMessage("receiving projector call .. '" .. tostring(data) .. "' from ip " .. tostring(lip).. " port " .. lport .. "\n")
-		ip, port = lip, lport
-	    	udpsend("CONN")
+	    -- this client is unidentified. This should be a connection request
+	    if not clients[i].id then
+
+	      if data == "CONNECT" then 
+		io.write("receiving projector call\n")
+		addMessage("receiving projector call")
+		clients[i].id = projectorId
+		projector = clients[i].tcp
+	    	tcpsend(projector,"CONN")
 	
-	    else
-		-- this is not a connection request from projector, so it might be a player sending message
-		-- do we know this address already ?
-		for i=1,PNJnum-1 do
-			if PNJTable[i].ip == lip and PNJTable[i].port == lport then calling_player = i; break end
-		end
-	    end
-
-	    if calling_player then
-		-- this is a player calling us, from a known device. We answer
-		addMessage( string.upper(PNJTable[calling_player].class) .. " : " .. string.upper(data) , 8 , true ) 
-		table.insert( dialogLog , string.upper(PNJTable[calling_player].class) .. " : " .. string.upper(data) .. " (" .. os.date("%X") .. ")" )
-		if ack then	
-		  if dynamic then 
-			udp:sendto( "(ack. " .. os.date("%X") .. ")", PNJTable[calling_player].ip, PNJTable[calling_player].port )
-		  else
-			udp:sendto( "(ack. " .. os.date("%X") .. ")", PNJTable[calling_player].ip, serverport )
-		  end
-		end
-
-	    elseif 
-		-- We don't know this device, but it might still be a player trying to reach us
+	      elseif 
 		-- scan for the command itself to find the player's name
-	       string.lower(command) == "eric" or
+	       string.lower(command) == "eric" or -- FIXME, hardcoded
 	       string.lower(command) == "phil" or
 	       string.lower(command) == "bibi" or
 	       string.lower(command) == "gui " or
-	       string.lower(command) == "gay " 
-	    then
+	       string.lower(command) == "gay " then
 		addMessage( string.upper(data) , 8 , true ) 
 		table.insert( dialogLog , string.upper(data) .. " (" .. os.date("%X") .. ")" )
 		local index = findPNJByClass( command )
-		PNJTable[index].ip, PNJTable[index].port = lip, lport -- we store the ip,port for further communications 
+		--PNJTable[index].ip, PNJTable[index].port = lip, lport -- we store the ip,port for further communications 
+		clients[i].id = command
 		if ack then
-		  if dynamic then 
-			udp:sendto( "(ack. " .. os.date("%X") .. ")", lip, lport )
-		  else
-			udp:sendto( "(ack. " .. os.date("%X") .. ")", lip, serverport )
-		  end
+			tcpsend( clients[i].tcp, "(ack. " .. os.date("%X") .. ")" )
 		end
-	    end
+	      end
 
-	    if command == "TARG" then
+	   else -- identified client
+		
+	    if clients[i].id ~= projectorId then
+		-- this is a player calling us, from a known device. We answer
+		addMessage( string.upper(clients[i].id) .. " : " .. string.upper(data) , 8 , true ) 
+		table.insert( dialogLog , string.upper(clients[i].id) .. " : " .. string.upper(data) .. " (" .. os.date("%X") .. ")" )
+		if ack then	
+			tcpsend( clients[i].tcp, "(ack. " .. os.date("%X") .. ")" )
+		end
+
+	    else
+		-- this is the projector
+	      if command == "TARG" then
 
 		local map = atlas:getVisible()
 		if map and map.pawns then
@@ -575,9 +569,7 @@ function love.update(dt)
 		  io.write("inconsistent TARG command received while no map or no pawns\n")
 		end
 
-	    end
-
-	    if command == "MPAW" then
+	      elseif command == "MPAW" then
 
 		local map = atlas:getVisible()
 		if map and map.pawns then
@@ -595,10 +587,15 @@ function love.update(dt)
 		else
 		  io.write("inconsistent MPAW command received while no map or no pawns\n")
 		end
+	    end -- end of command TARG/MPAW
 
-	    end
+	  end -- end of identified client
 
-	end
+	  end -- end of identified/unidentified
+
+	 end -- end of data
+
+	end -- end of client loop
 
 	-- change snapshot offset if mouse  at bottom right or left
 	local snapMax = #snapshots * (snapshotSize + snapshotMargin) - W
@@ -1134,7 +1131,7 @@ function love.mousereleased( x, y )
 			if pawnMove.x + pawnMove.size + 6 > map.w then pawnMove.x = math.floor(map.w - pawnMove.size - 6) end
 			if pawnMove.y + pawnMove.size + 6 > map.h then pawnMove.y = math.floor(map.h - pawnMove.size - 6) end
 	
-			udpsend("MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.x) .. " " .. math.floor(pawnMove.y) )		
+			tcpsend( projector, "MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.x) .. " " .. math.floor(pawnMove.y) )		
 			
 		end
 		pawnMove = nil; 
@@ -1191,7 +1188,7 @@ function love.mousereleased( x, y )
 			table.insert( map.mask , command ) 
 			io.write("inserting new mask " .. command .. "\n")
 	  		-- send over if requested
-	  		if atlas:isVisible( map ) then udpsend( command ) end
+	  		if atlas:isVisible( map ) then tcpsend( projector, command ) end
 	  	end
 
 		arrowModeMap = nil
@@ -1293,8 +1290,8 @@ function love.mousepressed( x, y , button )
 	      -- remove the 'visible' flag from maps (eventually)
 	      atlas:removeVisible()
     	      -- send the filename over the socket
-	      udpsend("OPEN " .. snapshots[index].baseFilename)
-	      udpsend("DISP") 	-- display immediately
+	      tcpsend( projector, "OPEN " .. snapshots[index].baseFilename)
+	      tcpsend( projector, "DISP") 	-- display immediately
       else
 	      -- not selected, select it now
 	    for i,v in ipairs(snapshots) do
@@ -1432,7 +1429,7 @@ function createPawns( map , sx, sy, requiredSize )
 	  if p.PJ then flag = "1" else flag = "0" end
 	  f = string.gsub(f,baseDirectory,"")
 	  io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. pawnSize .. " " .. flag .. " " .. f .. "\n")
-	  udpsend("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. pawnSize .. " " .. flag .. " " .. f)
+	  tcpsend( projector, "PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. pawnSize .. " " .. flag .. " " .. f)
 	  -- set position for next image: we display pawns on 4x4 line/column around the mouse position
 	  if i % 4 == 0 then
 		a = starta 
@@ -1581,26 +1578,26 @@ function Atlas:toggleVisible()
 		-- erase snapshot !
 		currentImage = nil 
 	  	-- send hide command to projector
-		udpsend("HIDE")
+		tcpsend( projector, "HIDE")
 	else    
 		self.visible = self.index 
 		-- change snapshot !
 		currentImage = map.im
 		-- send to projector
 		if map.is_local then
-		  udpsendBinary( map.file )
+		  tcpsendBinary( map.file )
 		else 
-  		  udpsend("OPEN " .. map.baseFilename )
+  		  tcpsend( projector, "OPEN " .. map.baseFilename )
 		end
   		-- send mask if applicable
   		if map.mask then
 			for k,v in pairs( map.mask ) do
-				udpsend( v )
+				tcpsend( projector, v )
 			end
   		end
-  		udpsend("MAGN " .. 1/map.mag)
-  		udpsend("CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) )
-  		udpsend("DISP")
+  		tcpsend( projector, "MAGN " .. 1/map.mag)
+  		tcpsend( projector, "CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) )
+  		tcpsend( projector, "DISP")
 
 	end
 	end
@@ -1897,6 +1894,14 @@ function findPNJByClass( class )
   return nil
   end
 
+function findClientByName( class )
+  if not class then return nil end
+  if not clients then return nil end
+  class = string.lower( trim(class) )
+  for i=1,#clients do if string.lower(clients[i].id) == class then return i end end
+  return nil
+  end
+
 -- return the character by its ID, or nil if not found
 function findPNJ( id )
   if not id then return nil end
@@ -1964,7 +1969,7 @@ if mouseMove then
 	if zy > H - margin or zy + map.h / map.mag < margin then map.y = oldy end	
 
 	-- send move to the projector
-	if (map.x ~= oldx or map.y ~= oldy) and atlas:isVisible(map) then udpsend("CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) ) end
+	if (map.x ~= oldx or map.y ~= oldy) and atlas:isVisible(map) then tcpsend( projector, "CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) ) end
 
     end
 end
@@ -2052,7 +2057,7 @@ function love.keypressed( key, isrepeat )
 	if map.mag == 0.5 then map.mag = 1 end	
 	if map.mag == 0.25 then map.mag = 0.5 end	
 	ignoreLastChar = true
-	if atlas:isVisible(map) then udpsend("MAGN " .. 1/map.mag ) end	
+	if atlas:isVisible(map) then tcpsend( projector, "MAGN " .. 1/map.mag ) end	
     end 
 
     if key == keyZoomOut then
@@ -2065,7 +2070,7 @@ function love.keypressed( key, isrepeat )
 	end	
 	if map.mag == 0 then map.mag = 0.25 end
 	ignoreLastChar = true
-	if atlas:isVisible(map) then udpsend("MAGN " .. 1/map.mag ) end	
+	if atlas:isVisible(map) then tcpsend( projector, "MAGN " .. 1/map.mag ) end	
     end 
 
     -- V for VISIBLE
@@ -2082,7 +2087,7 @@ function love.keypressed( key, isrepeat )
    -- REMOVE ALL PAWNS
    if (not dialogActive) and key == "x" and love.keyboard.isDown("lctrl") then
 	   map.pawns = {} 
-	   udpsend( "ERAS" )    
+	   tcpsend( projector, "ERAS" )    
    end
 
    -- display PJ snapshots or not
@@ -2320,7 +2325,7 @@ function createPNJGUIFrame()
               if (PNJTable[i].hits == 0) then 
                 PNJTable[i].is_dead = true; 
 
-		udpsend("KILL " .. PNJTable[i].id )
+		tcpsend( projector, "KILL " .. PNJTable[i].id )
 
                 self.parent.done.checkbox.set = true -- a dead character is done
                 PNJTable[i].done = true
@@ -2370,7 +2375,7 @@ function createPNJGUIFrame()
               PNJTable[i].hits = 0
               PNJTable[i].is_dead = true 
 
-	      udpsend("KILL " .. PNJTable[i].id )
+	      tcpsend( projector, "KILL " .. PNJTable[i].id )
 
               self.parent.done.checkbox.set = true -- a dead character is done
               PNJTable[i].done = true
@@ -2903,8 +2908,6 @@ options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDi
 		desc="Run in debug mode"},
 	    { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false , 
 		desc="Log to file (fading.log) instead of stdout"},
-	    { opcode="-D", longopcode="--dynamic", mandatory=false, varname="dynamic", value=false, default=false,
-		desc="With FS mobile: Use the port specified by the client to communicate, not the standard one (ie. 12345 by default)" },
 	    { opcode="-a", longopcode="--ack", mandatory=false, varname="acknowledge", value=false, default=false ,
 		desc="With FS mobile: Send an automatic acknowledge reply for each message received"},
 	    { opcode="-p", longopcode="--port", mandatory=false, varname="port", value=true, default=serverport,
@@ -2923,7 +2926,6 @@ function love.load( args )
     baseDirectory = parse.baseDirectory 
     fadingDirectory = parse.arguments[1]
     debug = parse.debug
-    dynamic = parse.dynamic
     serverport = parse.port
     ack = parse.acknowledge
     sep = '/'
@@ -3023,10 +3025,11 @@ function love.load( args )
     armButton.button.black = true
     clnButton.button.black = true
     
-    -- create socket and listen to any projector client
-    udp = socket.udp()
-    udp:settimeout(0)
-    udp:setsockname(address, serverport)
+    -- create socket and listen to any client
+    server = socket.tcp()
+    server:settimeout(0)
+    server:bind(address, serverport)
+    server:listen(10)
 
     -- some initialization stuff
     generateUID = UIDiterator()
