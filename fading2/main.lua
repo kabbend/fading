@@ -169,30 +169,34 @@ function tcpsendBinary( file )
 
   if not projector then return end -- no projector connected yet !
 
+  -- alert the projector that we are about to send a binary file
   tcpsend( projector, "BNRY")
 
+  -- wait for the projector to open a dedicated channel
+  local c = tcpbin:accept() 
+
   file:open('r')
-  local lowlimit = 50 
-  local timerlimit = 50 
-  local timerAbsoluteLimit = 100
-  repeat
+  --local lowlimit = 100 
+  --local timerlimit = 50 
+  --local timerAbsoluteLimit = 100
+  	--repeat
 
 	-- we send a given number of chunks in a row.
-	-- At the end of file, we might send a smaller one, then
-	-- nothing...
+	-- At the end of file, we might send a smaller one, then nothing...
   	local data, size = file:read( chunksize )
-   	local i = 1
-	local sizeSent = 0
+   	--local i = 1
+	--local sizeSent = 0
 
     	while size ~= 0 do
-        	tcpsend(projector,data,false) -- send chunk, not verbose
-		sizeSent = size
+        	c:send(data) -- send chunk
+		--sizeSent = size
 		if debug then io.write("sending " .. size .. " bytes. \n") end
-		i = i + 1
-		if i == chunkrepeat then break end
+		--i = i + 1
+		--if i == chunkrepeat then break end
             	data, size = file:read( chunksize )
 	end
 
+	--[[
 	-- ... then, if something was actually sent, we wait some time
 	-- for an acknowledge
 	local timer = 0
@@ -217,10 +221,11 @@ function tcpsendBinary( file )
 		   	 timerlimit = math.max( lowlimit, math.ceil(( timerlimit - timer ) / 1.5 ) + 1 )
 		 end
 	end
-
-  until sizeSent == 0
+	--]]
+  	--until sizeSent == 0
 
   file:close()
+  c:close()
 
   -- send a EOF agreed sequence: Binary EOF
   tcpsend(projector,"BEOF")
@@ -3030,6 +3035,9 @@ function love.load( args )
     server:settimeout(0)
     server:bind(address, serverport)
     server:listen(10)
+    tcpbin = socket.tcp()
+    tcpbin:bind(address, serverport+1)
+    tcpbin:listen(1)
 
     -- some initialization stuff
     generateUID = UIDiterator()

@@ -2,11 +2,11 @@ local socket = require "socket"
 local parser = require "parse"
  
 -- the address and port of the server
-defaultAddress, port 	= "localhost", 12345
-connect 		= false		-- connection status to server
-timer 			= 0
-connectRetryTime 	= 5
-chunkrepeat 		= 6
+defaultAddress, port, portbin 	= "localhost", 12345, 12346
+connect 			= false		-- connection status to server
+timer 				= 0
+connectRetryTime 		= 5
+--chunkrepeat 			= 6
 
 -- image information
 currentImage = nil	-- displayed image
@@ -355,27 +355,25 @@ function love.update( dt )
 		io.write("receiving BNRY\n") 
 		tempfile = io.open("image.tmp",'wb')
 
+		-- open a new connection to server, dedicated to binary transfer
+ 		local readbin = socket.tcp()
+ 		readbin:settimeout(0)
+ 		readbin:connect(address, portbin) 
+ 		if readbin then
+  			io.write("connected for binary transfer\n")
+ 		end
 		local data, msg
-	  	repeat
-		 local i = 1	
-		 local stop = false
-  		 repeat
-		  data, msg, partial = tcp:receive(8192)
-		  if partial then
-			data = partial
-			stop = true
-		  end
-		  data = string.sub( data , 1, string.len(data) - 1)
-		  if partial then io.write("DATA:'"..data.."'\n") end
+  		repeat
+		  data, msg, partial = readbin:receive("*a")
+		  data = data or partial
 		  if data then 
 			tempfile:write(data); 
-			i = i + 1
 			io.write("receiving " .. string.len(data) .. " bytes\n") 
 		  end
-		 until i == chunkrepeat or stop 
-		 tcp:send("OK\n");  io.write("sending OK\n") 
-		 socket.sleep(0.1)
-		until stop 
+		 socket.sleep(0.05)
+		 until msg =="closed" 
+
+		readbin:close() -- closing the binary socket
 
 	   elseif command == "BEOF" then
 
@@ -550,7 +548,7 @@ function love.load( args )
 
  address = parse.address 
  baseDirectory = parse.baseDirectory 
- port = parse.port
+ port = parse.port ; portbin = port + 1
  debug = parse.debug
  interact = parse.interact
 
@@ -563,7 +561,6 @@ function love.load( args )
  tcp = socket.tcp()
  tcp:settimeout(0)
  -- trying to reach server
- --tcp:setpeername(address, port)
  tcp:connect(address, port) 
  tcp:send("CONNECT\n")
 
