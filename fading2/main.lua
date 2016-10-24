@@ -938,6 +938,13 @@ function love.draw()
       if danger ~= -1 then drawRound( PNJtext[i].x + offset, PNJtext[i].y + 15, "danger", tostring(danger) ) end
     end
     
+    -- draw SNAPSHOT if applicable
+    if PNJTable[i].snapshot then
+       	    love.graphics.setColor(255,255,255)
+	    local s = PNJTable[i].snapshot
+	    love.graphics.draw( s.im , 200 , PNJtext[i].y , 0 , s.snapmag * 0.5, s.snapmag * 0.5 ) 
+    end
+
   end
   
 
@@ -2537,6 +2544,9 @@ function generateNewPNJ(current_class)
     PNJtext[PNJnum].init.text  = pnj.final_initiative;
 
   else
+
+    -- set a default image
+    pnj.snapshot = defaultPawnSnapshot
 
     -- check if same class has already been generated before. If so, take same initiative value
     -- otherwise, assign a new value (common to the whole class)
