@@ -44,11 +44,13 @@ messages 		= {}
 messagesH		= H - 22
 
 -- snapshots
-snapshots = {}
-snapshotIndex 		= 1	-- which image is first
-snapshotSize 		= 70 	-- w and h of each snapshot
-snapshotMargin 		= 7 	-- space between images and screen border
-snapshotOffset 		= 0	-- current offset to display
+snapshots    = {}
+snapshots[1] = { s = {}, index = 1, offset = 0 } 	-- small snapshots at the bottom, for general images
+snapshots[2] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for scenario & maps
+snapshots[3] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for pawns
+currentSnap		= 1				-- by default, we display images
+snapshotSize 		= 70 				-- w and h of each snapshot
+snapshotMargin 		= 7 				-- space between images and screen border
 snapshotH 		= messagesH - snapshotSize - snapshotMargin
 
 -- pawns and PJ snapshots
@@ -603,16 +605,16 @@ function love.update(dt)
 	end -- end of client loop
 
 	-- change snapshot offset if mouse  at bottom right or left
-	local snapMax = #snapshots * (snapshotSize + snapshotMargin) - W
+	local snapMax = #snapshots[currentSnap].s * (snapshotSize + snapshotMargin) - W
 	if snapMax < 0 then snapMax = 0 end
 	local x,y = love.mouse.getPosition()
 	if (x < snapshotMargin * 4 ) and (y > snapshotH) and (y < messagesH) then
-	  snapshotOffset = snapshotOffset + snapshotMargin * 2
-	  if snapshotOffset > 0 then snapshotOffset = 0  end
+	  snapshots[currentSnap].offset = snapshots[currentSnap].offset + snapshotMargin * 2
+	  if snapshots[currentSnap].offset > 0 then snapshots[currentSnap].offset = 0  end
 	end
 	if (x > W - snapshotMargin * 4 ) and (y > snapshotH) and (y < messagesH) then
-	  snapshotOffset = snapshotOffset - snapshotMargin * 2
-	  if snapshotOffset < -snapMax then snapshotOffset = -snapMax end
+	  snapshots[currentSnap].offset = snapshots[currentSnap].offset - snapshotMargin * 2
+	  if snapshots[currentSnap].offset < -snapMax then snapshots[currentSnap].offset = -snapMax end
 	end
 
 	-- change some button behaviour when needed
@@ -791,23 +793,23 @@ function love.draw()
 
   -- bottom snapshots list
   love.graphics.setColor(255,255,255)
-  for i=snapshotIndex, #snapshots do
-	local x = snapshotOffset + (snapshotSize + snapshotMargin) * (i-1) - (snapshots[i].w * snapshots[i].mag - snapshotSize) / 2
+  for i=snapshots[currentSnap].index, #snapshots[currentSnap].s do
+	local x = snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1) - (snapshots[currentSnap].s[i].w * snapshots[currentSnap].s[i].snapmag - snapshotSize) / 2
 	if x > W then break end
 	if x >= -snapshotSize then 
-		if snapshots[i].selected then
+		if snapshots[currentSnap].s[i].selected then
   			love.graphics.setColor(unpack(color.red))
 			love.graphics.rectangle("line", 
-				snapshotOffset + (snapshotSize + snapshotMargin) * (i-1),
+				snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1),
 				snapshotH, 
 				snapshotSize, 
 				snapshotSize)
   			love.graphics.setColor(255,255,255)
 		end
-		love.graphics.draw( 	snapshots[i].im , 
+		love.graphics.draw( 	snapshots[currentSnap].s[i].im , 
 				x,
-				snapshotH - ( snapshots[i].h * snapshots[i].mag - snapshotSize ) / 2, 
-			    	0 , snapshots[i].mag, snapshots[i].mag )
+				snapshotH - ( snapshots[currentSnap].s[i].h * snapshots[currentSnap].s[i].snapmag - snapshotSize ) / 2, 
+			    	0 , snapshots[currentSnap].s[i].snapmag, snapshots[currentSnap].s[i].snapmag )
 	end
   end
 
@@ -1284,24 +1286,24 @@ function love.mousepressed( x, y , button )
     -- incidentally, this cancels the arrow as well
     arrowMode = false
     -- check if there is a snapshot there
-    local index = math.floor((x - snapshotOffset) / ( snapshotSize + snapshotMargin)) + 1
+    local index = math.floor((x - snapshots[currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
     -- 2 possibilities: if this image is already selected, then display it
     -- otherwise, just select it (and deselect any other eventually)
-    if index >= 1 and index <= #snapshots then
-      if snapshots[index].selected then
+    if index >= 1 and index <= #snapshots[currentSnap].s then
+      if snapshots[currentSnap].s[index].selected then
 	      -- already selected
-	      snapshots[index].selected = false 
-	      currentImage = snapshots[index].im
+	      snapshots[currentSnap].s[index].selected = false 
+	      currentImage = snapshots[currentSnap].s[index].im
 	      -- remove the 'visible' flag from maps (eventually)
 	      atlas:removeVisible()
     	      -- send the filename over the socket
-	      tcpsend( projector, "OPEN " .. snapshots[index].baseFilename)
+	      tcpsend( projector, "OPEN " .. snapshots[currentSnap].s[index].baseFilename)
 	      tcpsend( projector, "DISP") 	-- display immediately
       else
 	      -- not selected, select it now
-	    for i,v in ipairs(snapshots) do
-	      if i == index then snapshots[i].selected = true
-	      else snapshots[i].selected = false end
+	    for i,v in ipairs(snapshots[currentSnap].s) do
+	      if i == index then snapshots[currentSnap].s[i].selected = true
+	      else snapshots[currentSnap].s[i].selected = false end
 	    end
       end
     end
@@ -1487,6 +1489,10 @@ function Map.new( kind, imageFilename , file )
   new.mag = 1.0
   new.step = 50
   if kind == "map" then new.mask = {} else new.mask = nil end
+  -- inherit from snapshot as well
+  local f1, f2 = snapshotSize / new.w , snapshotSize / new.h
+  new.snapmag = math.min(f1,f2)
+  new.selected = false
   new.pawns = {} 
   return new
   end
@@ -1509,7 +1515,7 @@ function loadSnap( imageFilename )
   new.im = img 
   new.w, new.h = new.im:getDimensions() 
   local f1, f2 = snapshotSize / new.w , snapshotSize / new.h
-  new.mag = math.min(f1,f2)
+  new.snapmag = math.min(f1,f2)
   new.selected = false
   return new
   end
@@ -2003,6 +2009,11 @@ function love.keypressed( key, isrepeat )
       focusTarget  = PNJTable[ focus ].target
     end
     return
+  end
+
+  if key == 'rctrl' then
+	  currentSnap = currentSnap + 1
+	  if currentSnap == 4 then currentSnap = 1 end
   end
 
   -- "d" open dialog zone
@@ -3107,13 +3118,16 @@ function love.load( args )
 
       elseif f == 'scenario.jpg' then
 
-	atlas:addMap( Map.new( "scenario", baseDirectory .. sep .. fadingDirectory .. sep .. f ) )
+	local s = Map.new( "scenario", baseDirectory .. sep .. fadingDirectory .. sep .. f ) 
+	atlas:addMap( s )
 	io.write("Loaded scenario image file at " .. baseDirectory .. sep .. fadingDirectory .. sep .. f .. "\n")
 	scenarioImageNum = scenarioImageNum + 1
+	table.insert( snapshots[2].s, s ) 
 
       elseif f == 'defaultPawn.jpg' then
 
 	defaultPawnSnapshot = loadSnap( baseDirectory .. sep ..fadingDirectory .. sep .. f )  
+	table.insert( snapshots[3].s, defaultPawnSnapshot ) 
 
       elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
@@ -3124,17 +3138,20 @@ function love.load( args )
 		local index = findPNJByClass( pjname ) 
 		if index then
 			PNJTable[index].snapshot = loadSnap( baseDirectory .. sep .. fadingDirectory .. sep .. f )  
+			table.insert( snapshots[3].s, PNJTable[index].snapshot ) 
 			PJImageNum = PJImageNum + 1
 		end
 
 	elseif string.sub(f,1,3) == 'map' then
 
-	  atlas:addMap( Map.new( "map", baseDirectory .. sep ..fadingDirectory .. sep .. f ) )
+	  local s = Map.new( "map", baseDirectory .. sep ..fadingDirectory .. sep .. f ) 
+	  atlas:addMap( s )
+	  table.insert( snapshots[2].s, s ) 
 	  mapsNum = mapsNum + 1
 
  	else
 
-	  table.insert( snapshots, loadSnap( baseDirectory .. sep ..fadingDirectory .. sep .. f ) ) 
+	  table.insert( snapshots[1].s, loadSnap( baseDirectory .. sep ..fadingDirectory .. sep .. f ) ) 
 	  
         end
 
