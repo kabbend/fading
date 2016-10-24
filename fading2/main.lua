@@ -1287,24 +1287,44 @@ function love.mousepressed( x, y , button )
     arrowMode = false
     -- check if there is a snapshot there
     local index = math.floor((x - snapshots[currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
-    -- 2 possibilities: if this image is already selected, then display it
+    -- 2 possibilities: if this image is already selected, then use it
     -- otherwise, just select it (and deselect any other eventually)
     if index >= 1 and index <= #snapshots[currentSnap].s then
       if snapshots[currentSnap].s[index].selected then
 	      -- already selected
 	      snapshots[currentSnap].s[index].selected = false 
-	      currentImage = snapshots[currentSnap].s[index].im
-	      -- remove the 'visible' flag from maps (eventually)
-	      atlas:removeVisible()
-    	      -- send the filename over the socket
-	      tcpsend( projector, "OPEN " .. snapshots[currentSnap].s[index].baseFilename)
-	      tcpsend( projector, "DISP") 	-- display immediately
+
+	      -- 3 different ways to use a snapshot
+
+	      -- 1: general image, sent it to projector
+	      if currentSnap == 1 then
+	      	currentImage = snapshots[currentSnap].s[index].im
+	      	-- remove the 'visible' flag from maps (eventually)
+	      	atlas:removeVisible()
+    	      	-- send the filename over the socket
+	      	tcpsend( projector, "OPEN " .. snapshots[currentSnap].s[index].baseFilename)
+	      	tcpsend( projector, "DISP") 	-- display immediately
+
+	      -- 2: map. This should open a window 
+	      elseif currentSnap == 2 then
+
+		      	-- open window, FIXME
+	
+	      -- 3: Pawn. If focus is set, use this image as PJ/PNJ pawn image 
+	      else
+			if focus then PNJTable[ focus ].snapshot = snapshots[currentSnap].s[index] end
+
+	      end
+
       else
 	      -- not selected, select it now
 	    for i,v in ipairs(snapshots[currentSnap].s) do
 	      if i == index then snapshots[currentSnap].s[i].selected = true
 	      else snapshots[currentSnap].s[i].selected = false end
 	    end
+
+	    -- If in pawn mode, this does NOT change the focus, so we break now !
+	    if currentSnap == 3 then return end
       end
     end
   end
