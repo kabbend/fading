@@ -3172,8 +3172,9 @@ function love.load( args )
       --   SCENARIO IMAGE: 	named scenario.jpg
       --   SCENARIO TEXT:	associated to this image, named scenario.txt
       --   MAPS: 		map*jpg or map*png, they are considered as maps and loaded as such
-      --   PJ IMAGE:		PJ_pjname.jpg, they are considered as images for corresponding PJ
-      --   PNJ DEFAULT IMAGE:	defaultPawn.jpg
+      --   PJ IMAGE:		pawnPJname.jpg or .png, they are considered as images for corresponding PJ
+      --   PNJ DEFAULT IMAGE:	pawnDefault.jpg
+      --   PAWN IMAGE:		pawn*.jpg or .png
       --   SNAPSHOTS:		*.jpg or *.png, all are snapshots displayed at the bottom part
       
       if f == 'scenario.txt' then 
@@ -3190,21 +3191,23 @@ function love.load( args )
 	scenarioImageNum = scenarioImageNum + 1
 	table.insert( snapshots[2].s, s ) 
 
-      elseif f == 'defaultPawn.jpg' then
+      elseif f == 'pawnDefault.jpg' then
 
 	defaultPawnSnapshot = loadSnap( baseDirectory .. sep ..fadingDirectory .. sep .. f )  
 	table.insert( snapshots[3].s, defaultPawnSnapshot ) 
 
       elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
-        if string.sub(f,1,3) == 'PJ_' then
+        if string.sub(f,1,3) == 'pawn' then
 
-		local pjname = string.sub(f,4, f:len() - 4 )
+		local s = loadSnap( baseDirectory .. sep .. fadingDirectory .. sep .. f )  
+		table.insert( snapshots[3].s, s ) 
+
+		local pjname = string.sub(f,5, f:len() - 4 )
 		io.write("Looking for PJ " .. pjname .. "\n")
 		local index = findPNJByClass( pjname ) 
 		if index then
-			PNJTable[index].snapshot = loadSnap( baseDirectory .. sep .. fadingDirectory .. sep .. f )  
-			table.insert( snapshots[3].s, PNJTable[index].snapshot ) 
+			PNJTable[index].snapshot = s  
 			PJImageNum = PJImageNum + 1
 		end
 
