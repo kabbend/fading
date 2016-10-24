@@ -346,6 +346,7 @@ function love.filedropped(file)
 
 	  local filename = file:getFilename()
 	  local is_a_map = false
+	  local is_a_pawn = false
 	  local is_local = false
 
 	  -- if filename does not contain the base directory, it is local
@@ -362,18 +363,44 @@ function love.filedropped(file)
 	 	is_a_map = true
 	  end
 
+	  -- check if is a pawn or not 
+	  if string.sub(basefile,1,4) == "pawn" and 
+	    (string.sub(basefile,-4) == ".jpg" or string.sub(basefile,-4) == ".png") then
+	 	is_a_pawn = true
+	  end
+
 	  io.write("is map?: " .. tostring(is_a_map) .. "\n")
+	  io.write("is pawn?: " .. tostring(is_a_pawn) .. "\n")
 
 	  if not is_a_map then -- load image 
   	    assert(file:open('r'))
             local image = file:read()
             file:close()
 
+	    local snap = {}
+
             local lfn = love.filesystem.newFileData
             local lin = love.image.newImageData
             local lgn = love.graphics.newImage
             success, img = pcall(function() return lgn(lin(lfn(image, 'img', 'file'))) end)
             if success then 
+
+		-- create a snapshot object and store it
+  		snap.filename = filename
+  		snap.baseFilename = string.gsub(filename,baseDirectory,"")
+  		snap.im = img 
+		snap.is_local = is_local
+		if is_local then snap.file = file end
+  		snap.w, snap.h = snap.im:getDimensions() 
+  		local f1, f2 = snapshotSize / snap.w , snapshotSize / snap.h
+  		snap.snapmag = math.min(f1,f2)
+  		snap.selected = false
+		if is_a_pawn then 
+			table.insert( snapshots[3].s , snap )
+		else
+			table.insert( snapshots[1].s , snap )
+		end
+
 	  	-- set the local image
 	  	currentImage = img 
 		-- remove the 'visible' flag from maps (eventually)
@@ -394,8 +421,11 @@ function love.filedropped(file)
 	        io.write("cannot load image file " .. filename .. "\n")
 	    end	
 	
-	  else -- add map to the atlas
-	    atlas:addMap( Map.new( "map" , nil , file ) ) -- no filename, and file object means local 
+	  elseif is_a_map then  -- add map to the atlas
+	    local m = Map.new( "map" , nil , file ) -- no filename, and file object means local 
+	    atlas:addMap( m )  
+	    table.insert( snapshots[2].s , m )
+
 	  end
 
 	end
@@ -1309,7 +1339,11 @@ function love.mousepressed( x, y , button )
 	      	-- remove the 'visible' flag from maps (eventually)
 	      	atlas:removeVisible()
     	      	-- send the filename over the socket
-	      	tcpsend( projector, "OPEN " .. snapshots[currentSnap].s[index].baseFilename)
+		if snapshots[currentSnap].s[index].is_local then
+			tcpsendBinary( snapshots[currentSnap].s[index].file )
+		else
+	      		tcpsend( projector, "OPEN " .. snapshots[currentSnap].s[index].baseFilename)
+		end
 	      	tcpsend( projector, "DISP") 	-- display immediately
 
 	      -- 2: map. This should open a window 
@@ -1544,6 +1578,8 @@ function loadSnap( imageFilename )
   local f1, f2 = snapshotSize / new.w , snapshotSize / new.h
   new.snapmag = math.min(f1,f2)
   new.selected = false
+  new.is_local = false -- a priori
+  new.file = nil
   return new
   end
 
@@ -3189,10 +3225,10 @@ function love.load( args )
 
     end
 
-    io.write("Loaded " .. #snapshots .. " snapshots, " .. mapsNum .. " maps, " .. PJImageNum .. " PJ images, " .. scenarioImageNum .. " scenario image, " .. 
+    io.write("Loaded " .. #snapshots[1].s .. " snapshots, " .. mapsNum .. " maps, " .. PJImageNum .. " PJ images, " .. scenarioImageNum .. " scenario image, " .. 
     		scenarioTextNum .. " scenario text\n" )
 
-    addMessage("Loaded " .. #snapshots .. " snapshots, " .. mapsNum .. " maps, " .. PJImageNum .. " PJ images, " .. scenarioImageNum .. " scenario image, " .. 
+    addMessage("Loaded " .. #snapshots[1].s .. " snapshots, " .. mapsNum .. " maps, " .. PJImageNum .. " PJ images, " .. scenarioImageNum .. " scenario image, " .. 
     		scenarioTextNum .. " scenario text\n" )
 	 
   -- create a reverted table of faces, in which point numbers are index,
