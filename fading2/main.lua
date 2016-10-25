@@ -901,36 +901,6 @@ function love.draw()
   -- draw view itself
   view:draw()
 
-  -- draw dices if needed
-  if drawDices then
-
-  --use a coordinate system with 0,0 at the center
-  --and an approximate width and height of 10
-  local cx,cy=380,380
-  local scale=cx/4
-  
-  love.graphics.push()
-  love.graphics.translate(cx,cy)
-  love.graphics.scale(scale)
-  
-  render.clear()
-
-  --render.bulb(render.zbuffer) --light source
-  for i=1,#dice do if dice[i] then render.die(render.zbuffer, dice[i].die, dice[i].star) end end
-  render.paint()
-
-  love.graphics.pop()
-  --love.graphics.dbg()
-
-    -- draw number if needed
-    if drawDicesResult then
-      love.graphics.setColor(unpack(color.red))
-      love.graphics.setFont(fontDice)
-      love.graphics.print(diceSum,650,4*viewh/5)
-    end
-
-  end 
-
    
   -- display global dangerosity
   local danger = computeGlobalDangerosity( )
@@ -1112,6 +1082,36 @@ function love.draw()
 	love.graphics.printf( dialogLog[i] , W - 590 , H - 290 + (i-start)*18 , 580 )	
    end
  end
+
+  -- draw dices if needed
+  if drawDices then
+
+  --use a coordinate system with 0,0 at the center
+  --and an approximate width and height of 10
+  local cx,cy=380,380
+  local scale=cx/4
+  
+  love.graphics.push()
+  love.graphics.translate(cx,cy)
+  love.graphics.scale(scale)
+  
+  render.clear()
+
+  --render.bulb(render.zbuffer) --light source
+  for i=1,#dice do if dice[i] then render.die(render.zbuffer, dice[i].die, dice[i].star) end end
+  render.paint()
+
+  love.graphics.pop()
+  --love.graphics.dbg()
+
+    -- draw number if needed
+    if drawDicesResult then
+      love.graphics.setColor(unpack(color.red))
+      love.graphics.setFont(fontDice)
+      love.graphics.print(diceSum,650,4*viewh/5)
+    end
+
+  end 
 
 end
 
@@ -2074,7 +2074,7 @@ function love.keypressed( key, isrepeat )
     return
   end
 
-  if key == 'rctrl' then
+  if key == 'rshift' then
 	  currentSnap = currentSnap + 1
 	  if currentSnap == 4 then currentSnap = 1 end
   end
@@ -3198,7 +3198,7 @@ function love.load( args )
 
       elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
-        if string.sub(f,1,3) == 'pawn' then
+        if string.sub(f,1,4) == 'pawn' then
 
 		local s = loadSnap( baseDirectory .. sep .. fadingDirectory .. sep .. f )  
 		table.insert( snapshots[3].s, s ) 
