@@ -44,8 +44,19 @@ function newD6star(size)
 end
 
 d6= {
-  faces={{1,2,3,4}, {5,6,7,8}, {1,2,6,5},{2,3,7,6},{3,4,8,7},{4,1,5,8}}
+  faces={{1,2,3,4}, {5,6,7,8}, {1,2,6,5},{2,3,7,6},{3,4,8,7},{4,1,5,8}},
+  revertedfaces = {}
 }
+
+-- create a reverted table of faces, in which point numbers are index,
+-- not value. This will ease face retrieval when knowing the points
+for i=1,#d6.faces do
+   d6.revertedfaces[i] = {}
+    for k,v in ipairs( d6.faces[i]) do
+      d6.revertedfaces[i][v] = true
+    end
+end
+
 
 function d6.image(n,a,b,c,d,e,f,g,h)
   if n>6 then return end
@@ -115,6 +126,18 @@ function round(p,die,star)
   for i=1,#newstar do star[i]=newstar[i] end
   die.faces=newfaces
 end
+
+-- given 4 points by their index on the star, retrieve the number of
+-- the corresponding face
+function whichFace(i1,i2,i3,i4)
+  for i=1,#d6.faces do
+   if d6.revertedfaces[i][i1] and
+          d6.revertedfaces[i][i2] and
+          d6.revertedfaces[i][i3] and
+          d6.revertedfaces[i][i4] then return i end
+   end
+   return nil
+   end
 
 
 

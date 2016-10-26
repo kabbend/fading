@@ -84,12 +84,6 @@ function isAttorArm( i )
 
          if num == 0 then return end
 
-         --[[
-         -- roll them all and store result
-         Dices = {}
-         for i=1,num do Dices[i] = math.random(1,6) end
-         --]]
-
          math.randomseed( os.time() )
 
          -- prepare the dice box simulation
@@ -101,7 +95,7 @@ function isAttorArm( i )
                  { star=newD6star(1.5):set({math.random(10),math.random(10),math.random(10)}, -- position
                                            {-math.random(8,40),-math.random(8,40),-10}, -- velocity
                                            {math.random(10),math.random(10),math.random(10)}), -- angular mvmt
-                   die=clone(d6,{material=light.plastic,color={127,70,255,255},text={255,255,255},shadow={20,0,0,190}}) })
+                   die=clone(d6,{material=light.plastic,color={81,0,255,255},text={255,255,255},shadow={20,0,0,190}}) })
          end
 
          for i=1,#dice do box[i]=dice[i].star end

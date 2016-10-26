@@ -2072,28 +2072,6 @@ function love.load( args )
     addMessage("Loaded " .. #snapshots[1].s .. " snapshots, " .. mapsNum .. " maps, " .. PJImageNum .. " PJ images, " .. scenarioImageNum .. " scenario image, " .. 
     		scenarioTextNum .. " scenario text\n" )
 	 
-  -- create a reverted table of faces, in which point numbers are index,
-  -- not value. This will ease face retrieval when knowing the points
-  d6.revertedfaces = {}
-  for i=1,#d6.faces do
-   d6.revertedfaces[i] = {}
-    for k,v in ipairs( d6.faces[i]) do
-      d6.revertedfaces[i][v] = true
-    end
-  end
-
 end
 
-
--- given 4 points by their index on the star, retrieve the number of
--- the corresponding face
-function whichFace(i1,i2,i3,i4)
-  for i=1,#d6.faces do
-   if d6.revertedfaces[i][i1] and 
-	  d6.revertedfaces[i][i2] and
-	  d6.revertedfaces[i][i3] and
-	  d6.revertedfaces[i][i4] then return i end
-   end	  
-   return nil
-   end
 
