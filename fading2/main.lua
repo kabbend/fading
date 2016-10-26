@@ -37,7 +37,6 @@ clients			= {}			-- list of clients. A client is a couple { tcp-object , id } wh
 projector		= nil			-- direct access to tcp object for projector
 projectorId		= "*proj"		-- special ID to distinguish projector from other clients
 chunksize 		= (8192 - 1)		-- size of the datagram when sending binary file
-chunkrepeat 		= 6			-- number of chunks to send before requesting an acknowledge
 
 -- main screen size
 W, H = 1420, 790 	-- main window size default values (may be changed dynamically on some systems)
@@ -69,8 +68,7 @@ pawnMaxLayer		= 1
 H1, W1 = 140, 140
 currentImage = nil
 
--- some GUI buttons whose color will need to be 
--- changed at runtime
+-- some GUI buttons whose color will need to be changed at runtime
 attButton	= nil		-- button Roll Attack
 armButton	= nil		-- button Roll Armor
 nextButton	= nil		-- button Next Round
@@ -136,7 +134,7 @@ dice 		    = {}	-- list of d6 dices
 drawDicesTimer      = 0
 drawDices           = false	-- flag to draw dices
 drawDicesResult     = false	-- flag to draw dices result (in a 2nd step)	
-diceKind 	    = ""	-- kind of dice (black for 'attack', white for 'armor')
+diceKind 	    = ""	-- kind of dice (black for 'attack', white for 'armor') -- unused
 diceSum		    = 0		-- result to be displayed on screen
 lastDiceSum	    = 0		-- store previous result
 diceStableTimer	    = 0
@@ -176,6 +174,7 @@ function createClass (a,b)
 	return c
 	end
 
+-- some convenient file loading functions (based on filename or file descriptor)
 function loadDistantImage( filename )
   local file = assert( io.open( filename, 'rb' ) )
   local image = file:read('*a')
@@ -421,7 +420,7 @@ function Dialog:draw()
    love.graphics.rectangle( "fill", zx , zy , self.w , self.h )  
    -- print current log text
    local start
-   if #dialogLog > 11 then start = #dialogLog - 11 else start = 1 end
+   if #dialogLog > 10 then start = #dialogLog - 10 else start = 1 end
    love.graphics.setColor(255,255,255)
    for i=start,#dialogLog do 
 	love.graphics.printf( dialogLog[i] , zx , zy + (i-start)*18 , self.w )	
@@ -520,71 +519,23 @@ function tcpsend( tcp, data , verbose )
 
 -- send a whole binary file over the network
 function tcpsendBinary( file )
-
-  if not projector then return end -- no projector connected yet !
-
-  -- alert the projector that we are about to send a binary file
-  tcpsend( projector, "BNRY")
-
-  -- wait for the projector to open a dedicated channel
-  local c = tcpbin:accept() 
-
-  file:open('r')
-  --local lowlimit = 100 
-  --local timerlimit = 50 
-  --local timerAbsoluteLimit = 100
-  	--repeat
-
-	-- we send a given number of chunks in a row.
-	-- At the end of file, we might send a smaller one, then nothing...
-  	local data, size = file:read( chunksize )
-   	--local i = 1
-	--local sizeSent = 0
-
-    	while size ~= 0 do
-        	c:send(data) -- send chunk
-		--sizeSent = size
-		if debug then io.write("sending " .. size .. " bytes. \n") end
-		--i = i + 1
-		--if i == chunkrepeat then break end
-            	data, size = file:read( chunksize )
-	end
-
-	--[[
-	-- ... then, if something was actually sent, we wait some time
-	-- for an acknowledge
-	local timer = 0
-	local answer = nil
-   	if sizeSent ~= 0 then 
-		io.write("waiting ................... " .. timerlimit .. " cycles\n")
-		while true do
-            		socket.sleep(0.05)
-			answer, msg = projector:receive()
-			timer = timer + 1
-			if answer == 'OK' then 
-			 	io.write("OK in " .. timer .. " cycles\n") 
-				break 
-			end
-			if timer > timerlimit then break end
-		 end
-		 if timer > timerlimit then 
-			 io.write("warning: did not receive OK within " .. timerlimit .. " cycles. Adjusting timer\n") 
-			 timerlimit = timerlimit * 2
-			 if timerlimit > timerAbsoluteLimit then timerlimit = timerAbsoluteLimit end
-		 else
-		   	 timerlimit = math.max( lowlimit, math.ceil(( timerlimit - timer ) / 1.5 ) + 1 )
-		 end
-	end
-	--]]
-  	--until sizeSent == 0
-
-  file:close()
-  c:close()
-
-  -- send a EOF agreed sequence: Binary EOF
-  tcpsend(projector,"BEOF")
-
-  end
+ if not projector then return end 	-- no projector connected yet !
+ tcpsend( projector, "BNRY") 		-- alert the projector that we are about to send a binary file
+ local c = tcpbin:accept() 		-- wait for the projector to open a dedicated channel
+ -- we send a given number of chunks in a row.
+ -- At the end of file, we might send a smaller one, then nothing...
+ file:open('r')
+ local data, size = file:read( chunksize )
+ while size ~= 0 do
+       	c:send(data) -- send chunk
+	io.write("sending " .. size .. " bytes. \n")
+        data, size = file:read( chunksize )
+ end
+ file:close()
+ c:close()
+ -- send a EOF agreed sequence: Binary EOF
+ tcpsend(projector,"BEOF")
+ end
 
 -- send dialog message to player
 function doDialog( text )
@@ -649,54 +600,29 @@ function love.filedropped(file)
 	  io.write("is pawn?: " .. tostring(is_a_pawn) .. "\n")
 
 	  if not is_a_map then -- load image 
-  	    assert(file:open('r'))
-            local image = file:read()
-            file:close()
 
-	    local snap = {}
-
-            local lfn = love.filesystem.newFileData
-            local lin = love.image.newImageData
-            local lgn = love.graphics.newImage
-            success, img = pcall(function() return lgn(lin(lfn(image, 'img', 'file'))) end)
-            if success then 
-
-		-- create a snapshot object and store it
-  		snap.filename = filename
-  		snap.baseFilename = string.gsub(filename,baseDirectory,"")
-  		snap.im = img 
-		snap.is_local = is_local
-		if is_local then snap.file = file end
-  		snap.w, snap.h = snap.im:getDimensions() 
-  		local f1, f2 = snapshotSize / snap.w , snapshotSize / snap.h
-  		snap.snapmag = math.min(f1,f2)
-  		snap.selected = false
+		local snap = Snapshot:new{ file = file }
 		if is_a_pawn then 
 			table.insert( snapshots[3].s , snap )
 		else
 			table.insert( snapshots[1].s , snap )
+	  		-- set the local image
+	  		currentImage = snap.im 
+			-- remove the 'visible' flag from maps (eventually)
+			atlas:removeVisible()
+			if not is_local then
+    	  	  		-- send the filename (without path) over the socket
+		  		filename = string.gsub(filename,baseDirectory,"")
+		  		tcpsend(projector,"OPEN " .. filename)
+		  		tcpsend(projector,"DISP") 	-- display immediately
+			else
+		  		-- send the file itself... not the same story...
+		  		tcpsendBinary( file )
+		  		-- display it
+		  		tcpsend(projector,"DISP")
+			end
 		end
 
-	  	-- set the local image
-	  	currentImage = img 
-		-- remove the 'visible' flag from maps (eventually)
-		atlas:removeVisible()
-		if not is_local then
-    	  	  -- send the filename (without path) over the socket
-		  filename = string.gsub(filename,baseDirectory,"")
-		  tcpsend(projector,"OPEN " .. filename)
-		  tcpsend(projector,"DISP") 	-- display immediately
-		else
-		  -- send the file itself... not the same story...
-		  tcpsendBinary( file )
-		  -- display it
-		  tcpsend(projector,"DISP")
-
-		end
-	    else
-	        io.write("cannot load image file " .. filename .. "\n")
-	    end	
-	
 	  elseif is_a_map then  -- add map to the atlas
 	    local m = Map:new()
 	    m:load{ file=file } -- no filename, and file object means local 
@@ -867,7 +793,7 @@ function love.update(dt)
 	end
   
   	-- draw dices if requested
-	-- there are two phases of 1 second each: drawDices (all dices) then drawDicesResult (remove failed ones)
+	-- there are two phases of 1 second each: drawDices (all dices) then drawDicesResult (does not count failed ones)
   	if drawDices then
 
   		box:update(dt)
@@ -981,8 +907,6 @@ function drawRound( x, y, kind, id )
 
 
 function myStencilFunction( )
-	--local map = atlas:getMap()
-	--if not map then return end
 	local map = currentWindowDraw
 	local x,y,mag,w,h = map.x, map.y, map.mag, map.w, map.h
         local zx,zy = -( x * 1/mag - W / 2), -( y * 1/mag - H / 2)
@@ -1125,11 +1049,12 @@ function love.draw()
       if danger ~= -1 then drawRound( PNJtext[i].x + offset, PNJtext[i].y + 15, "danger", tostring(danger) ) end
     end
     
-    -- draw SNAPSHOT if applicable
+    -- draw PNJ snapshot if applicable
     if PNJTable[i].snapshot then
        	    love.graphics.setColor(255,255,255)
 	    local s = PNJTable[i].snapshot
-	    love.graphics.draw( s.im , 200 , PNJtext[i].y , 0 , s.snapmag * 0.5, s.snapmag * 0.5 ) 
+	    local xoffset = s.w * s.snapmag * 0.5 / 2
+	    love.graphics.draw( s.im , 210 - xoffset , PNJtext[i].y - 2 , 0 , s.snapmag * 0.5, s.snapmag * 0.5 ) 
     end
 
   end
@@ -1137,86 +1062,7 @@ function love.draw()
   -- draw windows
   layout:draw() 
 
- --[[
-   local map = atlas:getMap()
-
-   if map then
-
-     local SX,SY,MAG = map.x, map.y, map.mag
-     local x,y = -( SX * 1/MAG - W / 2), -( SY * 1/MAG - H / 2)
-
-     if map.mask then	
-       love.graphics.setColor(100,100,50,200)
-       love.graphics.stencil( myStencilFunction, "increment" )
-       love.graphics.setStencilTest("equal", 1)
-     else
-       love.graphics.setColor(255,255,255,240)
-     end
-
-     love.graphics.draw( map.im, x, y, 0, 1/MAG, 1/MAG )
-
-     if map.mask then
-       love.graphics.setStencilTest("gequal", 2)
-       love.graphics.setColor(255,255,255)
-       love.graphics.draw( map.im, x, y, 0, 1/MAG, 1/MAG )
-       love.graphics.setStencilTest()
-     end
-
-     -- draw small circle or rectangle in upper corner, to show which mode we are in
-     if map.kind == "map" then
-       love.graphics.setColor(200,0,0,180)
-       if maskType == "RECT" then love.graphics.rectangle("line",x + 5, y + 5,20,20) end
-       if maskType == "CIRC" then love.graphics.circle("line",x + 15, y + 15,10) end
-     end
-
-     -- draw pawns, if any
-     if map.pawns then
-	     for i=1,#map.pawns do
-       	     	     local index = findPNJ(map.pawns[i].id) 
-		     -- we do some checks before displaying the pawn: it might happen that the character corresponding to the pawn 
-		     -- is dead, or, worse, has been removed completely from the list
-		     if index then 
-		     	local dead = false
-		     	dead = PNJTable[ index ].is_dead
-		     	if map.pawns[i].im then
-  		       		local zx,zy = (map.pawns[i].x) * 1/map.mag + x , (map.pawns[i].y) * 1/map.mag + y
-		       		if PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
-		       		love.graphics.rectangle( "fill", zx, zy, (map.pawns[i].size+6) / map.mag, (map.pawns[i].size+6) / map.mag)
-		       		if dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
-		       		zx = zx + map.pawns[i].offsetx / map.mag
-		       		zy = zy + map.pawns[i].offsety / map.mag
-		       		love.graphics.draw( map.pawns[i].im , zx, zy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
-	     	     	end
-		     end
-	     end
-     end
-
-     -- print visible 
-     if atlas:isVisible( map ) then
-        love.graphics.setColor(200,0,0,180)
-        love.graphics.setFont(fontDice)
-	love.graphics.printf("V", x + map.w / map.mag - 65 , y + 5 ,500)
-     end
-
-     -- print search zone for a scenario
-     if map.kind == "scenario" then
-
-      love.graphics.setColor(0,0,0)
-      love.graphics.setFont(fontSearch)
-      love.graphics.printf(text, 800, H - 60, 400)
-
-      -- activate search input zone if needed
-      if not searchActive then searchActive = true; dialogActive = false end
-
-      -- print number of the search result is needed
-      if searchIterator then love.graphics.printf( "( " .. searchIndex .. " [" .. string.format("%.2f", searchPertinence) .. "] out of " .. 
-						           searchSize .. " )", 800, H - 40, 400) end
-
-
-   end
-
-  end
---]]
+  -- draw arrow
   if arrowMode then
 
       -- draw arrow and arrow head
@@ -1317,7 +1163,6 @@ function love.mousereleased( x, y )
 		arrowMode = false
 
 		-- check that we are in the map...
-		--local map = atlas:getMap()
 		local map = layout:getFocus()
 		if (not map) or (not map:isInside(x,y)) then pawnMove = nil; return end
 	
@@ -1374,13 +1219,10 @@ function love.mousereleased( x, y )
 	-- if we were drawing a mask shape as well, we terminate it now (even if we are outside the map)
 	if arrowModeMap then
 	
-  	  	--local map = atlas:getMap()
 		local map = layout:getFocus()
 		assert( map and map.class == "map" )
 
 	  	local command = nil
-
-	  	--if arrowX < margin or arrowX > W or arrowY < margin or arrowY > H then return end
 
 	  	if arrowModeMap == "RECT" then
 
@@ -1445,9 +1287,7 @@ function love.mousepressed( x, y , button )
 		return
 	end
 
-	--local map = atlas:getMap()
 	-- clicking somewhere in the map, this starts either a Move or a Mask	
-	--if map and map:isInside(x,y) then 
 	if window and window.class == "map" then
 
 		local map = window
@@ -1518,7 +1358,7 @@ function love.mousepressed( x, y , button )
 	      -- already selected
 	      snapshots[currentSnap].s[index].selected = false 
 
-	      -- 3 different ways to use a snapshot
+	      -- Three different ways to use a snapshot
 
 	      -- 1: general image, sent it to projector
 	      if currentSnap == 1 then
@@ -1698,91 +1538,6 @@ function createPawns( map , sx, sy, requiredSize )
   end
   end
 
---[[ 
-  Map object 
---]]
---[[
-Map = {}
-Map.__index = Map
-function Map.new( kind, imageFilename , file ) 
-  local new = {}
-  setmetatable(new,Map)
-  assert( kind == "map" or kind == "scenario" , "sorry, cannot create a map of such kind" )
-  new.kind = kind
-  local image
-  if file then 
-	new.is_local = true 
-	new.file = file
-        new.file:open('r')
-  	image = new.file:read()
-  	new.file:close()
-  else 
-	new.is_local = false 
-  	new.file = assert(io.open( imageFilename , "rb" ))
-  	image = new.file:read('*a')
-  	new.file:close()
-  end
-
-  local lfn = love.filesystem.newFileData
-  local lin = love.image.newImageData
-  local lgn = love.graphics.newImage
-
-  local img = lgn(lin(lfn(image, 'img', 'file')))
-  if not img then io.write("sorry, could not load image at '" .. tostring(imageFilename) .. "'") end  
-  
-  new.filename = imageFilename
-  if not new.is_local then new.baseFilename = string.gsub(imageFilename,baseDirectory,"") end
-  new.im = img 
-  new.w, new.h = new.im:getDimensions() 
-  new.x = new.w / 2
-  new.y = new.h / 2
-  new.mag = 1.0
-  new.step = 50
-  if kind == "map" then new.mask = {} else new.mask = nil end
-  -- inherit from snapshot as well
-  local f1, f2 = snapshotSize / new.w , snapshotSize / new.h
-  new.snapmag = math.min(f1,f2)
-  new.selected = false
-  new.pawns = {} 
-  return new
-  end
---]]
-
-function loadSnap( imageFilename ) 
-  local new = {}
-  local file = assert(io.open( imageFilename , "rb" ))
-  local image = file:read( "*a" )
-  file:close()
-
-  local lfn = love.filesystem.newFileData
-  local lin = love.image.newImageData
-  local lgn = love.graphics.newImage
-
-  local img = lgn(lin(lfn(image, 'img', 'file')))
-  assert(img, "sorry, could not load image at '" .. imageFilename .. "'")  
-  
-  new.filename = imageFilename
-  new.baseFilename = string.gsub(imageFilename,baseDirectory,"")
-  new.im = img 
-  new.w, new.h = new.im:getDimensions() 
-  local f1, f2 = snapshotSize / new.w , snapshotSize / new.h
-  new.snapmag = math.min(f1,f2)
-  new.selected = false
-  new.is_local = false -- a priori
-  new.file = nil
-  return new
-  end
-
---[[
--- return true if position x,y on the screen (typically, the mouse), is
--- inside the current map display
-function Map:isInside(x,y)
-  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-  return x >= zx and x <= zx + self.w / self.mag and 
-  	 y >= zy and y <= zy + self.h / self.mag
-end
---]]
-
 -- return a pawn if position x,y on the screen (typically, the mouse), is
 -- inside any pawn of the map. If several pawns at same location, return the
 -- one with highest layer value
@@ -1805,40 +1560,11 @@ end
 
 Atlas = {}
 Atlas.__index = Atlas
---[[
-function Atlas:addMap(m) 
-	if m.kind == "scenario" then 
-		for k,v in pairs(self.maps) do if v.kind == "scenario" then error("only 1 scenario allowed") end end
-		table.insert(self.maps, 1,  m ) -- scenario always first 
-	else
-		table.insert(self.maps, m);  
-	end
-	end 
 
-function Atlas:goDisplay()
-	self.display = true
-	end
-
-function Atlas:toggleDisplay()
-	self.display = not self.display
-	end
-
-function Atlas:nextMap() 
-	if #self.maps == 0 then return nil end 
-	if self.index == 0 then self.index = 1; return nil end
-	local map = self.maps[self.index]
-	self.index = self.index + 1 
-	if self.index > #self.maps then self.index = 0 end
-	return map 
-	end 
-
-function Atlas:getMap() if not self.display then return nil else return self.maps[ self.index ] end end
---]]
-
+function Atlas:removeVisible() self.visible = nil end
+function Atlas:isVisible(map) return self.visible == map end
 function Atlas:getVisible() return self.visible end 
-
 function Atlas:toggleVisible( map )
-	--local map = self.maps[ self.index ]
 	if not map then return end
 	if map.kind == "scenario" then return end -- a scenario is never displayed to the players
 	if self.visible == map then 
@@ -1870,16 +1596,11 @@ function Atlas:toggleVisible( map )
 	end
 	end
 
-function Atlas:removeVisible() self.visible = nil end
-function Atlas:isVisible(map) return self.visible == map end
-
 function Atlas.new() 
   local new = {}
   setmetatable(new,Atlas)
-  new.maps = {}
+  --new.maps = {}
   new.visible = nil -- map currently visible (or nil if none)
-  --new.index = 0 -- index of the current map with focus in map mode (or 0 if none) 
-  --new.display = true -- a priori
   return new
   end
 
@@ -1914,7 +1635,6 @@ function love.mousemoved(x,y,dx,dy)
 
 if mouseMove then
 
-   --local map = atlas:getMap() 
    local map = layout:getFocus()
 
    if map then
@@ -2005,7 +1725,6 @@ else
   	if (key == "return") then
 	  doDialog( string.gsub( dialog, dialogBase, "" , 1) )
 	  dialog = dialogBase
-	  --dialogActive = false 
   	end
 
   	if (key == "backspace") and (dialog ~= dialogBase) then
@@ -2105,175 +1824,9 @@ else
    	end
 
   end
-end
-
---[[
-  local map = atlas:getMap()
-
-  -- UP and DOWN change focus to previous/next PNJ
-  if focus and key == "down" then
-    if focus < PNJnum-1 then 
-      lastFocus = focus
-      focus = focus + 1
-      focusAttackers = PNJTable[ focus ].attackers
-      focusTarget  = PNJTable[ focus ].target
-    end
-  end
-  
-  if focus and key == "up" then
-    if focus > 1 then 
-      lastFocus = focus
-      focus = focus - 1
-      focusAttackers = PNJTable[ focus ].attackers
-      focusTarget  = PNJTable[ focus ].target
-    end
-    return
   end
 
-  if key == 'rshift' then
-	  currentSnap = currentSnap + 1
-	  if currentSnap == 4 then currentSnap = 1 end
   end
-
-  -- "d" open dialog zone
-  if (not searchActive) and (not dialogActive) and (key == "d") then
-	dialogActive = true 
-	ignoreLastChar = true 
-  end
-
-  --  "left ctrl + f" open dialog log. same thing to close it 
-  if (key == "f") and love.keyboard.isDown("lctrl") then
-	displayDialogLog = not displayDialogLog 
-	ignoreLastChar = true 
-  end
-
-  if dialogActive and (key == "return") then
-	  doDialog( string.gsub( dialog, dialogBase, "" , 1) )
-	  dialog = dialogBase
-	  dialogActive = false 
-  end
-
-  if dialogActive and (key == "backspace") and (dialog ~= dialogBase) then
-        -- get the byte offset to the last UTF-8 character in the string.
-        local byteoffset = utf8.offset(dialog, -1)
- 
-        if byteoffset then
-            -- remove the last UTF-8 character.
-            -- string.sub operates on bytes rather than UTF-8 characters, so we couldn't do string.sub(text, 1, -2).
-            dialog = string.sub(dialog, 1, byteoffset - 1)
-        end
-  end
-
-  -- SPACE moves to next map
-  if (not dialogActive) and key == "space" then
-	  map = atlas:nextMap()
-	  -- reset search input
-	  searchActive = false
-	  text = textBase
-	  if map then	
-	    -- if we switch to another map, we display it, whatever the previous display flag
-	    atlas:goDisplay()
-	  end
-  end
-
-  -- ESCAPE hides or restores display of the current map, but does not change it
-  if key == "escape" then
-	atlas:toggleDisplay()
-  end
-
-  --
-  -- ALL MAPS
-  --
-  if map then
-
-    -- ZOOM in and out
-    if key == keyZoomIn then
-	if map.mag >= 1 then map.mag = map.mag + 1 end
-	if map.mag == 0.5 then map.mag = 1 end	
-	if map.mag == 0.25 then map.mag = 0.5 end	
-	ignoreLastChar = true
-	if atlas:isVisible(map) then tcpsend( projector, "MAGN " .. 1/map.mag ) end	
-    end 
-
-    if key == keyZoomOut then
-	if map.mag > 1 then 
-		map.mag = map.mag - 1 
-	elseif map.mag == 1 then 
-		map.mag = 0.5 
-	elseif map.mag == 0.5 then
-		map.mag = 0.25
-	end	
-	if map.mag == 0 then map.mag = 0.25 end
-	ignoreLastChar = true
-	if atlas:isVisible(map) then tcpsend( projector, "MAGN " .. 1/map.mag ) end	
-    end 
-
-    -- V for VISIBLE
-    if (not dialogActive) and key == "v" and map.kind == "map" then
-	atlas:toggleVisible()
-    end
-
-    -- C for RECENTER
-    if (not dialogActive) and key == "c" then
-	map.x = map.w / 2
-	map.y = map.h / 2
-    end
-
-   -- REMOVE ALL PAWNS
-   if (not dialogActive) and key == "x" and love.keyboard.isDown("lctrl") then
-	   map.pawns = {} 
-	   tcpsend( projector, "ERAS" )    
-   end
-
-   -- display PJ snapshots or not
-   --if key == "s" and map.kind =="map" then displayPJSnapshots = not displayPJSnapshots end
-
-   -- TAB switches between rectangles and circles
-   if key == "tab" then
-	  if maskType == "RECT" then maskType = "CIRC" else maskType = "RECT" end
-   end
-
-  end
-
-  --
-  -- SCENARIO SPECIFIC
-  -- 
-  if map and map.kind == "scenario" then
-
-   if key == "backspace" and text ~= textBase then
-        -- get the byte offset to the last UTF-8 character in the string.
-        local byteoffset = utf8.offset(text, -1)
- 
-        if byteoffset then
-            -- remove the last UTF-8 character.
-            -- string.sub operates on bytes rather than UTF-8 characters, so we couldn't do string.sub(text, 1, -2).
-            text = string.sub(text, 1, byteoffset - 1)
-        end
-    end
-
-   if key == "tab" then
-
-
-	  if searchIterator then
-		map.x,map.y,searchPertinence,searchIndex,searchSize = searchIterator()
-	  end
-
-
-
-   end
-
-   if key == "return" then
-	  searchIterator = doSearch( string.gsub( text, textBase, "" , 1) )
-	  text = textBase
-	  if searchIterator then
-		map.x,map.y,searchPertinence,searchIndex,searchSize = searchIterator()
-	  end
-   end
-
-   end 
---]]
-
-   end
 
 
 options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="." , 
@@ -2449,6 +2002,7 @@ function love.load( args )
     for k,f in pairs(allfiles) do
 
       io.write("scanning file : '" .. f .. "'\n")
+      if debug then table.insert( dialogLog , "scanning file : " .. f ) end
 
       -- All files are optional. They can be:
       --   SCENARIO IMAGE: 	named scenario.jpg
@@ -2469,7 +2023,6 @@ function love.load( args )
 
 	local s = Map:new()
 	s:load{ kind="scenario", filename=baseDirectory .. sep .. fadingDirectory .. sep .. f }
-	--atlas:addMap( s )
 	layout:addWindow( s , false )
 	io.write("Loaded scenario image file at " .. baseDirectory .. sep .. fadingDirectory .. sep .. f .. "\n")
 	scenarioImageNum = scenarioImageNum + 1
@@ -2477,14 +2030,14 @@ function love.load( args )
 
       elseif f == 'pawnDefault.jpg' then
 
-	defaultPawnSnapshot = loadSnap( baseDirectory .. sep ..fadingDirectory .. sep .. f )  
+	defaultPawnSnapshot = Snapshot:new{ filename = baseDirectory .. sep ..fadingDirectory .. sep .. f }
 	table.insert( snapshots[3].s, defaultPawnSnapshot ) 
 
       elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
         if string.sub(f,1,4) == 'pawn' then
 
-		local s = loadSnap( baseDirectory .. sep .. fadingDirectory .. sep .. f )  
+		local s = Snapshot:new{ filename = baseDirectory .. sep .. fadingDirectory .. sep .. f }
 		table.insert( snapshots[3].s, s ) 
 
 		local pjname = string.sub(f,5, f:len() - 4 )
@@ -2499,14 +2052,13 @@ function love.load( args )
 
 	  local s = Map:new()
 	  s:load{ filename=baseDirectory .. sep ..fadingDirectory .. sep .. f } 
-	  --atlas:addMap( s )
 	  layout:addWindow( s , false )
 	  table.insert( snapshots[2].s, s ) 
 	  mapsNum = mapsNum + 1
 
  	else
 
-	  table.insert( snapshots[1].s, loadSnap( baseDirectory .. sep ..fadingDirectory .. sep .. f ) ) 
+	  table.insert( snapshots[1].s, Snapshot:new{ filename = baseDirectory .. sep ..fadingDirectory .. sep .. f } ) 
 	  
         end
 
