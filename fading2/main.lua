@@ -22,6 +22,10 @@ require 'default/config'
 
 debug = false
 
+-- main layout
+layout = nil
+currentWindowDraw = nil
+
 -- tcp information for network
 address, serverport	= "*", "12345"		-- server information
 server			= nil			-- server tcp object
@@ -148,6 +152,374 @@ arrowStartIndex 	 = nil		-- index of the PNJ at the starting point
 arrowStopIndex 		 = nil		-- index of the PNJ at the ending point
 arrowModeMap		 = nil		-- either nil (not in map mode), "RECT" or "CIRC" shape used to draw map maskt
 maskType		 = "RECT"	-- shape to use, rectangle by default
+
+
+--[[
+-- we assume that we provide the upper left corner of each rectangle, 
+-- and positive values for height and width
+function isRectACoveredByRectB(ax,ay,aw,ah,bx,by,bw,bh)
+  return ax >= bx and ay >= by and (ax + aw <= bx + bw) and (ay + ah <= by + bh)
+end
+
+function isRectACoveredByCircleB(ax,ay,aw,ah,bx,by,br)
+  return distanceFrom(ax,ay,bx,by) <= br and
+		 distanceFrom(ax+aw,ay,bx,by) <= br and
+		 distanceFrom(ax,ay+ah,bx,by) <= br and
+		 distanceFrom(ax+aw,ay+ah,bx,by) <= br
+end
+
+function isCircleBCoveredByRectA(ax,ay,aw,ah,bx,by,br)
+  if 2*br > aw or 2*br > ah then return false end
+  local interiorw, interiorh = aw - 2*br, ah - 2*br
+  local interiorx, interiory = ax + br, ay + br
+  return bx >= interiorx and bx <= interiorx + interiorw and
+		 by >= interiory and by <= interiory + interiorh
+end
+
+function isCircleACoveredByCircleB(ax,ay,ar,bx,by,br)
+  local d = distanceFrom(ax,ay,bx,by)
+  return (d + ar) <= br 
+end
+--]]
+
+--
+-- Multiple inheritance mechanism
+-- call CreateClass with any number of existing classes 
+-- to create the new inherited class
+--
+
+-- look up for `k' in list of tables `plist'
+function Csearch (k, plist)
+for i=1, table.getn(plist) do
+local v = plist[i][k] -- try `i'-th superclass
+if v then return v end
+end
+end
+
+function createClass (a,b)
+local c = {} -- new class
+-- class will search for each method in the list of its
+-- parents (`arg' is the list of parents)
+setmetatable(c, {__index = function (t, k) return Csearch(k, {a,b}) end})
+-- prepare `c' to be the metatable of its instances
+c.__index = c
+-- define a new constructor for this new class
+function c:new (o) o = o or {}; setmetatable(o, c); return o end
+-- return new class
+return c
+end
+
+function loadDistantImage( filename )
+  local file = assert( io.open( filename, 'rb' ) )
+  local image = file:read('*a')
+  file:close()
+  return image  
+end
+
+function loadLocalImage( file )
+  file:open('r')
+  local image = file:read()
+  file:close()
+  return image
+end
+
+-- Snapshot class
+-- a snapshot holds an image, displayed in the bottom part of the screen.
+-- Snapshots are used for general images, and for pawns. For maps, use the
+-- specific class Map instead, which is derived from Snapshot.
+-- The image itself is stored in memory in its binary form, but for purpose of
+-- sending it to the projector, it is also either stored as a path on the shared 
+-- filesystem, or a file object on the local filesystem
+Snapshot = { class = "snapshot" , filename = nil, file = nil }
+function Snapshot:new( t ) -- create from filename or file object (one mandatory)
+  local new = t or {}
+  setmetatable( new , self )
+  self.__index = self
+  assert( new.filename or new.file )
+  local image
+  if new.filename then 
+	image = loadDistantImage( new.filename )
+	new.is_local = false
+	new.baseFilename = string.gsub(new.filename,baseDirectory,"")
+  else 
+	image = loadLocalImage( new.file )
+	new.is_local = true
+	new.baseFilename = nil
+  end
+  local lfn = love.filesystem.newFileData
+  local lin = love.image.newImageData
+  local lgn = love.graphics.newImage
+  success, img = pcall(function() return lgn(lin(lfn(image, 'img', 'file'))) end)
+  new.im = img
+  new.w, new.h = new.im:getDimensions()
+  local f1, f2 = snapshotSize / new.w, snapshotSize / new.h
+  new.snapmag = math.min( f1, f2 )
+  new.selected = false
+  return new
+end
+
+
+-- Window class
+-- a window is here an object slightly different from common usage, because
+-- * a window may have the property to be zoomable, dynamically at runtime. This
+--   is not the same as resizable, as its scale then changes (not only its frame)
+--   For this reason, the important information about coordinates is not the
+--   classical position (x,y) associated to the upper left corner of the window 
+--   within the screen coordinate-system, but the point within the window itself,
+--   expressed in the window-coordinate system, which is currently displayed at
+--   the center of the screen (see the difference?). This point is an invariant
+--   when the window zooms in or out.
+-- * w and h are respectively width and height of the window, in pixels, but
+--   expressed for the window at scale 1 (no zoom in or out). These dimensions
+--   are absolute and will not change during the lifetime of the window object,
+--   only the scaling factor will change to reflect a bigger (or smaller) object
+--   actually drawn on the screen 
+-- Notes:
+-- Each object derived from Window class should redefine its own draw(), getFocus()
+-- and looseFocus() methods.
+-- Windows are gathered and manipulated thru the mainLayout object.
+-- The main screen of the application (with yui view, etc.) is not considered as
+--   a window object. For the moment, only scenario, maps and logs are windows,
+--   and are displayed "on top" of this main screen.
+--
+Window = { class = "window", w = 0, h = 0, mag = 1.0, x = 0, y = 0 , zoomable = false }
+function Window:new( t ) 
+  local new = t or {}
+  setmetatable( new , self )
+  self.__index = self
+  return new
+end
+
+-- return true if the point (x,y) (expressed in layout coordinates system,
+-- typically the mouse), is inside the window frame (whatever the display or
+-- layer value, managed at higher-level)
+function Window:isInside(x,y)
+  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+  return x >= zx and x <= zx + self.w / self.mag and 
+  	 y >= zy and y <= zy + self.h / self.mag
+end
+
+function Window:zoom( mag ) if self.zoomable then self.mag = mag end end
+function Window:move( x, y ) self.x = x; self.y = y; end
+function Window:draw() end
+function Window:getFocus() end
+function Window:looseFocus() end
+
+-- Map class
+-- a Map inherits from Window and from Snapshot, and is referenced both 
+-- in the Atlas and in the snapshots list
+-- It has the following additional properties
+-- * it displays a jpeg image, a map, on which we can put and move pawns
+-- * it can be of kind "map" (the default) or kind "scenario"
+-- * it can be visible, meaning it is displayed to the players on
+--   the projector, in realtime. There is maximum one visible map at a time
+--   (but there may be several maps displayed on the server, to the MJ)
+Map = createClass( Window , Snapshot )
+function Map:load( t ) -- create from filename or file object (one mandatory). kind is optional
+  local t = t or {}
+  if not t.kind then self.kind = "map" else self.kind = t.kind end 
+     -- a map by default. A scenario should be declared by the caller
+  --setmetatable( new , self )
+  --self.__index = self
+  self.class = "map"
+  
+  -- snapshot part of the object
+  assert( t.filename or t.file )
+  local image
+  if t.filename then
+	self.filename = t.filename 
+	image = loadDistantImage( self.filename )
+	self.is_local = false
+	self.baseFilename = string.gsub(self.filename,baseDirectory,"")
+  else 
+	self.file = t.file
+	image = loadLocalImage( self.file )
+	self.is_local = true
+	self.baseFilename = nil
+  end
+  local lfn = love.filesystem.newFileData
+  local lin = love.image.newImageData
+  local lgn = love.graphics.newImage
+  success, img = pcall(function() return lgn(lin(lfn(image, 'img', 'file'))) end)
+  self.im = img
+  self.w, self.h = self.im:getDimensions()
+  local f1, f2 = snapshotSize / self.w, snapshotSize / self.h
+  self.snapmag = math.min( f1, f2 )
+  self.selected = false
+  
+  -- window part of the object
+  self.zoomable = true
+  self.x = self.w / 2
+  self.y = self.h / 2
+  self.mag = 1.0
+  
+  -- specific to the map itself
+  if self.kind == "map" then self.mask = {} else self.mask = nil end
+  self.step = 50
+  self.pawns = {}
+end
+
+function Map:draw()
+
+     local map = self
+     currentWindowDraw = self
+
+     local SX,SY,MAG = map.x, map.y, map.mag
+     local x,y = -( SX * 1/MAG - W / 2), -( SY * 1/MAG - H / 2)
+
+     if map.mask then	
+       love.graphics.setColor(100,100,50,200)
+       love.graphics.stencil( myStencilFunction, "increment" )
+       love.graphics.setStencilTest("equal", 1)
+     else
+       love.graphics.setColor(255,255,255,240)
+     end
+
+     love.graphics.draw( map.im, x, y, 0, 1/MAG, 1/MAG )
+
+     if map.mask then
+       love.graphics.setStencilTest("gequal", 2)
+       love.graphics.setColor(255,255,255)
+       love.graphics.draw( map.im, x, y, 0, 1/MAG, 1/MAG )
+       love.graphics.setStencilTest()
+     end
+
+     -- draw small circle or rectangle in upper corner, to show which mode we are in
+     if map.kind == "map" then
+       love.graphics.setColor(200,0,0,180)
+       if maskType == "RECT" then love.graphics.rectangle("line",x + 5, y + 5,20,20) end
+       if maskType == "CIRC" then love.graphics.circle("line",x + 15, y + 15,10) end
+     end
+
+     -- draw pawns, if any
+     if map.pawns then
+	     for i=1,#map.pawns do
+       	     	     local index = findPNJ(map.pawns[i].id) 
+		     -- we do some checks before displaying the pawn: it might happen that the character corresponding to the pawn 
+		     -- is dead, or, worse, has been removed completely from the list
+		     if index then 
+		     	local dead = false
+		     	dead = PNJTable[ index ].is_dead
+		     	if map.pawns[i].im then
+  		       		local zx,zy = (map.pawns[i].x) * 1/map.mag + x , (map.pawns[i].y) * 1/map.mag + y
+		       		if PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
+		       		love.graphics.rectangle( "fill", zx, zy, (map.pawns[i].size+6) / map.mag, (map.pawns[i].size+6) / map.mag)
+		       		if dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
+		       		zx = zx + map.pawns[i].offsetx / map.mag
+		       		zy = zy + map.pawns[i].offsety / map.mag
+		       		love.graphics.draw( map.pawns[i].im , zx, zy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
+	     	     	end
+		     end
+	     end
+     end
+
+     -- print visible 
+     if atlas:isVisible( map ) then
+        love.graphics.setColor(200,0,0,180)
+        love.graphics.setFont(fontDice)
+	love.graphics.printf("V", x + map.w / map.mag - 65 , y + 5 ,500)
+     end
+
+end
+
+function Map:getFocus() if self.kind == "scenario" then searchActive = true end end
+function Map:looseFocus() if self.kind == "scenario" then searchActive = false end end
+
+-- Dialog class
+-- a Dialog is a window which displays some text and let some input. it is not zoomable
+Dialog = Window:new{ class = "dialog" }
+
+function Dialog:new( t ) -- create from w, h, x, y
+  local new = t or {}
+  setmetatable( new , self )
+  self.__index = self
+  return new
+end
+
+function Dialog:draw()
+   love.graphics.setFont(fontSearch)
+   love.graphics.setColor(10,10,10,150)
+   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+   love.graphics.rectangle( "fill", zx , zy , self.w , self.h )  
+   local start
+   if #dialogLog > 12 then start = #dialogLog - 12 else start = 1 end
+   love.graphics.setColor(255,255,255)
+   for i=start,#dialogLog do 
+	love.graphics.printf( dialogLog[i] , zx , zy + (i-start)*18 , self.w )	
+   end
+end
+
+function Dialog:getFocus() dialogActive = true end
+function Dialog:looseFocus() dialogActive = false end
+
+-- mainLayout class
+-- store all windows, with their display status (displayed or not) and layer value
+mainLayout = {}
+function mainLayout:new()
+  local new = { windows= {}, maxWindowLayer = 1 , focus = nil, sorted = {} }
+  setmetatable( new , self )
+  self.__index = self
+  return new
+end
+
+function mainLayout:addWindow( window, display ) 
+	self.maxWindowLayer = self.maxWindowLayer + 1
+	self.windows[window] = { w=window , l=self.maxWindowLayer , d=display }
+	-- sort windows by layer (ascending) value
+	table.insert( self.sorted , self.windows[window] )
+	table.sort( self.sorted , function(a,b) return a.l < b.l end )
+	end
+
+function mainLayout:removeWindow( window ) 
+	if self.focus == window then self:setFocus( nil ) end
+	for i=1,#self.sorted do if self.sorted[i].w == window then table.remove( self.sorted , i ); break; end end
+	self.windows[window] = nil
+	end
+
+-- manage display status of a window
+function mainLayout:setDisplay( window, display ) 
+	if self.windows[window] then 
+		self.windows[window].d = display
+		if not display and self.focus == window then self:setFocus(nil) end -- looses the focus as well
+	end
+	end 
+	
+function mainLayout:getDisplay( window ) if self.windows[window] then return self.windows[window].d else return false end end
+
+-- return (if there is one) or set the window with focus 
+-- if we set focus, the window automatically gets in front layer
+function mainLayout:getFocus() return self.focus end
+function mainLayout:setFocus( window ) 
+	if window then
+		if window == self.focus then return end -- this window was already in focus. nothing happens
+		self.maxWindowLayer = self.maxWindowLayer + 1
+		self.windows[window].l = self.maxWindowLayer
+		table.sort( self.sorted , function(a,b) return a.l < b.l end )
+		window:getFocus()
+		if self.focus then self.focus:looseFocus() end
+	end
+	if not window and self.focus then self.focus:looseFocus() end
+	self.focus = window
+	end 
+
+-- check if there is (and return) a window present at the given position in the screen
+-- this takes into account the fact that a window is displayed or not (of course) but
+-- also the layer value (the window with highest layer is selected).
+-- If a window is actually clicked, it automatically gets focus and will get in front.
+-- If no window is clicked, they all loose the focus
+function mainLayout:click( x , y )
+	local layer = 0
+	local result = nil
+	for k,l in pairs( self.windows ) do
+		if l.d and l.w:isInside(x,y) and l.l > layer then result = l.w ; layer = l.l end  
+	end
+	self:setFocus( result ) -- this gives or removes focus
+	return result
+	end
+
+function mainLayout:draw() 
+	for k,v in ipairs( self.sorted ) do if self.sorted[k].d then self.sorted[k].w:draw() end end
+end 
 
 
 local oldiowrite = io.write
@@ -422,8 +794,10 @@ function love.filedropped(file)
 	    end	
 	
 	  elseif is_a_map then  -- add map to the atlas
-	    local m = Map.new( "map" , nil , file ) -- no filename, and file object means local 
-	    atlas:addMap( m )  
+	    local m = Map:new()
+	    m:load{ file=file } -- no filename, and file object means local 
+	    --atlas:addMap( m )  
+	    layout:addWindow( m , false )
 	    table.insert( snapshots[2].s , m )
 
 	  end
@@ -795,8 +1169,9 @@ function drawRound( x, y, kind, id )
 
 
 function myStencilFunction( )
-	local map = atlas:getMap()
-	if not map then return end
+	--local map = atlas:getMap()
+	--if not map then return end
+	local map = currentWindowDraw
 	local x,y,mag,w,h = map.x, map.y, map.mag, map.w, map.h
         local zx,zy = -( x * 1/mag - W / 2), -( y * 1/mag - H / 2)
 	love.graphics.rectangle("fill",zx,zy,w/mag,h/mag)
@@ -946,8 +1321,11 @@ function love.draw()
     end
 
   end
-  
 
+  -- draw windows
+  layout:draw() 
+
+ --[[
    local map = atlas:getMap()
 
    if map then
@@ -1026,7 +1404,7 @@ function love.draw()
    end
 
   end
-
+--]]
   if arrowMode then
 
       -- draw arrow and arrow head
@@ -1071,6 +1449,7 @@ function love.draw()
  end
 
  -- print dialogLog eventually
+ --[[
  if displayDialogLog then
    love.graphics.setFont(fontSearch)
    love.graphics.setColor(10,10,10,150)
@@ -1082,6 +1461,7 @@ function love.draw()
 	love.graphics.printf( dialogLog[i] , W - 590 , H - 290 + (i-start)*18 , 580 )	
    end
  end
+ --]]
 
   -- draw dices if needed
   if drawDices then
@@ -1147,8 +1527,9 @@ function love.mousereleased( x, y )
 		arrowMode = false
 
 		-- check that we are in the map...
-		local map = atlas:getMap()
-		if not map:isInside(x,y) then pawnMove = nil; return end
+		--local map = atlas:getMap()
+		local map = layout:getFocus()
+		if (not map) or (not map:isInside(x,y)) then pawnMove = nil; return end
 	
 		-- check if we are just stopping on another pawn
 		local target = map:isInsidePawn(x,y)
@@ -1191,7 +1572,8 @@ function love.mousereleased( x, y )
 	-- if we were drawing a pawn, we stop it now
 	if arrowPawn then
 		-- this gives the required size for the pawns
-  	  	local map = atlas:getMap()
+  	  	--local map = atlas:getMap()
+		local map = layout:getFocus()
 		local w = distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY)
 		createPawns( map, arrowX, arrowY, w )
 		table.sort( map.pawns, function(a,b) return a.layer < b.layer end )
@@ -1202,7 +1584,9 @@ function love.mousereleased( x, y )
 	-- if we were drawing a mask shape as well, we terminate it now (even if we are outside the map)
 	if arrowModeMap then
 	
-  	  	local map = atlas:getMap()
+  	  	--local map = atlas:getMap()
+		local map = layout:getFocus()
+		assert( map and map.class == "map" )
 
 	  	local command = nil
 
@@ -1260,10 +1644,23 @@ function love.mousereleased( x, y )
 -- put FOCUS on a PNJ line when mouse is pressed (or remove FOCUS if outside PNJ list)
 function love.mousepressed( x, y , button )   
 
-	local map = atlas:getMap()
+	local window = layout:click(x,y)
 
+	if window and window.class == "dialog" then
+		-- want to move window 
+	   	mouseMove = true
+	   	arrowMode = false
+	   	arrowStartX, arrowStartY = x, y
+		arrowModeMap = nil
+		return
+	end
+
+	--local map = atlas:getMap()
 	-- clicking somewhere in the map, this starts either a Move or a Mask	
-	if map and map:isInside(x,y) then 
+	--if map and map:isInside(x,y) then 
+	if window and window.class == "map" then
+
+		local map = window
 
 		local p = map:isInsidePawn(x,y)
 
@@ -1349,7 +1746,7 @@ function love.mousepressed( x, y , button )
 	      -- 2: map. This should open a window 
 	      elseif currentSnap == 2 then
 
-		      	-- open window, FIXME
+			layout:setDisplay( snapshots[currentSnap].s[index] , true )
 	
 	      -- 3: Pawn. If focus is set, use this image as PJ/PNJ pawn image 
 	      else
@@ -1513,6 +1910,7 @@ function createPawns( map , sx, sy, requiredSize )
 --[[ 
   Map object 
 --]]
+--[[
 Map = {}
 Map.__index = Map
 function Map.new( kind, imageFilename , file ) 
@@ -1557,6 +1955,7 @@ function Map.new( kind, imageFilename , file )
   new.pawns = {} 
   return new
   end
+--]]
 
 function loadSnap( imageFilename ) 
   local new = {}
@@ -1583,6 +1982,7 @@ function loadSnap( imageFilename )
   return new
   end
 
+--[[
 -- return true if position x,y on the screen (typically, the mouse), is
 -- inside the current map display
 function Map:isInside(x,y)
@@ -1590,6 +1990,7 @@ function Map:isInside(x,y)
   return x >= zx and x <= zx + self.w / self.mag and 
   	 y >= zy and y <= zy + self.h / self.mag
 end
+--]]
 
 -- return a pawn if position x,y on the screen (typically, the mouse), is
 -- inside any pawn of the map. If several pawns at same location, return the
@@ -1613,6 +2014,7 @@ end
 
 Atlas = {}
 Atlas.__index = Atlas
+--[[
 function Atlas:addMap(m) 
 	if m.kind == "scenario" then 
 		for k,v in pairs(self.maps) do if v.kind == "scenario" then error("only 1 scenario allowed") end end
@@ -1640,21 +2042,22 @@ function Atlas:nextMap()
 	end 
 
 function Atlas:getMap() if not self.display then return nil else return self.maps[ self.index ] end end
+--]]
 
-function Atlas:getVisible() if self.visible then return self.maps[ self.visible ] else return nil end end
+function Atlas:getVisible() return self.visible end 
 
-function Atlas:toggleVisible()
-	local map = self.maps[ self.index ]
+function Atlas:toggleVisible( map )
+	--local map = self.maps[ self.index ]
 	if not map then return end
 	if map.kind == "scenario" then return end -- a scenario is never displayed to the players
-	if self.visible == self.index then 
-		self.visible = 0 
+	if self.visible == map then 
+		self.visible = nil 
 		-- erase snapshot !
 		currentImage = nil 
 	  	-- send hide command to projector
 		tcpsend( projector, "HIDE")
 	else    
-		self.visible = self.index 
+		self.visible = map 
 		-- change snapshot !
 		currentImage = map.im
 		-- send to projector
@@ -1676,23 +2079,16 @@ function Atlas:toggleVisible()
 	end
 	end
 
-function Atlas:removeVisible()
-	self.visible = 0 
-	end
-
-function Atlas:isVisible(map)
-	local idx = nil 
-	for k,v in pairs(self.maps) do if v == map then idx = k end end
-	return self.visible == idx
-	end
+function Atlas:removeVisible() self.visible = nil end
+function Atlas:isVisible(map) return self.visible == map end
 
 function Atlas.new() 
   local new = {}
   setmetatable(new,Atlas)
   new.maps = {}
-  new.visible = 0 -- index of the map currently visible (or 0 if none)
-  new.index = 0 -- index of the current map with focus in map mode (or 0 if none) 
-  new.display = true -- a priori
+  new.visible = nil -- map currently visible (or nil if none)
+  --new.index = 0 -- index of the current map with focus in map mode (or 0 if none) 
+  --new.display = true -- a priori
   return new
   end
 
@@ -2025,7 +2421,8 @@ function love.mousemoved(x,y,dx,dy)
 
 if mouseMove then
 
-   local map = atlas:getMap() 
+   --local map = atlas:getMap() 
+   local map = layout:getFocus()
 
    if map then
 
@@ -2052,6 +2449,151 @@ end
 
 function love.keypressed( key, isrepeat )
 
+-- keys applicable in any context
+-- we expect:
+-- 'lctrl + d' : open dialog window
+if key == "d" and love.keyboard.isDown("lctrl") then
+  if dialogWindow then 
+	layout:setDisplay( dialogWindow, true )
+	layout:setFocus( dialogWindow ) 
+  else
+	dialogWindow = Dialog:new{w=600,h=300,x=300,y=150}
+	layout:addWindow( dialogWindow , true ) -- display it. Set focus
+  end
+end
+
+-- other keys applicable 
+local window = layout:getFocus()
+if not window then
+  -- no window selected at the moment, we expect:
+  -- 'up', 'down' within the PNJ list
+  -- 'space' to change snapshot list
+  if focus and key == "down" then
+    if focus < PNJnum-1 then 
+      lastFocus = focus
+      focus = focus + 1
+      focusAttackers = PNJTable[ focus ].attackers
+      focusTarget  = PNJTable[ focus ].target
+    end
+  end
+  
+  if focus and key == "up" then
+    if focus > 1 then 
+      lastFocus = focus
+      focus = focus - 1
+      focusAttackers = PNJTable[ focus ].attackers
+      focusTarget  = PNJTable[ focus ].target
+    end
+    return
+  end
+
+  if key == 'space' then
+	  currentSnap = currentSnap + 1
+	  if currentSnap == 4 then currentSnap = 1 end
+  end
+  
+else
+  -- a window is selected. Keys applicable to any window:
+  -- 'lctrl + c' : center window
+  -- 'lctrl + x' : close window
+  if key == "x" and love.keyboard.isDown("lctrl") then
+	layout:setDisplay( window, false )
+	return
+  end
+  if key == "c" and love.keyboard.isDown("lctrl") then
+	window.x, window.y = window.w / 2, window.h / 2
+	return
+  end
+  if     window.class == "dialog" then
+	-- 'return' to submit a dialog message
+	-- 'backspace'
+	-- any other key is treated as a message input
+  	if (key == "return") then
+	  doDialog( string.gsub( dialog, dialogBase, "" , 1) )
+	  dialog = dialogBase
+	  --dialogActive = false 
+  	end
+
+  	if (key == "backspace") and (dialog ~= dialogBase) then
+         -- get the byte offset to the last UTF-8 character in the string.
+         local byteoffset = utf8.offset(dialog, -1)
+         if byteoffset then
+            -- remove the last UTF-8 character.
+            -- string.sub operates on bytes rather than UTF-8 characters, so we couldn't do string.sub(text, 1, -2).
+            dialog = string.sub(dialog, 1, byteoffset - 1)
+         end
+  	end
+	
+  elseif window.class == "map" and window.kind == "map" then
+
+	local map = window
+
+	-- keys for map. We expect:
+	-- Zoom in and out
+	-- 'tab' to get to circ or rect mode
+	-- 'lctrl + p' to remove all pawns
+	-- 'lctrl + v' : toggle visible / not visible
+    	if key == keyZoomIn then
+		if map.mag >= 1 then map.mag = map.mag + 1 end
+		if map.mag == 0.5 then map.mag = 1 end	
+		if map.mag == 0.25 then map.mag = 0.5 end	
+		ignoreLastChar = true
+		if atlas:isVisible(map) then tcpsend( projector, "MAGN " .. 1/map.mag ) end	
+    	end 
+
+    	if key == keyZoomOut then
+		if map.mag > 1 then map.mag = map.mag - 1 
+		elseif map.mag == 1 then map.mag = 0.5 
+		elseif map.mag == 0.5 then map.mag = 0.25 end	
+		if map.mag == 0 then map.mag = 0.25 end
+		ignoreLastChar = true
+		if atlas:isVisible(map) then tcpsend( projector, "MAGN " .. 1/map.mag ) end	
+    	end 
+    
+	if key == "v" and love.keyboard.isDown("lctrl") then
+		atlas:toggleVisible( map )
+    	end
+
+   	if key == "p" and love.keyboard.isDown("lctrl") then
+	   map.pawns = {} 
+	   tcpsend( projector, "ERAS" )    
+   	end
+
+   	if key == "tab" then
+	  if maskType == "RECT" then maskType = "CIRC" else maskType = "RECT" end
+   	end
+	
+  elseif window.class == "map" and window.kind == "scenario" then
+
+	local map = window
+
+	-- keys for map. We expect:
+	-- Zoom in and out
+	-- 'return' to submit a query
+	-- 'backspace'
+	-- 'tab' to get to next search result
+	-- any other key is treated as a search query input
+    	if key == keyZoomIn then
+		if map.mag >= 1 then map.mag = map.mag + 1 end
+		if map.mag == 0.5 then map.mag = 1 end	
+		if map.mag == 0.25 then map.mag = 0.5 end	
+		ignoreLastChar = true
+		if atlas:isVisible(map) then tcpsend( projector, "MAGN " .. 1/map.mag ) end	
+    	end 
+
+    	if key == keyZoomOut then
+		if map.mag > 1 then map.mag = map.mag - 1 
+		elseif map.mag == 1 then map.mag = 0.5 
+		elseif map.mag == 0.5 then map.mag = 0.25 end	
+		if map.mag == 0 then map.mag = 0.25 end
+		ignoreLastChar = true
+		if atlas:isVisible(map) then tcpsend( projector, "MAGN " .. 1/map.mag ) end	
+    	end 
+	
+  end
+end
+
+--[[
   local map = atlas:getMap()
 
   -- UP and DOWN change focus to previous/next PNJ
@@ -2215,6 +2757,7 @@ function love.keypressed( key, isrepeat )
    end
 
    end 
+--]]
 
    end
 
@@ -3002,6 +3545,10 @@ options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDi
 --
 function love.load( args )
 
+    -- main window layout
+    layout = mainLayout:new()
+
+    -- parse arguments
     local parse = doParse( args )
 
     -- get images & scenario directory, provided at command line
@@ -3185,8 +3732,10 @@ function love.load( args )
 
       elseif f == 'scenario.jpg' then
 
-	local s = Map.new( "scenario", baseDirectory .. sep .. fadingDirectory .. sep .. f ) 
-	atlas:addMap( s )
+	local s = Map:new()
+	s:load{ kind="scenario", filename=baseDirectory .. sep .. fadingDirectory .. sep .. f }
+	--atlas:addMap( s )
+	layout:addWindow( s , false )
 	io.write("Loaded scenario image file at " .. baseDirectory .. sep .. fadingDirectory .. sep .. f .. "\n")
 	scenarioImageNum = scenarioImageNum + 1
 	table.insert( snapshots[2].s, s ) 
@@ -3213,8 +3762,10 @@ function love.load( args )
 
 	elseif string.sub(f,1,3) == 'map' then
 
-	  local s = Map.new( "map", baseDirectory .. sep ..fadingDirectory .. sep .. f ) 
-	  atlas:addMap( s )
+	  local s = Map:new()
+	  s:load{ filename=baseDirectory .. sep ..fadingDirectory .. sep .. f } 
+	  --atlas:addMap( s )
+	  layout:addWindow( s , false )
 	  table.insert( snapshots[2].s, s ) 
 	  mapsNum = mapsNum + 1
 
