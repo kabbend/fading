@@ -507,7 +507,6 @@ end
 function addMessage( text, time , important )
   if not time then time = 5 end
   table.insert( messages, { text=text , time=time, offset=0, important=important } )
-  table.insert( dialogLog, text )
 end
  
 -- send a command or data to the projector over the network
@@ -652,6 +651,9 @@ function love.update(dt)
 	if tcp then
 		-- add it to the client list, we don't know who is it for the moment
 		table.insert( clients , { tcp = tcp, id = nil } )
+		local ad,ip = tcp:getpeername()
+		addMessage("receiving connection from " .. tostring(ad) .. " " .. tostring(ip))
+		io.write("receiving connection from " .. tostring(ad) .. " " .. tostring(ip) .. "\n")
 		tcp:settimeout(0)
 	end
 
@@ -1620,7 +1622,7 @@ function findClientByName( class )
   if not class then return nil end
   if not clients then return nil end
   class = string.lower( trim(class) )
-  for i=1,#clients do if string.lower(clients[i].id) == class then return i end end
+  for i=1,#clients do if clients[i].id and string.lower(clients[i].id) == class then return i end end
   return nil
   end
 

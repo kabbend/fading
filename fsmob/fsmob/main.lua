@@ -12,7 +12,10 @@ local fields = display.newGroup()
 display.setDefault( "background", 80/255 )
 
 -- create socket 
-local udp = socket.udp()
+local tcp = socket.tcp()
+tcp:settimeout(2)
+
+udp = socket.udp()
 udp:settimeout(0)
 
 local is_connected = false
@@ -74,7 +77,7 @@ local function formatRight( text )
 end
 
 -- send function
-local function udpsend()
+local function tcpsend()
   
     -- get user's input
   local message = messageField.text
@@ -95,7 +98,9 @@ local function udpsend()
   -- further reconnection
   local success, msg
   if not is_connected then
-    success, msg = udp:setpeername(ip, port)
+    local success, msg = tcp:connect(ip, port)
+    print("tcp connect to " .. ip .. " , " .. port .. " : " .. tostring(success) .. ", msg=" .. tostring(msg))
+    --success, msg = tcp:setpeername(ip, port)
     if not success then return end
     is_connected = true
     serverip = ip
@@ -104,7 +109,8 @@ local function udpsend()
   
   --answerField.text =  answerField.text .. "connecting to " .. ip .. ":" .. port .. ",message " .. tostring(mesg).. "\n"
   
-  udp:send( message )
+  success, msg = tcp:send( message .. "\n" )
+  print("send message: " .. tostring(success) .. ", msg=" .. tostring(msg))
   
   -- add message to textbox
   answerField.text =  answerField.text .. "moi: " .. formatLeft(message)
@@ -125,7 +131,7 @@ local function fieldHandler( textField )
 		
 		elseif ( "submitted" == event.phase ) then
 			-- This event occurs when the user presses the "return" key (if available) on the onscreen keyboard
-			udpsend()
+			tcpsend()
 			
 			-- Hide keyboard
 			native.setKeyboardFocus( nil )
@@ -140,7 +146,7 @@ end
 
 -- Default Button Pressed
 local sendButtonPress = function( event )
-  if messageField.text ~= "" then udpsend() end
+  if messageField.text ~= "" then tcpsend() end
 end
 
 -------------------------------------------
@@ -252,8 +258,9 @@ end
 
 
 -- listen on a transient port
-udp:setsockname( myIP() , 0)
-local i,p = udp:getsockname()
+tcp:bind( myIP() , 0)
+local i,p = tcp:getsockname()
+print("i,p=" .. tostring(i) .. " " .. tostring(p) )
 --answerField.text = answerField.text .. "Listening on " .. i .. " " .. p .. "\n"
 
 
