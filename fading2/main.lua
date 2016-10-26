@@ -25,8 +25,8 @@ require 'fading2/dice/default/config'
 debug = false
 
 -- main layout
-layout = nil
-currentWindowDraw = nil
+layout = nil					-- will manage all windows
+currentWindowDraw = nil				-- we need this global for myStencilFunction()
 
 -- tcp information for network
 address, serverport	= "*", "12345"		-- server information
@@ -93,7 +93,6 @@ dialogBase		= "Message: "
 dialog 			= dialogBase		-- text printed on the screen when typing dialog 
 dialogActive		= false
 dialogLog		= {}			-- store all dialogs for complete display
-displayDialogLog	= false
 ack			= false			-- automatic acknowledge when message received ?
 
 -- some basic colors
@@ -390,6 +389,16 @@ function Map:draw()
 	love.graphics.printf("V", x + map.w / map.mag - 65 , y + 5 ,500)
      end
 
+     -- print search zone if scenario
+     if self.kind == "scenario" then
+      	love.graphics.setColor(0,0,0)
+      	love.graphics.setFont(fontSearch)
+      	love.graphics.printf(text, 800, H - 60, 400)
+      	-- print number of the search result is needed
+      	if searchIterator then love.graphics.printf( "( " .. searchIndex .. " [" .. string.format("%.2f", searchPertinence) .. "] out of " .. 
+						           searchSize .. " )", 800, H - 40, 400) end
+    end
+
 end
 
 function Map:getFocus() if self.kind == "scenario" then searchActive = true end end
@@ -407,16 +416,21 @@ function Dialog:new( t ) -- create from w, h, x, y
 end
 
 function Dialog:draw()
+   -- draw window frame
    love.graphics.setFont(fontSearch)
    love.graphics.setColor(10,10,10,150)
    local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
    love.graphics.rectangle( "fill", zx , zy , self.w , self.h )  
+   -- print current log text
    local start
-   if #dialogLog > 12 then start = #dialogLog - 12 else start = 1 end
+   if #dialogLog > 11 then start = #dialogLog - 11 else start = 1 end
    love.graphics.setColor(255,255,255)
    for i=start,#dialogLog do 
 	love.graphics.printf( dialogLog[i] , zx , zy + (i-start)*18 , self.w )	
    end
+   -- print MJ input eventually
+   love.graphics.setColor(200,200,255)
+   love.graphics.printf(dialog, zx , zy + self.h - 22 , self.w )
 end
 
 function Dialog:getFocus() dialogActive = true end
@@ -496,6 +510,7 @@ end
 function addMessage( text, time , important )
   if not time then time = 5 end
   table.insert( messages, { text=text , time=time, offset=0, important=important } )
+  table.insert( dialogLog, text )
 end
  
 -- send a command or data to the projector over the network
@@ -769,7 +784,7 @@ function rollAttack( rollType )
 		{ star=newD6star(1.5):set({math.random(10),math.random(10),math.random(10)}, -- position
 					  {-math.random(8,40),-math.random(8,40),-10}, -- velocity
 					  {math.random(10),math.random(10),math.random(10)}), -- angular mvmt
-    		  die=clone(d6,{material=light.plastic,color={127,70,255,255},text={255,255,255},shadow={20,0,0,190}}) })
+    		  die=clone(d6,{material=light.plastic,color={59,0,102,255},text={255,255,255},shadow={20,0,0,190}}) })
   	end
 
   	for i=1,#dice do box[i]=dice[i].star end
@@ -1332,35 +1347,13 @@ function love.draw()
 	love.graphics.setScissor()
  end
 
- -- print dialog zone eventually
- if dialogActive then
-      love.graphics.setColor(10,60,220)
-      love.graphics.setFont(fontRound)
-      love.graphics.printf(dialog, 800, messagesH, W-800)
- end
+ -- draw dices if needed
+ if drawDices then
 
- -- print dialogLog eventually
- --[[
- if displayDialogLog then
-   love.graphics.setFont(fontSearch)
-   love.graphics.setColor(10,10,10,150)
-   love.graphics.rectangle( "fill", W - 600 , H - 300 , 590 , 250 )  
-   local start
-   if #dialogLog > 12 then start = #dialogLog - 12 else start = 1 end
-   love.graphics.setColor(255,255,255)
-   for i=start,#dialogLog do 
-	love.graphics.printf( dialogLog[i] , W - 590 , H - 290 + (i-start)*18 , 580 )	
-   end
- end
- --]]
-
-  -- draw dices if needed
-  if drawDices then
-
-  --use a coordinate system with 0,0 at the center
-  --and an approximate width and height of 10
-  local cx,cy=380,380
-  local scale=cx/4
+ --use a coordinate system with 0,0 at the center
+ --and an approximate width and height of 10
+ local cx,cy=380,380
+ local scale=cx/4
   
   love.graphics.push()
   love.graphics.translate(cx,cy)
@@ -1638,6 +1631,7 @@ function love.mousepressed( x, y , button )
 	      elseif currentSnap == 2 then
 
 			layout:setDisplay( snapshots[currentSnap].s[index] , true )
+			layout:setFocus( snapshots[currentSnap].s[index] ) 
 	
 	      -- 3: Pawn. If focus is set, use this image as PJ/PNJ pawn image 
 	      else
@@ -2348,8 +2342,9 @@ if key == "d" and love.keyboard.isDown("lctrl") then
 	layout:setDisplay( dialogWindow, true )
 	layout:setFocus( dialogWindow ) 
   else
-	dialogWindow = Dialog:new{w=600,h=300,x=300,y=150}
+	dialogWindow = Dialog:new{w=800,h=220,x=400,y=110}
 	layout:addWindow( dialogWindow , true ) -- display it. Set focus
+	layout:setFocus( dialogWindow ) 
   end
 end
 
@@ -2481,6 +2476,26 @@ else
 		if atlas:isVisible(map) then tcpsend( projector, "MAGN " .. 1/map.mag ) end	
     	end 
 	
+   	if key == "backspace" and text ~= textBase then
+        	-- get the byte offset to the last UTF-8 character in the string.
+        	local byteoffset = utf8.offset(text, -1)
+        	if byteoffset then
+            	-- remove the last UTF-8 character.
+            	-- string.sub operates on bytes rather than UTF-8 characters, so we couldn't do string.sub(text, 1, -2).
+            		text = string.sub(text, 1, byteoffset - 1)
+        	end
+    	end
+
+   	if key == "tab" then
+	  if searchIterator then map.x,map.y,searchPertinence,searchIndex,searchSize = searchIterator() end
+   	end
+
+   	if key == "return" then
+	  searchIterator = doSearch( string.gsub( text, textBase, "" , 1) )
+	  text = textBase
+	  if searchIterator then map.x,map.y,searchPertinence,searchIndex,searchSize = searchIterator() end
+   	end
+
   end
 end
 
