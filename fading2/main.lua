@@ -8,15 +8,15 @@ local parser    = require 'parse'	-- parse command line arguments
 require 'scenario'			-- read scenario file and perform text search
 
 -- dice3d code
-require	'base'
-require 'loveplus'
-require 'vector'
-require 'render'
-require 'stars'
-require 'geometry'
-require 'diceview'
-require 'light'
-require 'default/config'
+require	'fading2/dice/base'
+require	'fading2/dice/loveplus'
+require	'fading2/dice/vector'
+require 'fading2/dice/render'
+require 'fading2/dice/stars'
+require 'fading2/dice/geometry'
+require 'fading2/dice/diceview'
+require 'fading2/dice/light'
+require 'fading2/dice/default/config'
 
 --
 -- GLOBAL VARIABLES
@@ -85,8 +85,6 @@ searchIterator		= nil			-- iterator on the results, when search is done
 searchPertinence 	= 0			-- will be set by using the iterator, and used during draw
 searchIndex		= 0			-- will be set by using the iterator, and used during draw
 searchSize		= 0 			-- idem
-dictionnary 		= {}			-- dictionnary indexed by word, with value a couple position (string) 
-						-- and level (integer) as in { "((x,y))", lvl } 
 keyZoomIn		= ':'			-- default on macbookpro keyboard. Changed at runtime for windows
 keyZoomOut 		= '=' 			-- default on macbookpro keyboard. Changed at runtime for windows
 
@@ -155,34 +153,9 @@ arrowStopIndex 		 = nil		-- index of the PNJ at the ending point
 arrowModeMap		 = nil		-- either nil (not in map mode), "RECT" or "CIRC" shape used to draw map maskt
 maskType		 = "RECT"	-- shape to use, rectangle by default
 
-
---[[
--- we assume that we provide the upper left corner of each rectangle, 
--- and positive values for height and width
-function isRectACoveredByRectB(ax,ay,aw,ah,bx,by,bw,bh)
-  return ax >= bx and ay >= by and (ax + aw <= bx + bw) and (ay + ah <= by + bh)
-end
-
-function isRectACoveredByCircleB(ax,ay,aw,ah,bx,by,br)
-  return distanceFrom(ax,ay,bx,by) <= br and
-		 distanceFrom(ax+aw,ay,bx,by) <= br and
-		 distanceFrom(ax,ay+ah,bx,by) <= br and
-		 distanceFrom(ax+aw,ay+ah,bx,by) <= br
-end
-
-function isCircleBCoveredByRectA(ax,ay,aw,ah,bx,by,br)
-  if 2*br > aw or 2*br > ah then return false end
-  local interiorw, interiorh = aw - 2*br, ah - 2*br
-  local interiorx, interiory = ax + br, ay + br
-  return bx >= interiorx and bx <= interiorx + interiorw and
-		 by >= interiory and by <= interiory + interiorh
-end
-
-function isCircleACoveredByCircleB(ax,ay,ar,bx,by,br)
-  local d = distanceFrom(ax,ay,bx,by)
-  return (d + ar) <= br 
-end
---]]
+-- we write only in debug mode
+local oldiowrite = io.write
+function io.write( data ) if debug then oldiowrite( data ) end end
 
 --
 -- Multiple inheritance mechanism
@@ -192,24 +165,19 @@ end
 
 -- look up for `k' in list of tables `plist'
 function Csearch (k, plist)
-for i=1, table.getn(plist) do
-local v = plist[i][k] -- try `i'-th superclass
-if v then return v end
-end
-end
+	for i=1, table.getn(plist) do
+	local v = plist[i][k] -- try `i'-th superclass
+	if v then return v end
+	end
+	end
 
 function createClass (a,b)
-local c = {} -- new class
--- class will search for each method in the list of its
--- parents (`arg' is the list of parents)
-setmetatable(c, {__index = function (t, k) return Csearch(k, {a,b}) end})
--- prepare `c' to be the metatable of its instances
-c.__index = c
--- define a new constructor for this new class
-function c:new (o) o = o or {}; setmetatable(o, c); return o end
--- return new class
-return c
-end
+	local c = {} -- new class
+	setmetatable(c, {__index = function (t, k) return Csearch(k, {a,b}) end})
+	c.__index = c
+	function c:new (o) o = o or {}; setmetatable(o, c); return o end
+	return c
+	end
 
 function loadDistantImage( filename )
   local file = assert( io.open( filename, 'rb' ) )
@@ -523,9 +491,6 @@ function mainLayout:draw()
 	for k,v in ipairs( self.sorted ) do if self.sorted[k].d then self.sorted[k].w:draw() end end
 end 
 
-
-local oldiowrite = io.write
-function io.write( data ) if debug then oldiowrite( data ) end end
 
 -- insert a new message to display
 function addMessage( text, time , important )
