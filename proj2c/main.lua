@@ -49,7 +49,7 @@ end
 --]]
 Pawn = {}
 Pawn.__index = Pawn
-function Pawn.new( id, filename, size, x, y , pj )
+function Pawn.new( id, filename, sizex, x, y , pj )
 
   local new = {}
   setmetatable(new,Pawn)
@@ -63,9 +63,6 @@ function Pawn.new( id, filename, size, x, y , pj )
   new.x, new.y = x or 0, y or 0         -- position of the upper left corner of the pawn, relative to the map
   new.layer = maxLayer			-- determine if a pawn is drawn on top (or below) another one
   new.filename = filename
-  new.size = size                       -- size of the image in pixels, for map at scale 1. The image is 
-					-- modified (with factor f) to fit a square
-
   -- load pawn image
   local file = io.open( filename , "rb" )
   if not file then
@@ -81,10 +78,16 @@ function Pawn.new( id, filename, size, x, y , pj )
 
   -- compute scaling factor f, offsets (to center the image within the square)
   local w,h = new.im:getDimensions()
-  local f1,f2 = size/w, size/h
+
+  new.sizex = sizex                       -- width size of the image in pixels, for map at scale 1. The image is 
+					 -- modified (with factor f) to fit the appropriate rectangular shape 
+
+  new.sizey = new.sizex * (h/w)
+
+  local f1,f2 = new.sizex/w, new.sizey/h
   new.f = math.min(f1,f2)
-  new.offsetx = (size + 6 - w * new.f ) / 2
-  new.offsety = (size + 6 - h * new.f ) / 2
+  new.offsetx = (new.sizex + 3*2 - w * new.f ) / 2
+  new.offsety = (new.sizey + 3*2 - h * new.f ) / 2
 
   return new
   end
@@ -116,8 +119,9 @@ function isInsidePawn(x,y)
   for i=1,#pawns do
                 local lx,ly = pawns[i].x, pawns[i].y -- position x,y relative to the map, at scale 1
                 local tx,ty = zx + lx * mag, zy + ly * mag -- position tx,ty relative to the screen
-                local size = pawns[i].size * mag -- size relative to the screen
-                if x >= tx and x <= tx + size and y >= ty and y <= ty + size and pawns[i].layer > maxlayer then  
+                local sizex = pawns[i].sizex * mag -- size relative to the screen
+                local sizey = pawns[i].sizey * mag -- size relative to the screen
+                if x >= tx and x <= tx + sizex and y >= ty and y <= ty + sizey and pawns[i].layer > maxlayer then  
 			maxlayer = pawns[i].layer
 			indexWithMaxLayer = i
 		end
@@ -157,7 +161,7 @@ function love.mousereleased (x,y)
                         -- it was just a move, change the pawn position
                         -- we consider that the mouse position is at the center of the new image
 			local zx,zy = -( X * mag - W2 / 2), -( Y * mag - H2 / 2)
-                        pawnMove.x, pawnMove.y = (x - zx) / mag - pawnMove.size / 2 , (y - zy) / mag - pawnMove.size / 2
+                        pawnMove.x, pawnMove.y = (x - zx) / mag - pawnMove.sizex / 2 , (y - zy) / mag - pawnMove.sizey / 2
 
 			-- the last pawn to move is always on top
 			maxLayer = maxLayer + 1
@@ -167,8 +171,8 @@ function love.mousereleased (x,y)
                         -- we must stay within the limits of the map    
                         if pawnMove.x < 0 then pawnMove.x = 0 end
                         if pawnMove.y < 0 then pawnMove.y = 0 end
-                        if pawnMove.x + pawnMove.size + 6 > W then pawnMove.x = math.floor(W - pawnMove.size - 6) end
-                        if pawnMove.y + pawnMove.size + 6 > H then pawnMove.y = math.floor(H - pawnMove.size - 6) end
+                        if pawnMove.x + pawnMove.sizex + 6 > W then pawnMove.x = math.floor(W - pawnMove.sizex - 6) end
+                        if pawnMove.y + pawnMove.sizey + 6 > H then pawnMove.y = math.floor(H - pawnMove.sizey - 6) end
 
                         tcp:send("MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.x) .. " " .. math.floor(pawnMove.y) .. "\n")
 
@@ -241,7 +245,7 @@ function love.draw()
                      -- we do some checks before displaying the pawn: it might happen that the character corresponding to the pawn is dead
                      local px,py = p.x * mag + zx , p.y * mag + zy
                      love.graphics.setColor(250,50,50)
-                     love.graphics.rectangle( "fill", px, py, p.size * mag + 6, p.size * mag + 6)
+                     love.graphics.rectangle( "fill", px, py, p.sizex * mag + 6, p.sizey * mag + 6)
                      if p.dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
                      px = px + p.offsetx * mag
                      py = py + p.offsety * mag
@@ -260,7 +264,7 @@ function love.draw()
                      -- we do some checks before displaying the pawn: it might happen that the character corresponding to the pawn is dead
                      local px,py = p.x * mag + zx , p.y * mag + zy
                      love.graphics.setColor(50,50,250)
-                     love.graphics.rectangle( "fill", px, py, p.size * mag + 6, p.size * mag + 6)
+                     love.graphics.rectangle( "fill", px, py, p.sizex * mag + 6, p.sizey * mag + 6)
                      if p.dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
                      px = px + p.offsetx * mag
                      py = py + p.offsety * mag
@@ -334,7 +338,7 @@ function love.update( dt )
 	-- CIRC x y r 		set a new stencil (unmask) circle at position x,y, of radius r (a decimal number)
 	--
 	-- PAWN id x y s p filename
-	--			create a new pawn with id, at position x,y (relative to the map at scale 1), of size s (in pixels 
+	--			create a new pawn with id, at position x,y (relative to the map at scale 1), of size s (width in pixels 
 	--			at scale 1), with boolean true/false p (if PJ or not), with image filename
 	--
 	-- KILL id		kill pawn with id given
