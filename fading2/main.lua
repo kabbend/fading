@@ -376,8 +376,8 @@ function Map:draw()
      -- draw small circle or rectangle in upper corner, to show which mode we are in
      if map.kind == "map" then
        love.graphics.setColor(200,0,0,180)
-       if maskType == "RECT" then love.graphics.rectangle("line",x + 5, y + 5,20,20) end
-       if maskType == "CIRC" then love.graphics.circle("line",x + 15, y + 15,10) end
+       if maskType == "RECT" then love.graphics.rectangle("line",x + 5, y + 5,20/map.mag,20/map.mag) end
+       if maskType == "CIRC" then love.graphics.circle("line",x + 15, y + 15,10/map.mag) end
      end
 
      -- draw pawns, if any
@@ -413,7 +413,7 @@ function Map:draw()
 	if map.is_stuck then char = "S" end -- stands for S(tuck)
         love.graphics.setColor(200,0,0,180)
         love.graphics.setFont(fontDice)
-	love.graphics.printf( char , x + map.w / map.mag - 65 , y + 5 ,500)
+	love.graphics.print( char , x + 5 , y + (40 / map.mag) , 0, 2/map.mag, 2/map.mag) -- bigger letters
      end
 
      -- print search zone if scenario
@@ -1796,7 +1796,8 @@ else
   if key == "c" and love.keyboard.isDown("lctrl") then
 	if window.is_stuck then
 		window:move( window.stickx , window.sticky )
-		window:zoom( window.stickmag )
+		window.magindex = window.stickmag
+		window:zoom(0)
 		window.is_stuck = false
 	else
 		window:move( window.w / 2, window.h / 2 )
@@ -1805,7 +1806,7 @@ else
   end
   if key == "s" and love.keyboard.isDown("lctrl") then
 	window.is_stuck = true
-	window.stickx, window.sticky, window.stickmag = window.x, window.y, window.mag
+	window.stickx, window.sticky, window.stickmag = window.x, window.y, window.magindex
   end
 
   if     window.class == "dialog" then
