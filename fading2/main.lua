@@ -248,7 +248,8 @@ end
 --   a window object. For the moment, only scenario, maps and logs are windows,
 --   and are displayed "on top" of this main screen.
 --
-Window = { class = "window", w = 0, h = 0, mag = 1.0, x = 0, y = 0 , zoomable = false }
+Window = { class = "window", w = 0, h = 0, mag = 1.0, x = 0, y = 0 , zoomable = false ,
+	   is_stuck = false, stickx = 0, sticky = 0, stickmag = 0 }
 function Window:new( t ) 
   local new = t or {}
   setmetatable( new , self )
@@ -266,8 +267,10 @@ function Window:isInside(x,y)
 end
 
 function Window:zoom( mag ) if self.zoomable then self.mag = mag end end
-function Window:move( x, y ) self.x = x; self.y = y; end
-function Window:draw() end
+function Window:move( x, y ) self.x = x; self.y = y end
+
+-- to be redefined in inherited classes
+function Window:draw() end 
 function Window:getFocus() end
 function Window:looseFocus() end
 
@@ -325,6 +328,20 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   self.pawns = {}
 end
 
+-- a Map move or zoom is a  bit more than a window move or zoom: 
+-- We might send the same movement to the projector as well
+function Map:move( x, y ) 
+		self.x = x; self.y = y
+		if atlas:isVisible(self) and not self.is_stuck then 
+			tcpsend( projector, "CHXY " .. math.floor(self.x) .. " " .. math.floor(self.y) ) 
+		end
+	end
+
+function Map:zoom( mag )
+		self.mag = mag
+		if atlas:isVisible(self) and not self.is_stuck then tcpsend( projector, "MAGN " .. 1/self.mag ) end	
+	end
+
 function Map:draw()
 
      local map = self
@@ -381,9 +398,11 @@ function Map:draw()
 
      -- print visible 
      if atlas:isVisible( map ) then
+	local char = "V" -- a priori
+	if map.is_stuck then char = "S" end -- stands for S(tuck)
         love.graphics.setColor(200,0,0,180)
         love.graphics.setFont(fontDice)
-	love.graphics.printf("V", x + map.w / map.mag - 65 , y + 5 ,500)
+	love.graphics.printf( char , x + map.w / map.mag - 65 , y + 5 ,500)
      end
 
      -- print search zone if scenario
@@ -1644,18 +1663,20 @@ if mouseMove then
 	-- store old values, in case we need to rollback because we get outside limits
 	local oldx, oldy = map.x, map.y
 
-	-- apply changes
-	map.x = map.x - dx * map.mag 
-	map.y = map.y - dy * map.mag 
+	-- check changes
+	local newx = map.x - dx * map.mag 
+	local newy = map.y - dy * map.mag 
 
 	-- check we are still within margins of the screen
   	local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
 	
-	if zx > W - margin or zx + map.w / map.mag < margin then map.x = oldx end	
-	if zy > H - margin or zy + map.h / map.mag < margin then map.y = oldy end	
+	if zx > W - margin or zx + map.w / map.mag < margin then newx = oldx end	
+	if zy > H - margin or zy + map.h / map.mag < margin then newy = oldy end	
 
-	-- send move to the projector
-	if (map.x ~= oldx or map.y ~= oldy) and atlas:isVisible(map) then tcpsend( projector, "CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) ) end
+	-- move the map 
+	if (newx ~= oldx or newy ~= oldy) then
+		map:move( newx, newy )
+	end
 
     end
 end
@@ -1710,16 +1731,28 @@ if not window then
   
 else
   -- a window is selected. Keys applicable to any window:
-  -- 'lctrl + c' : center window
+  -- 'lctrl + c' : recenter window
   -- 'lctrl + x' : close window
+  -- 'lctrl + s' : stick the window
   if key == "x" and love.keyboard.isDown("lctrl") then
 	layout:setDisplay( window, false )
 	return
   end
   if key == "c" and love.keyboard.isDown("lctrl") then
-	window.x, window.y = window.w / 2, window.h / 2
+	if window.is_stuck then
+		window:move( window.stickx , window.sticky )
+		window:zoom( window.stickmag )
+		window.is_stuck = false
+	else
+		window:move( window.w / 2, window.h / 2 )
+	end
 	return
   end
+  if key == "s" and love.keyboard.isDown("lctrl") then
+	window.is_stuck = true
+	window.stickx, window.sticky, window.stickmag = window.x, window.y, window.mag
+  end
+
   if     window.class == "dialog" then
 	-- 'return' to submit a dialog message
 	-- 'backspace'
@@ -1749,24 +1782,27 @@ else
 	-- 'lctrl + p' to remove all pawns
 	-- 'lctrl + v' : toggle visible / not visible
     	if key == keyZoomIn then
-		if map.mag >= 1 then map.mag = map.mag + 1 end
-		if map.mag == 0.5 then map.mag = 1 end	
-		if map.mag == 0.25 then map.mag = 0.5 end	
+		local mag = map.mag
+		if mag >= 1 then mag = mag + 1 end
+		if mag == 0.5 then mag = 1 end	
+		if mag == 0.25 then mag = 0.5 end	
 		ignoreLastChar = true
-		if atlas:isVisible(map) then tcpsend( projector, "MAGN " .. 1/map.mag ) end	
+		map:zoom( mag )
     	end 
 
     	if key == keyZoomOut then
-		if map.mag > 1 then map.mag = map.mag - 1 
-		elseif map.mag == 1 then map.mag = 0.5 
-		elseif map.mag == 0.5 then map.mag = 0.25 end	
-		if map.mag == 0 then map.mag = 0.25 end
+		local mag = map.mag
+		if mag > 1 then mag = mag - 1 
+		elseif mag == 1 then mag = 0.5 
+		elseif mag == 0.5 then mag = 0.25 end	
+		if mag == 0 then mag = 0.25 end
 		ignoreLastChar = true
-		if atlas:isVisible(map) then tcpsend( projector, "MAGN " .. 1/map.mag ) end	
+		map:zoom( mag )
     	end 
     
 	if key == "v" and love.keyboard.isDown("lctrl") then
 		atlas:toggleVisible( map )
+		if not atlas:isVisible( map ) then map.is_stuck = false end
     	end
 
    	if key == "p" and love.keyboard.isDown("lctrl") then
@@ -1789,20 +1825,22 @@ else
 	-- 'tab' to get to next search result
 	-- any other key is treated as a search query input
     	if key == keyZoomIn then
-		if map.mag >= 1 then map.mag = map.mag + 1 end
-		if map.mag == 0.5 then map.mag = 1 end	
-		if map.mag == 0.25 then map.mag = 0.5 end	
+		local mag = map.mag
+		if mag >= 1 then mag = mag + 1 end
+		if mag == 0.5 then mag = 1 end	
+		if mag == 0.25 then mag = 0.5 end	
 		ignoreLastChar = true
-		if atlas:isVisible(map) then tcpsend( projector, "MAGN " .. 1/map.mag ) end	
+		map:zoom( mag )
     	end 
 
     	if key == keyZoomOut then
-		if map.mag > 1 then map.mag = map.mag - 1 
-		elseif map.mag == 1 then map.mag = 0.5 
-		elseif map.mag == 0.5 then map.mag = 0.25 end	
-		if map.mag == 0 then map.mag = 0.25 end
+		local mag = map.mag
+		if mag > 1 then mag = mag - 1 
+		elseif mag == 1 then mag = 0.5 
+		elseif mag == 0.5 then mag = 0.25 end	
+		if mag == 0 then mag = 0.25 end
 		ignoreLastChar = true
-		if atlas:isVisible(map) then tcpsend( projector, "MAGN " .. 1/map.mag ) end	
+		map:zoom( mag )
     	end 
 	
    	if key == "backspace" and text ~= textBase then
