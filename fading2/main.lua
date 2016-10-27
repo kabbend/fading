@@ -397,6 +397,9 @@ function Map:draw()
 		       		nzx = zx + map.pawns[i].offsetx / map.mag
 		       		nzy = zy + map.pawns[i].offsety / map.mag
 		       		love.graphics.draw( map.pawns[i].snapshot.im , nzx, nzy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
+		       		love.graphics.setColor(0,0,0) 
+		       		love.graphics.rectangle( "fill", zx, zy, 22 / map.mag, 22 / map.mag)
+		       		love.graphics.setColor(255,255,255) 
         			love.graphics.setFont(fontSearch)
 				love.graphics.print( PNJTable[index].hits , zx, zy , 0, 1/map.mag, 1/map.mag )
 	     	     	end
@@ -1573,20 +1576,21 @@ function createPawns( map , sx, sy, requiredSize )
 	  map.pawns[#map.pawns+1] = p
 
 	  -- send to projector...
-	  local flag
-	  if p.PJ then flag = "1" else flag = "0" end
-	  f = p.snapshot.filename -- FIXME: what about pawns loaded dynamically ?
-	  f = string.gsub(f,baseDirectory,"")
-	  io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. pawnSize .. " " .. flag .. " " .. f .. "\n")
-	  tcpsend( projector, "PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. pawnSize .. " " .. flag .. " " .. f)
+	  if atlas:isVisible(map) then
+	  	local flag
+	  	if p.PJ then flag = "1" else flag = "0" end
+	  	local f = p.snapshot.baseFilename -- FIXME: what about pawns loaded dynamically ?
+	  	io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. pawnSize .. " " .. flag .. " " .. f .. "\n")
+	  	tcpsend( projector, "PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. pawnSize .. " " .. flag .. " " .. f)
+	  end
 	  -- set position for next image: we display pawns on 4x4 line/column around the mouse position
 	  if i % 4 == 0 then
-		a = starta 
-		b = b + pawnSize + border*2 + margin
-	  else
-		a = a + pawnSize + border*2 + margin	
+			a = starta 
+			b = b + pawnSize + border*2 + margin
+	  	else
+			a = a + pawnSize + border*2 + margin	
 	  end
-  	end
+	  end
 
   end
   end
@@ -1625,12 +1629,16 @@ function Atlas:toggleVisible( map )
 		self.visible = nil 
 		-- erase snapshot !
 		currentImage = nil 
+	  	-- remove all pawns remotely !
+		tcpsend( projector, "ERAS")
 	  	-- send hide command to projector
 		tcpsend( projector, "HIDE")
 	else    
 		self.visible = map 
 		-- change snapshot !
 		currentImage = map.im
+	  	-- remove all pawns remotely !
+		tcpsend( projector, "ERAS")
 		-- send to projector
 		if map.is_local then
 		  tcpsendBinary( map.file )
@@ -1643,6 +1651,16 @@ function Atlas:toggleVisible( map )
 				tcpsend( projector, v )
 			end
   		end
+		-- send pawns if any
+		for i=1,#map.pawns do
+			local p = map.pawns[i]
+			local flag = 0
+			if p.PJ then flag = 1 end
+	  		local f = p.snapshot.filename -- FIXME: what about pawns loaded dynamically ?
+	  		f = string.gsub(f,baseDirectory,"")
+	  		tcpsend( projector, "PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. math.floor(p.sizex) .. " " .. flag .. " " .. f)
+		end
+		-- set map frame
   		tcpsend( projector, "MAGN " .. 1/map.mag)
   		tcpsend( projector, "CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) )
   		tcpsend( projector, "DISP")

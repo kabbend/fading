@@ -245,7 +245,7 @@ function love.draw()
                      -- we do some checks before displaying the pawn: it might happen that the character corresponding to the pawn is dead
                      local px,py = p.x * mag + zx , p.y * mag + zy
                      love.graphics.setColor(250,50,50)
-                     love.graphics.rectangle( "fill", px, py, p.sizex * mag + 6, p.sizey * mag + 6)
+                     love.graphics.rectangle( "fill", px, py, (p.sizex + 6 ) * mag ,(p.sizey + 6) * mag )
                      if p.dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
                      px = px + p.offsetx * mag
                      py = py + p.offsety * mag
@@ -264,7 +264,7 @@ function love.draw()
                      -- we do some checks before displaying the pawn: it might happen that the character corresponding to the pawn is dead
                      local px,py = p.x * mag + zx , p.y * mag + zy
                      love.graphics.setColor(50,50,250)
-                     love.graphics.rectangle( "fill", px, py, p.sizex * mag + 6, p.sizey * mag + 6)
+                     love.graphics.rectangle( "fill", px, py, (p.sizex + 6) * mag, (p.sizey + 6) * mag)
                      if p.dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
                      px = px + p.offsetx * mag
                      py = py + p.offsety * mag
