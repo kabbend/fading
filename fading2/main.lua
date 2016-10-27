@@ -454,13 +454,16 @@ end
 function Dialog:getFocus() dialogActive = true end
 function Dialog:looseFocus() dialogActive = false end
 
+--
 -- mainLayout class
 -- store all windows, with their display status (displayed or not) and layer value
+--
 mainLayout = {}
 function mainLayout:new()
   local new = { windows= {}, maxWindowLayer = 1 , focus = nil, sorted = {} }
   setmetatable( new , self )
   self.__index = self
+  self.globalDisplay = true
   return new
 end
 
@@ -487,6 +490,9 @@ function mainLayout:setDisplay( window, display )
 	end 
 	
 function mainLayout:getDisplay( window ) if self.windows[window] then return self.windows[window].d else return false end end
+
+-- we can set a global value to display, or hide, all windows in one shot
+function mainLayout:toggleDisplay() self.globalDisplay = not self.globalDisplay end
 
 -- return (if there is one) or set the window with focus 
 -- if we set focus, the window automatically gets in front layer
@@ -520,6 +526,7 @@ function mainLayout:click( x , y )
 	end
 
 function mainLayout:draw() 
+	if not self.globalDisplay then return end -- do nothing if globalDisplay is not set !
 	for k,v in ipairs( self.sorted ) do if self.sorted[k].d then self.sorted[k].w:draw() end end
 end 
 
@@ -1693,6 +1700,7 @@ function love.keypressed( key, isrepeat )
 -- keys applicable in any context
 -- we expect:
 -- 'lctrl + d' : open dialog window
+-- 'escape' : hide or restore all windows 
 if key == "d" and love.keyboard.isDown("lctrl") then
   if dialogWindow then 
 	layout:setDisplay( dialogWindow, true )
@@ -1702,6 +1710,9 @@ if key == "d" and love.keyboard.isDown("lctrl") then
 	layout:addWindow( dialogWindow , true ) -- display it. Set focus
 	layout:setFocus( dialogWindow ) 
   end
+end
+if key == "escape" then
+	layout:toggleDisplay()
 end
 
 -- other keys applicable 
