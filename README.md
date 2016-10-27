@@ -6,9 +6,9 @@ Le repository contient 3 programmes qui fonctionnent ensemble :
 
 - le serveur, sous le repertoire fading2. Le serveur contient aussi l'interface qui tourne sur le PC du MJ, et qui contient la majeure partie des fonctionnalités. Le serveur peut tourner sans les 2 autres.
 
-- le projecteur, sous le repertoire proj2c. Le projecteur est en visibilité des joueurs, depuis un 2nd moniteur du PC serveur, ou bien sur un autre PC. Pour l'instant les connexions reseau sont en UDP, donc plutot adaptées pour un réseau local et plus fragile certainement sur Internet (pas testé)
+- le projecteur, sous le repertoire proj2c. Le projecteur est en visibilité des joueurs, depuis un 2nd moniteur du PC serveur, ou bien sur un autre PC. 
 
-- le client mobile, sous le repertoire fsmob. Permet d'envoyer et recevoir de courts messages au MJ (pour le moment)
+- le client mobile, sous le repertoire fsmob. Permet d'envoyer et recevoir de courts messages au MJ
 
 ## Prérequis:
 - un compilateur/interpreteur Lua
