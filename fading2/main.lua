@@ -326,6 +326,9 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   if self.kind == "map" then self.mask = {} else self.mask = nil end
   self.step = 50
   self.pawns = {}
+  self.zoomtable = { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5, 2, 3, 4, 5, 6, 7, 8 , 9, 10}
+  self.magindex = 10 -- correspond to mag = 1.0
+
 end
 
 -- a Map move or zoom is a  bit more than a window move or zoom: 
@@ -338,7 +341,10 @@ function Map:move( x, y )
 	end
 
 function Map:zoom( mag )
-		self.mag = mag
+		self.magindex = self.magindex + mag
+		if self.magindex < 1 then self.magindex = 1 end
+		if self.magindex > #self.zoomtable then self.magindex = #self.zoomtable end
+		self.mag = self.zoomtable[self.magindex]
 		if atlas:isVisible(self) and not self.is_stuck then tcpsend( projector, "MAGN " .. 1/self.mag ) end	
 	end
 
@@ -1798,22 +1804,13 @@ else
 	-- 'lctrl + p' to remove all pawns
 	-- 'lctrl + v' : toggle visible / not visible
     	if key == keyZoomIn then
-		local mag = map.mag
-		if mag >= 1 then mag = mag + 1 end
-		if mag == 0.5 then mag = 1 end	
-		if mag == 0.25 then mag = 0.5 end	
 		ignoreLastChar = true
-		map:zoom( mag )
+		map:zoom( 1 )
     	end 
 
     	if key == keyZoomOut then
-		local mag = map.mag
-		if mag > 1 then mag = mag - 1 
-		elseif mag == 1 then mag = 0.5 
-		elseif mag == 0.5 then mag = 0.25 end	
-		if mag == 0 then mag = 0.25 end
 		ignoreLastChar = true
-		map:zoom( mag )
+		map:zoom( -1 )
     	end 
     
 	if key == "v" and love.keyboard.isDown("lctrl") then
@@ -1841,22 +1838,13 @@ else
 	-- 'tab' to get to next search result
 	-- any other key is treated as a search query input
     	if key == keyZoomIn then
-		local mag = map.mag
-		if mag >= 1 then mag = mag + 1 end
-		if mag == 0.5 then mag = 1 end	
-		if mag == 0.25 then mag = 0.5 end	
 		ignoreLastChar = true
-		map:zoom( mag )
+		map:zoom( 1 )
     	end 
 
     	if key == keyZoomOut then
-		local mag = map.mag
-		if mag > 1 then mag = mag - 1 
-		elseif mag == 1 then mag = 0.5 
-		elseif mag == 0.5 then mag = 0.25 end	
-		if mag == 0 then mag = 0.25 end
 		ignoreLastChar = true
-		map:zoom( mag )
+		map:zoom( -1 )
     	end 
 	
    	if key == "backspace" and text ~= textBase then
