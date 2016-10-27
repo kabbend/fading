@@ -389,14 +389,14 @@ function Map:draw()
 		     if index then 
 		     	local dead = false
 		     	dead = PNJTable[ index ].is_dead
-		     	if map.pawns[i].im then
+		     	if map.pawns[i].snapshot.im then
   		       		local zx,zy = (map.pawns[i].x) * 1/map.mag + x , (map.pawns[i].y) * 1/map.mag + y
 		       		if PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
-		       		love.graphics.rectangle( "fill", zx, zy, (map.pawns[i].size+6) / map.mag, (map.pawns[i].size+6) / map.mag)
+		       		love.graphics.rectangle( "fill", zx, zy, (map.pawns[i].sizex+6) / map.mag, (map.pawns[i].sizey+6) / map.mag)
 		       		if dead then love.graphics.setColor(50,50,50,200) else 	love.graphics.setColor(255,255,255) end
 		       		nzx = zx + map.pawns[i].offsetx / map.mag
 		       		nzy = zy + map.pawns[i].offsety / map.mag
-		       		love.graphics.draw( map.pawns[i].im , nzx, nzy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
+		       		love.graphics.draw( map.pawns[i].snapshot.im , nzx, nzy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
         			love.graphics.setFont(fontSearch)
 				love.graphics.print( PNJTable[index].hits , zx, zy , 0, 1/map.mag, 1/map.mag )
 	     	     	end
@@ -1219,7 +1219,7 @@ function love.mousereleased( x, y )
 			-- it was just a move, change the pawn position
 			-- we consider that the mouse position is at the center of the new image
   			local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
-			pawnMove.x, pawnMove.y = (x - zx) * map.mag - pawnMove.size / 2 , (y - zy) * map.mag - pawnMove.size / 2
+			pawnMove.x, pawnMove.y = (x - zx) * map.mag - pawnMove.sizex / 2 , (y - zy) * map.mag - pawnMove.sizey / 2
 			pawnMaxLayer = pawnMaxLayer + 1
 			pawnMove.layer = pawnMaxLayer
 			table.sort( map.pawns , function (a,b) return a.layer < b.layer end )
@@ -1227,8 +1227,8 @@ function love.mousereleased( x, y )
 			-- we must stay within the limits of the map	
 			if pawnMove.x < 0 then pawnMove.x = 0 end
 			if pawnMove.y < 0 then pawnMove.y = 0 end
-			if pawnMove.x + pawnMove.size + 6 > map.w then pawnMove.x = math.floor(map.w - pawnMove.size - 6) end
-			if pawnMove.y + pawnMove.size + 6 > map.h then pawnMove.y = math.floor(map.h - pawnMove.size - 6) end
+			if pawnMove.x + pawnMove.sizex + 6 > map.w then pawnMove.x = math.floor(map.w - pawnMove.sizex - 6) end
+			if pawnMove.y + pawnMove.sizey + 6 > map.h then pawnMove.y = math.floor(map.h - pawnMove.sizey - 6) end
 	
 			tcpsend( projector, "MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.x) .. " " .. math.floor(pawnMove.y) )		
 			
@@ -1465,24 +1465,33 @@ function love.mousepressed( x, y , button )
 
 end
 
-
---[[ 
-  Pawn object 
---]]
+--
+--  Pawn object 
+--  A pawn holds the image, with proper scale defined at pawn creation on the map,
+--  along with the ID of the corresponding PJ/PNJ.
+--  Both sizes of the pawn image (sizex and sizey) are computed to respect the image
+--  original height/width ratio. Sizex is directly defined by the MJ at pawn creation,
+--  using the arrow on the map
+-- 
 Pawn = {}
-Pawn.__index = Pawn
-function Pawn.new( id, img, imageFilename, size, x, y ) 
+function Pawn:new( id, snapshot, width , x, y ) 
   local new = {}
-  setmetatable(new,Pawn)
+  setmetatable(new,self)
+  self.__index = self 
   new.id = id
   new.layer = pawnMaxLayer 
   new.x, new.y = x or 0, y or 0 	-- relative to the map
-  new.filename = imageFilename
-  new.baseFilename = string.gsub(imageFilename,baseDirectory,"")
-  new.im = img 
-  new.size = size 			-- size of the image in pixels, for map at scale 1
-  new.f = 1.0
-  new.offsetx, new.offsety = 0,0 	-- offset in pixels to center image, within the square, at scale 1
+  new.snapshot = snapshot
+  --new.filename = snapshot.filename  
+  --new.baseFilename = string.gsub(imageFilename,baseDirectory,"")
+  --new.im = img 
+  new.sizex = width 			-- width size of the image in pixels, for map at scale 1
+  local w,h = new.snapshot.w, new.snapshot.h
+  new.sizey = new.sizex * (h/w) 
+  local f1,f2 = new.sizex/w, new.sizey/h
+  new.f = math.min(f1,f2)
+  new.offsetx = (new.sizex + 3*2 - w * new.f ) / 2
+  new.offsety = (new.sizey + 3*2 - h * new.f ) / 2
   new.PJ = false
   return new
   end
@@ -1502,7 +1511,7 @@ function createPawns( map , sx, sy, requiredSize )
 
   -- get actual size at scale 1. We round it to avoid issue when sending to projector
   local createAgain = map.pawns and #map.pawns > 0
-  if createAgain then pawnSize = map.pawns[1].size else
+  if createAgain then pawnSize = map.pawns[1].sizex else
   pawnSize = math.floor((requiredSize) * map.mag - border * 2) end
 
   margin = math.floor(pawnSize / 10) -- small space between 2 pawns
@@ -1538,22 +1547,26 @@ function createPawns( map , sx, sy, requiredSize )
 	 if needCreate then
 	  local f
 	  if PNJTable[i].snapshot then
-		f = PNJTable[i].snapshot.filename 
-	  	p = Pawn.new( PNJTable[i].id , PNJTable[i].snapshot.im, f , pawnSize, a , b ) 
+		--f = PNJTable[i].snapshot.filename 
+	  	p = Pawn:new( PNJTable[i].id , PNJTable[i].snapshot, pawnSize, a , b ) 
+		--[[
 		local w,h = PNJTable[i].snapshot.im:getDimensions()
 		local f1,f2 = pawnSize/w, pawnSize/h
 		p.f = math.min(f1,f2)
 		p.offsetx = (pawnSize + border*2 - w * p.f ) / 2
 		p.offsety = (pawnSize + border*2 - h * p.f ) / 2
+		--]]
 	  else
 		assert(defaultPawnSnapshot,"no default image available. You should refrain from using pawns on the map...")
-		f = defaultPawnSnapshot.filename
-	  	p = Pawn.new( PNJTable[i].id , defaultPawnSnapshot.im, f , pawnSize, a , b ) 
+		--f = defaultPawnSnapshot.filename
+	  	p = Pawn.new( PNJTable[i].id , defaultPawnSnapshot, pawnSize, a , b ) 
+		--[[
 		local w,h = defaultPawnSnapshot.im:getDimensions()
 		local f1,f2 = pawnSize/w, pawnSize/h
 		p.f = math.min(f1,f2)
 		p.offsetx = (pawnSize + border*2 - w * p.f ) / 2
 		p.offsety = (pawnSize + border*2 - h * p.f ) / 2
+		--]]
 	  end
 	  io.write("creating pawn " .. i .. " with id " .. p.id .. "\n")
 	  p.PJ = PNJTable[i].PJ
@@ -1562,6 +1575,7 @@ function createPawns( map , sx, sy, requiredSize )
 	  -- send to projector...
 	  local flag
 	  if p.PJ then flag = "1" else flag = "0" end
+	  f = p.snapshot.filename -- FIXME: what about pawns loaded dynamically ?
 	  f = string.gsub(f,baseDirectory,"")
 	  io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. pawnSize .. " " .. flag .. " " .. f .. "\n")
 	  tcpsend( projector, "PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. pawnSize .. " " .. flag .. " " .. f)
@@ -1587,8 +1601,9 @@ function Map:isInsidePawn(x,y)
 	for i=1,#self.pawns do
 		local lx,ly = self.pawns[i].x, self.pawns[i].y -- position x,y relative to the map, at scale 1
 		local tx,ty = zx + lx / self.mag, zy + ly / self.mag -- position tx,ty relative to the screen
-		local size = self.pawns[i].size / self.mag -- size relative to the screen
-		if x >= tx and x <= tx + size and y >= ty and y <= ty + size and self.pawns[i].layer > maxlayer then
+		local sizex = self.pawns[i].sizex / self.mag -- size relative to the screen
+		local sizey = self.pawns[i].sizey / self.mag -- size relative to the screen
+		if x >= tx and x <= tx + sizex and y >= ty and y <= ty + sizey and self.pawns[i].layer > maxlayer then
 			maxlayer = self.pawns[i].layer
 			indexWithMaxLayer = i
 		end
