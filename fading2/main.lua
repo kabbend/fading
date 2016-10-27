@@ -387,10 +387,12 @@ function Map:draw()
   		       		local zx,zy = (map.pawns[i].x) * 1/map.mag + x , (map.pawns[i].y) * 1/map.mag + y
 		       		if PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
 		       		love.graphics.rectangle( "fill", zx, zy, (map.pawns[i].size+6) / map.mag, (map.pawns[i].size+6) / map.mag)
-		       		if dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
-		       		zx = zx + map.pawns[i].offsetx / map.mag
-		       		zy = zy + map.pawns[i].offsety / map.mag
-		       		love.graphics.draw( map.pawns[i].im , zx, zy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
+		       		if dead then love.graphics.setColor(50,50,50,200) else 	love.graphics.setColor(255,255,255) end
+		       		nzx = zx + map.pawns[i].offsetx / map.mag
+		       		nzy = zy + map.pawns[i].offsety / map.mag
+		       		love.graphics.draw( map.pawns[i].im , nzx, nzy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
+        			love.graphics.setFont(fontSearch)
+				love.graphics.print( PNJTable[index].hits , zx, zy , 0, 1/map.mag, 1/map.mag )
 	     	     	end
 		     end
 	     end
