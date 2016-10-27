@@ -11,10 +11,11 @@ local fields = display.newGroup()
 
 display.setDefault( "background", 80/255 )
 
--- create socket 
+-- create socket for server communication
 local tcp = socket.tcp()
 tcp:settimeout(2)
 
+-- udp for getting our own ip address
 udp = socket.udp()
 udp:settimeout(0)
 
@@ -24,6 +25,7 @@ local serverip, serverport = nil, nil
 local limitLeft = 20
 local limitRight = 20
 
+--[[
 -- return a text aligned on the left (player)
 local function formatLeft( text )
   local newtext = ""
@@ -75,6 +77,7 @@ local function formatRight( text )
   newtext = newtext .. "\n"
   return newtext
 end
+--]]
 
 -- send function
 local function tcpsend()
@@ -90,32 +93,27 @@ local function tcpsend()
   local port = portField.text
   
   -- check if something changed. In that case we reconnect
-  if is_connected and ((serverip ~= ip) or (serverport ~= port)) then
-    is_connected = false
-  end
+  if is_connected and ((serverip ~= ip) or (serverport ~= port)) then is_connected = false end
   
   -- connect to server. Store connection information to avoid
   -- further reconnection
   local success, msg
   if not is_connected then
     local success, msg = tcp:connect(ip, port)
+    tcp:settimeout(0)
     print("tcp connect to " .. ip .. " , " .. port .. " : " .. tostring(success) .. ", msg=" .. tostring(msg))
-    --success, msg = tcp:setpeername(ip, port)
     if not success then return end
     is_connected = true
     serverip = ip
     serverport = port
   end
   
-  --answerField.text =  answerField.text .. "connecting to " .. ip .. ":" .. port .. ",message " .. tostring(mesg).. "\n"
-  
   success, msg = tcp:send( message .. "\n" )
   print("send message: " .. tostring(success) .. ", msg=" .. tostring(msg))
   
   -- add message to textbox
-  answerField.text =  answerField.text .. "moi: " .. formatLeft(message)
+  answerField.text =  "moi:" .. message .. "\n" .. answerField.text
   
-  --answerField.text = answerField.text .. formatRight( "MJ: ceci est un petit test pour vérifier ce qui se passe" )
 end
 
 local function fieldHandler( textField )
@@ -195,9 +193,6 @@ defaultLabel:setFillColor( 150/255, 150/255, 1 )
 local defaultLabel = display.newText( "Message", 10, 140, native.systemFont, 18 )
 defaultLabel:setFillColor( 150/255, 150/255, 1 )
 
---display.setDefault( "anchorX", 0.5 )	-- restore anchor points for new objects to center anchor point
---display.setDefault( "anchorY", 0.5 )
-
 -------------------------------------------
 -- *** Create Buttons ***
 -------------------------------------------
@@ -230,16 +225,9 @@ defaultButton.x = display.contentCenterX - defaultButton.contentWidth/2;	default
 local bkgd = display.newRect( 0, 0, display.contentWidth, display.contentHeight )
 bkgd:setFillColor( 0, 0, 0, 0 )		-- set Alpha = 0 so it doesn't cover up our buttons/fields
 
--- Tapping screen dismisses the keyboard
---
--- Needed for the Number and Phone textFields since there is
--- no return key to clear focus.
 
 local listener = function( event )
-	-- Hide keyboard
-	--print("tap pressed")
 	native.setKeyboardFocus( nil )
-	
 	return true
 end
 
@@ -251,7 +239,6 @@ local myIP = function()
     local s = socket.udp()  --creates a UDP object
     s:setpeername( "74.125.115.104", 80 )  --Google website
     local ip, sock = s:getsockname()
-    --answerField.text = answerField.text .. "myIP:"..ip..":"..sock.."\n"
     s:close()
     return ip
 end
@@ -261,16 +248,14 @@ end
 tcp:bind( myIP() , 0)
 local i,p = tcp:getsockname()
 print("i,p=" .. tostring(i) .. " " .. tostring(p) )
---answerField.text = answerField.text .. "Listening on " .. i .. " " .. p .. "\n"
 
 
 local function listenForServer()
-  local data , msg = udp:receive()
-  --socket.sleep(0.1)
-  if data and data ~="" then
-    answerField.text = answerField.text .. formatRight( "MJ:" .. data )
+  if is_connected then
+  	local data , msg = tcp:receive()
+  	if data then answerField.text = "MJ:" .. data .. "\n" .. answerField.text end
   end
-end
+  end
 
 -- Frame update listener
 Runtime:addEventListener( "enterFrame", listenForServer )

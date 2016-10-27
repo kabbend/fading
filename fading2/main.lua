@@ -531,7 +531,10 @@ end
 -- send a command or data to the projector over the network
 function tcpsend( tcp, data , verbose )
   if not tcp then return end -- no client connected yet !
-  if verbose == nil or verbose == true then  io.write("send to " .. tcp:getpeername() .. ":" .. data .. "\n") end
+  if verbose == nil or verbose == true then  
+	local i,p=tcp:getpeername()
+	io.write("send to " .. tostring(i) .. "," .. tostring(p) .. ":" .. data .. "\n") 
+  end
   tcp:send(data .. "\n")
   end
 
@@ -1641,7 +1644,7 @@ function findClientByName( class )
   if not class then return nil end
   if not clients then return nil end
   class = string.lower( trim(class) )
-  for i=1,#clients do if clients[i].id and string.lower(clients[i].id) == class then return i end end
+  for i=1,#clients do if clients[i].id and string.lower(clients[i].id) == class then return clients[i].tcp end end
   return nil
   end
 
@@ -1869,6 +1872,13 @@ else
   end
 
 
+function leave()
+	if server then server:close() end
+	for i=1,#clients do clients[i].tcp:close() end
+	if tcpbin then tcpbin:close() end
+	if logFile then logFile:close() end
+end
+
 options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="." , 
 		desc="Path to a base (network) directory, common with projector" },
 	    { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false , 
@@ -1964,7 +1974,7 @@ function love.load( args )
                 yui.HorizontalSpacing({w=150}),
                 yui.Button({name="cleanup", text="       Cleanup       ", size=size, onClick = function(self) return removeDeadPNJ() and sortAndDisplayPNJ() end }),
                 yui.HorizontalSpacing({w=270}),
-                yui.Button({text="    Quit    ", size=size, onClick = function(self) love.event.quit() end }),
+                yui.Button({text="    Quit    ", size=size, onClick = function(self) leave(); love.event.quit() end }),
               }), -- end of Flow
             createPNJGUIFrame(),
            }) -- end of Stack
@@ -1985,8 +1995,11 @@ function love.load( args )
     -- create socket and listen to any client
     server = socket.tcp()
     server:settimeout(0)
-    server:bind(address, serverport)
+    local success, msg = server:bind(address, serverport)
+    io.write("server local bind to " .. tostring(address) .. ":" .. tostring(serverport) .. ":" .. tostring(success) .. "," .. tostring(msg) .. "\n")
+    if not success then leave(); love.event.quit() end
     server:listen(10)
+
     tcpbin = socket.tcp()
     tcpbin:bind(address, serverport+1)
     tcpbin:listen(1)
