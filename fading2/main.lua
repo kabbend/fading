@@ -1551,7 +1551,7 @@ function createPawns( map , sx, sy, requiredSize )
 	  local f
 	  if PNJTable[i].snapshot then
 		--f = PNJTable[i].snapshot.filename 
-	  	p = Pawn:new( PNJTable[i].id , PNJTable[i].snapshot, pawnSize, a , b ) 
+	  	p = Pawn:new( PNJTable[i].id , PNJTable[i].snapshot, pawnSize * PNJTable[i].sizefactor , a , b ) 
 		--[[
 		local w,h = PNJTable[i].snapshot.im:getDimensions()
 		local f1,f2 = pawnSize/w, pawnSize/h
@@ -1562,7 +1562,7 @@ function createPawns( map , sx, sy, requiredSize )
 	  else
 		assert(defaultPawnSnapshot,"no default image available. You should refrain from using pawns on the map...")
 		--f = defaultPawnSnapshot.filename
-	  	p = Pawn.new( PNJTable[i].id , defaultPawnSnapshot, pawnSize, a , b ) 
+	  	p = Pawn:new( PNJTable[i].id , defaultPawnSnapshot, pawnSize * PNJTable[i].sizefactor , a , b ) 
 		--[[
 		local w,h = defaultPawnSnapshot.im:getDimensions()
 		local f1,f2 = pawnSize/w, pawnSize/h

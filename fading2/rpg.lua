@@ -235,6 +235,7 @@ function PNJConstructor( template )
   aNewPNJ.done		  = false 			-- has played this round ?
   aNewPNJ.is_dead         = false  			-- so far 
   aNewPNJ.snapshot	  = nil				-- image (and some other information) for the PJ
+  aNewPNJ.sizefactor	  = template.size or 1.0
 
   aNewPNJ.ip	  	  = nil				-- for PJ only: ip, if the player is using udp remote communication 
   aNewPNJ.port	  	  = nil				-- for PJ only: port, if the player is using udp remote communication 
