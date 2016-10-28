@@ -783,11 +783,16 @@ function love.update(dt)
 		if map and map.pawns then
 		  local str = string.sub(data , 6)
                   local _,_,id,x,y = string.find( str, "(%a+) (%d+) (%d+)" )
+		  -- the two innocent lines below are important: x and y are returned as strings, not numbers, which is quite inocuous
+		  -- except that tween() functions really expect numbers. Here we force x and y to be numbers.
+		  x = x + 0
+		  y = y + 0
 		  for i=1,#map.pawns do 
 			if map.pawns[i].id == id then 
-				map.pawns[i].x = x; map.pawns[i].y = y; 
+				map.pawns[i].moveToX = x; map.pawns[i].moveToY = y; 
 				pawnMaxLayer = pawnMaxLayer + 1
 				map.pawns[i].layer = pawnMaxLayer
+				map.pawns[i].timer = tween.new( pawnMovingTime , map.pawns[i] , { x = map.pawns[i].moveToX, y = map.pawns[i].moveToY } )
 				break; 
 			end 
 		  end 

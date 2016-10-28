@@ -1,12 +1,12 @@
-local socket = require "socket"
-local parser = require "parse"
+local socket = require 'socket'
+local parser = require 'parse'
+local tween  = require 'tween'
  
 -- the address and port of the server
 defaultAddress, port, portbin 	= "localhost", 12345, 12346
 connect 			= false		-- connection status to server
 timer 				= 0
 connectRetryTime 		= 5
---chunkrepeat 			= 6
 
 -- image information
 currentImage = nil	-- displayed image
@@ -23,6 +23,7 @@ tempfile 	= nil
 -- pawns
 pawns 		= {}
 maxLayer 	= 1		-- current layer value
+pawnMovingTime	= 2.5		-- how many seconds to complete a movement on the map
 
 -- mouse interaction
 pawnMove 	= nil			-- information on the current pawn movement
@@ -48,20 +49,23 @@ end
   Pawn object 
 --]]
 Pawn = {}
-Pawn.__index = Pawn
-function Pawn.new( id, filename, sizex, x, y , pj )
+function Pawn:new( id, filename, sizex, x, y , pj )
 
   local new = {}
-  setmetatable(new,Pawn)
+  setmetatable(new,self)
+  self.__index = self
 
   filename = redressFilename( baseDirectory .. sep .. filename )
 
   -- set basic data
   new.id = id
   new.PJ = pj or false 
-  new.dead = false 			-- so far
-  new.x, new.y = x or 0, y or 0         -- position of the upper left corner of the pawn, relative to the map
-  new.layer = maxLayer			-- determine if a pawn is drawn on top (or below) another one
+  new.dead = false 				-- so far
+  new.x = x or 0 				-- position of the upper left corner of the pawn, relative to the map
+  new.y = y or 0         			-- position of the upper left corner of the pawn, relative to the map
+  new.moveToX, new.moveToY = new.x, new.y	-- destination of a move
+  new.layer = maxLayer				-- determine if a pawn is drawn on top (or below) another one
+  new.timer = nil				-- tween timer to perform the move
   new.filename = filename
   -- load pawn image
   local file = io.open( filename , "rb" )
@@ -161,7 +165,7 @@ function love.mousereleased (x,y)
                         -- it was just a move, change the pawn position
                         -- we consider that the mouse position is at the center of the new image
 			local zx,zy = -( X * mag - W2 / 2), -( Y * mag - H2 / 2)
-                        pawnMove.x, pawnMove.y = (x - zx) / mag - pawnMove.sizex / 2 , (y - zy) / mag - pawnMove.sizey / 2
+                        pawnMove.moveToX, pawnMove.moveToY = (x - zx) / mag - pawnMove.sizex / 2 , (y - zy) / mag - pawnMove.sizey / 2
 
 			-- the last pawn to move is always on top
 			maxLayer = maxLayer + 1
@@ -169,12 +173,14 @@ function love.mousereleased (x,y)
 			table.sort( pawns , function (a,b) return a.layer < b.layer end )
 
                         -- we must stay within the limits of the map    
-                        if pawnMove.x < 0 then pawnMove.x = 0 end
-                        if pawnMove.y < 0 then pawnMove.y = 0 end
-                        if pawnMove.x + pawnMove.sizex + 6 > W then pawnMove.x = math.floor(W - pawnMove.sizex - 6) end
-                        if pawnMove.y + pawnMove.sizey + 6 > H then pawnMove.y = math.floor(H - pawnMove.sizey - 6) end
+                        if pawnMove.moveToX < 0 then pawnMove.moveToX = 0 end
+                        if pawnMove.moveToY < 0 then pawnMove.moveToY = 0 end
+                        if pawnMove.moveToX + pawnMove.sizex + 6 > W then pawnMove.moveToX = math.floor(W - pawnMove.sizex - 6) end
+                        if pawnMove.moveToY + pawnMove.sizey + 6 > H then pawnMove.moveToY = math.floor(H - pawnMove.sizey - 6) end
 
-                        tcp:send("MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.x) .. " " .. math.floor(pawnMove.y) .. "\n")
+			pawnMove.timer = tween.new( pawnMovingTime, pawnMove, { y = pawnMove.moveToY, x = pawnMove.moveToX } )
+
+                        tcp:send("MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.moveToX) .. " " .. math.floor(pawnMove.moveToY) .. "\n")
 
                 end
                 pawnMove = nil;
@@ -292,6 +298,11 @@ function love.update( dt )
         if arrowMode then
                 arrowX, arrowY = love.mouse.getPosition()
         end
+
+	-- move pawns if needed
+	for k,v in ipairs(pawns) do
+		if v.timer then v.timer:update(dt) end
+	end
 
 	-- socket communication
 	timer = timer + dt
@@ -466,8 +477,12 @@ function love.update( dt )
 	  elseif command == "PAWN" then
 		local str = string.sub(data , 6)
 		local _,_,id,x,y,size,pj,f = string.find( str, "(%a+) (%d+) (%d+) (%d+) (%d) (.*)" )
+		-- The two innocent lines below are important: x and y are parsed as strings, not numbers, 
+		-- which cause issue later with tween function expecting type(number)... we force them to be numbers here...
+		x = x + 0
+		y = y + 0 
  		if pj == "1" then pj = true; else pj = false end
-		local p = Pawn.new(id,f,size,x,y,pj) 
+		local p = Pawn:new(id,f,size,x,y,pj) 
 		if p then 
 			table.insert( pawns, p ) 
 			table.sort( pawns , function (a,b) return a.layer < b.layer end )
@@ -476,11 +491,16 @@ function love.update( dt )
 	  elseif command == "MPAW" then
 		local str = string.sub(data , 6)
 		local _,_,id,x,y = string.find( str, "(%a+) (%d+) (%d+)" )
+		-- The two innocent lines below are important: x and y are parsed as strings, not numbers, 
+		-- which cause issue later with tween function expecting type(number)... we force them to be numbers here...
+		x = x + 0
+		y = y + 0 
 		for i=1,#pawns do 
 			if pawns[i].id == id then 
-				pawns[i].x = x; pawns[i].y = y 
+				pawns[i].moveToX = x; pawns[i].moveToY = y 
 				maxLayer = maxLayer + 1
 				pawns[i].layer = maxLayer
+				pawns[i].timer = tween.new( pawnMovingTime, pawns[i], { x = pawns[i].moveToX, y = pawns[i].moveToY } )
 			end 
 		end
 		table.sort( pawns , function (a,b) return a.layer < b.layer end )
