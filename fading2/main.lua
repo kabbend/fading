@@ -407,11 +407,13 @@ function Map:draw()
 		       		love.graphics.draw( map.pawns[i].snapshot.im , nzx, nzy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
 				-- display hits number and ID
 		       		love.graphics.setColor(0,0,0)  
-		       		love.graphics.rectangle( "fill", zx, zy, 22 / map.mag, 44 / map.mag)
+				local f = map.basePawnSize / 5
+				local s = f / 22 
+		       		love.graphics.rectangle( "fill", zx, zy, f / map.mag, 2 * f / map.mag)
 		       		love.graphics.setColor(255,255,255) 
         			love.graphics.setFont(fontSearch)
-				love.graphics.print( PNJTable[index].hits , zx, zy , 0, 1/map.mag, 1/map.mag )
-				love.graphics.print( PNJTable[index].id , zx, zy + 22 / map.mag , 0, 1/map.mag, 1/map.mag )
+				love.graphics.print( PNJTable[index].hits , zx, zy , 0, s/map.mag, s/map.mag )
+				love.graphics.print( PNJTable[index].id , zx, zy + f/map.mag , 0, s/map.mag, s/map.mag )
 	     	     	end
 		     end
 	     end
@@ -1908,6 +1910,7 @@ else
 
    	if key == "p" and love.keyboard.isDown("lctrl") then
 	   map.pawns = {} 
+	   map.basePawnSize = nil
 	   tcpsend( projector, "ERAS" )    
    	end
 

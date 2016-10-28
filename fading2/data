@@ -212,7 +212,8 @@ Class{ 	class = "Symbiote, maitre",
 	armor = 4, 
 	defense = 4, 
 	dmg = 8 , 
-	weapon = "blaster symb." }
+	weapon = "blaster symb.",
+	size = 1.5 }
 
 Class{ 	class = "Ur-Ukar, serf", 
 	intelligence = 4, 
