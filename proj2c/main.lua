@@ -23,7 +23,7 @@ tempfile 	= nil
 -- pawns
 pawns 		= {}
 maxLayer 	= 1		-- current layer value
-pawnMovingTime	= 2.5		-- how many seconds to complete a movement on the map
+pawnMovingTime	= 2		-- how many seconds to complete a movement on the map
 
 -- mouse interaction
 pawnMove 	= nil			-- information on the current pawn movement
