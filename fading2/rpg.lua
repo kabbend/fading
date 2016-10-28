@@ -17,10 +17,11 @@ function loadTemplates( paths )
    local i = 1
    Class = function( t )
   		if not t.class then error("need a class attribute (string value) for each class entry") end
+		local already_exist = false
+		if templateArray[t.class] then already_exist = true end
   		templateArray[t.class] = t
-  		if not t.PJ then          -- only display PNJ classes in Dropdown list, not PJ
-    		opt[i] = t.class ;
-    		i = i  + 1
+  		if not already_exist and not t.PJ then          -- only display PNJ classes in Dropdown list, not PJ
+    			opt[i] = t.class ; i = i  + 1
   		end
 		end
 

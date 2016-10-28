@@ -4,50 +4,50 @@
 
 Le repository contient 3 programmes qui fonctionnent ensemble :
 
-- le serveur, sous le repertoire fading2. Le serveur contient aussi l'interface qui tourne sur le PC du MJ, et qui contient la majeure partie des fonctionnalités. Le serveur peut tourner sans les 2 autres.
+- le serveur, sous le repertoire fading2. Le serveur contient aussi l'interface qui tourne sur le PC du MJ, et qui contient la majeure partie des fonctionnalites. Le serveur peut tourner sans les 2 autres.
 
-- le projecteur, sous le repertoire proj2c. Le projecteur est en visibilité des joueurs, depuis un 2nd moniteur du PC serveur, ou bien sur un autre PC. 
+- le projecteur, sous le repertoire proj2c. Le projecteur est en visibilite des joueurs, depuis un 2nd moniteur du PC serveur, ou bien sur un autre PC. 
 
 - le client mobile, sous le repertoire fsmob. Permet d'envoyer et recevoir de courts messages au MJ
 
-## Prérequis:
+## Prerequis:
 - un compilateur/interpreteur Lua
 - le moteur graphique LÖVE (love2d, version à partir de 0.10.0)
-- pour l'application mobile, le framework Corona SDK (qui permet de développer également en Lua)
+- pour l'application mobile, le framework Corona SDK (qui permet de developper egalement en Lua)
 
 ## Configuration
 Aucune au moment de l'installation du code.
 Pour le moment le code s'execute pour le moment en ligne de commande, en passant un certain nombre d'options eventuellement.
-le lancement se fait depuis le répertoire parent qui contient fading2/ et proj2c/
+le lancement se fait depuis le repertoire parent qui contient fading2/ et proj2c/
 
 ## Filesystem structure
-Le serveur s'attend à une structure comme suit, où l'on désigne les deux répertoires baseDirectory (chemin complet) et fadingDirectory (chemin relatif par rapport au
-précédent):
+Le serveur s'attend à une structure comme suit, où l'on designe les deux repertoires baseDirectory (chemin complet) et fadingDirectory (chemin relatif par rapport au
+precedent):
 
 ```
 #!c
-baseDirectory                 -- banque globale d'images, de data, de maps. Peut contenir un ou plusieurs répertoires pour stocker des scénarios différents
+baseDirectory                 -- banque globale d'images, de data, de maps. Peut contenir un ou plusieurs repertoires pour stocker des scenarios differents
  !
- +--- data                    -- fichier (facultatif mais conseillé) qui décrit les classes de PNJ ou les PJ (en principe, pas liés à un scénario donné)
+ +--- data                    -- fichier (facultatif mais conseille) qui decrit les classes de PNJ ou les PJ (en principe, pas lies à un scenario donne)
  !
- +--- pawns                   -- répertoire (facultatif) d'images pour les pions (pawns) sur les maps
- !     +--- pawnDefault.jpg   -- image par défaut pour les pions
- !     +--- pawn*.jpg/png     -- sera associé automatiquement à un PJ si le nom matche (sinon, stocké comme une image classique)
- !     +--- *.jpg/png         -- sera stocké en mémoire et utilisable durant la partie comme une image de pion, à la discrétion du MJ
- !                            -- et aussi, sera associé automatiquement à une classe de PNJ si les nom matche avec celui indiqué dans le fichier data
+ +--- pawns                   -- repertoire (facultatif) d'images pour les pions (pawns) sur les maps
+ !     +--- pawnDefault.jpg   -- image par defaut pour les pions
+ !     +--- pawn*.jpg/png     -- sera associe automatiquement à un PJ si le nom matche (sinon, stocke comme une image classique)
+ !     +--- *.jpg/png         -- sera stocke en memoire et utilisable durant la partie comme une image de pion, à la discretion du MJ
+ !                            -- et aussi, sera associe automatiquement à une classe de PNJ si les nom matche avec celui indique dans le fichier data
  !
- +--- fadingDirectory         -- répertoire du scénario en cours
-       +--- scenario.txt      -- facultatif: texte (structuré) associé au scénario Coggle
-       +--- scenario.jpg      -- facultatif: image du scénario Coggle
-       +--- pawnDefault.jpg   -- image par défaut pour les pions
-       +--- pawn*.jpg/png     -- sera associé automatiquement à un PJ si le nom matche (sinon, stocké comme une image classique)
-       +--- map*.jpg/png      -- map: sera stockée en mémoire et utilisable durant la partie (destinée à être projetée aux joueurs, et porter des pions) 
-       +--- *.jpg/png         -- image générale: sera stocké en mémoire et utilisable durant la partie comme une image générale (destinée à être projetée aux joueurs) 
-       +--- data              -- fichier (facultatif) qui décrit les classes de PNJ ou les PJ (en principe, dédié à un scénario donné).
-                              -- peut compléter le fichier data général (avec des classes particulières, par exemple)
+ +--- fadingDirectory         -- repertoire du scenario en cours
+       +--- scenario.txt      -- facultatif: texte (structure) associe au scenario Coggle
+       +--- scenario.jpg      -- facultatif: image du scenario Coggle
+       +--- pawnDefault.jpg   -- image par defaut pour les pions
+       +--- pawn*.jpg/png     -- sera associe automatiquement à un PJ si le nom matche (sinon, stocke comme une image classique)
+       +--- map*.jpg/png      -- map: sera stockee en memoire et utilisable durant la partie (destinee à être projetee aux joueurs, et porter des pions) 
+       +--- *.jpg/png         -- image generale: sera stocke en memoire et utilisable durant la partie comme une image generale (destinee à être projetee aux joueurs) 
+       +--- data              -- fichier (facultatif) qui decrit les classes de PNJ ou les PJ (en principe, dedie à un scenario donne).
+                              -- peut completer le fichier data general (avec des classes particulières, par exemple)
 ```
 
-Il faut fournir au moins un fichier data (les deux peuvent se compléter), et une image pawnDefault.jpg de pion par défaut.
+Il faut fournir au moins un fichier data (les deux peuvent se completer), et une image pawnDefault.jpg de pion par defaut.
 
 ##Ligne de commande
 Serveur:
@@ -55,24 +55,25 @@ Serveur:
 ```
 #!c
 
-love fading2 [options] args
+love fading2 [options] arg
 
-[-b|--base baseDirectory] : Path to a base (network) directory, common with projector
-[-d|--debug] :              Run in debug mode
-[-l|--log] :                Log to file (fading.log) instead of stdout
-[-a|--ack] :                With FS mobile: Send an automatic acknowledge reply for each message received
-[-p|--port port] :          Specify server local port, by default 12345
-arg = fadingDirectory :     Path to scenario directory (not absolute, relative to the base directory)
+arg = baseDirectory :             Full path to global directory. In principle, this directory is the one shared with the projector 
+                                  It may (and is recommended to) be a network shared directory (eg. google drive)
+[-s|--scenario fadingDirectory] : Path to a base (network) directory, common with projector
+[-d|--debug] :                    Run in debug mode
+[-l|--log] :                      Log to file (fading.log) instead of stdout
+[-a|--ack] :                      With FS mobile: Send an automatic acknowledge reply for each message received
+[-p|--port port] :                Specify server local port, by default 12345
 ```
 
-projecteur:
+Projecteur:
 
 ```
 #!c
 
 love proj2c [options]
 
-[-b|--base baseDirectory] : Path to a base (network) directory, common with server
+[-b|--base baseDirectory] : Path to a base directory, common with server
 [-d|--debug] :              Run in debug mode
 [-l|--log] :                Log to file (proj.log) instead of stdout
 [-i|--ip address] :         server IP 
@@ -80,9 +81,9 @@ love proj2c [options]
 ```
 
 ## How to run tests
-Et bien, directement. L'option --debug (associée à --log sous Windows, qui a la mauvaise idée de ne pas retranscrire les sorties sur stdout directement dans la console, ce qui oblige a les écrire dans un fichier) permet de savoir ce qui se passe. Sous ZeroBrane Studio existe un mode debug pas à pas pour le moteur Löve, mais très lent je trouve (sur ma config) donc pas utilisable en pratique.
+Et bien, directement. L'option --debug (associee à --log sous Windows, qui a la mauvaise idee de ne pas retranscrire les sorties sur stdout directement dans la console, ce qui oblige a les ecrire dans un fichier) permet de savoir ce qui se passe. Sous ZeroBrane Studio existe un mode debug pas à pas pour le moteur Löve, mais très lent je trouve (sur ma config) donc pas utilisable en pratique.
 
 
 ## Deployment instructions
 
-pour le client mobile, utiliser le menu Build de Corona SDK qui se charge de tout et créé une application .apk (pour android)
+pour le client mobile, utiliser le menu Build de Corona SDK qui se charge de tout et cree une application .apk (pour android)

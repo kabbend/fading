@@ -2101,8 +2101,8 @@ function loadStartup( t )
 end
 
 
-options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="fading2" , 
-		desc="Path to a base (network) directory, common with projector" },
+options = { { opcode="-s", longopcode="--scenario", mandatory=false, varname="fadingDirectory", value=true, default="." , 
+		desc="Path to scenario directory" },
 	    { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false , 
 		desc="Run in debug mode"},
 	    { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false , 
@@ -2111,7 +2111,7 @@ options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDi
 		desc="With FS mobile: Send an automatic acknowledge reply for each message received"},
 	    { opcode="-p", longopcode="--port", mandatory=false, varname="port", value=true, default=serverport,
 		desc="Specify server local port, by default 12345" },
-	    { opcode="", mandatory=true, varname="fadingDirectory" , desc="Path to scenario directory"} }
+	    { opcode="", mandatory=true, varname="baseDirectory" , desc="Path to global directory"} }
 	    
 --
 -- Main function
@@ -2126,8 +2126,8 @@ function love.load( args )
     local parse = doParse( args )
 
     -- get images & scenario directory, provided at command line
-    baseDirectory = parse.baseDirectory 
-    fadingDirectory = parse.arguments[1]
+    fadingDirectory = parse.fadingDirectory 
+    baseDirectory = parse.arguments[1]
     debug = parse.debug
     serverport = parse.port
     ack = parse.acknowledge
