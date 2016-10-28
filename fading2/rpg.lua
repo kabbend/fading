@@ -10,11 +10,12 @@ local yui       = require 'yui.yaoui'   -- graphical library on top of Love2D
 templateArray   = {}
 
 -- load PNJ templates from data file, return a list of class names (to be used in dropdown listbox)
-function loadTemplates()
-	local i = 1
-	local opt = {}
+-- argument t is a table (list) of paths to try
+function loadTemplates( paths )
 
-	Class = function( t )
+   local opt = {}
+   local i = 1
+   Class = function( t )
   		if not t.class then error("need a class attribute (string value) for each class entry") end
   		templateArray[t.class] = t
   		if not t.PJ then          -- only display PNJ classes in Dropdown list, not PJ
@@ -23,10 +24,14 @@ function loadTemplates()
   		end
 		end
 
-	dofile "fading2/data"
+   -- try all files
+   for x=1,#paths do 
+	local f = loadfile( paths[x] )
+	if f then f() end 
+   end
 
-	return opt
-	end
+   return opt
+   end
 
 -- for a given PNJ at index i, return true if Attack or Armor button should be clickable
 -- false otherwise
@@ -234,7 +239,7 @@ function PNJConstructor( template )
   aNewPNJ.PJ 		  = template.PJ or false	-- is it a PJ or PNJ ?
   aNewPNJ.done		  = false 			-- has played this round ?
   aNewPNJ.is_dead         = false  			-- so far 
-  aNewPNJ.snapshot	  = nil				-- image (and some other information) for the PJ
+  aNewPNJ.snapshot	  = template.snapshot		-- image (and some other information) for the character 
   aNewPNJ.sizefactor	  = template.size or 1.0
 
   aNewPNJ.ip	  	  = nil				-- for PJ only: ip, if the player is using udp remote communication 
@@ -779,15 +784,15 @@ function generateNewPNJ(current_class)
   local pnj = PNJTable[PNJnum]
   PNJtext[PNJnum].class.text = current_class;
 
+  -- set a default image if needed
+  if not pnj.snapshot then pnj.snapshot = defaultPawnSnapshot end
+
   if (pnj.PJ) then
 
     pnj.final_initiative = pnj.initiative;
     PNJtext[PNJnum].init.text  = pnj.final_initiative;
 
   else
-
-    -- set a default image
-    pnj.snapshot = defaultPawnSnapshot
 
     -- check if same class has already been generated before. If so, take same initiative value
     -- otherwise, assign a new value (common to the whole class)

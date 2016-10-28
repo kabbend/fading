@@ -1979,7 +1979,129 @@ function checkClick()
 	if layout:click(x,y) then return false else return true end
 	end
 
-options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="." , 
+-- load initial data from file at startup
+function loadStartup( t )
+
+    -- call with kind == "all" or "pawn", and path
+    local path = assert(t.path)
+    local kind = t.kind or "all"
+
+    -- list all files in that directory, by executing a command ls or dir
+    local allfiles = {}, command
+    if love.system.getOS() == "OS X" then
+	    io.write("ls '" .. path .. "' > .temp\n")
+	    os.execute("ls '" .. path .. "' > .temp")
+    elseif love.system.getOS() == "Windows" then
+	    io.write("dir /b \"" .. path .. "\" > .temp\n")
+	    os.execute("dir /b \"" .. path .. "\" > .temp ")
+    end
+
+    -- store output
+    for line in io.lines (".temp") do table.insert(allfiles,line) end
+
+    -- remove temporary file
+    os.remove (".temp")
+
+    for k,f in pairs(allfiles) do
+
+      io.write("scanning file : '" .. f .. "'\n")
+
+      if kind == "pawns" then
+
+	-- all (image) files are considered as pawn images
+	if string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
+
+		local s = Snapshot:new{ filename = path .. sep .. f }
+		local store = true
+
+        	if string.sub(f,1,4) == 'pawn' then
+		-- check if corresponds to a known PJ. In that case, do not
+		-- store it in the snapshot list, as it is supposed to be unique
+			local pjname = string.sub(f,5, f:len() - 4 )
+			io.write("Looking for a PJ named " .. pjname .. "\n")
+			local index = findPNJByClass( pjname ) 
+			if index then 
+				PNJTable[index].snapshot = s  
+				store = false
+			end
+		end	
+   
+		if store then table.insert( snapshots[3].s, s ) end
+
+		-- check if default image 
+      		if f == 'pawnDefault.jpg' then
+			defaultPawnSnapshot = s 
+		end
+
+		-- check if corresponds to a PNJ template as well
+		for k,v in pairs( templateArray ) do
+			if v.image == f then 
+				v.snapshot = s 
+				io.write("store image for class " .. v.class .. "\n")
+			end
+		end
+
+	end
+ 
+      elseif f == 'scenario.txt' then 
+
+      	--   SCENARIO IMAGE: 	named scenario.jpg
+      	--   SCENARIO TEXT:	associated to this image, named scenario.txt
+      	--   MAPS: 		map*jpg or map*png, they are considered as maps and loaded as such
+      	--   PJ IMAGE:		pawnPJname.jpg or .png, they are considered as images for corresponding PJ
+      	--   PNJ DEFAULT IMAGE:	pawnDefault.jpg
+      	--   PAWN IMAGE:		pawn*.jpg or .png
+      	--   SNAPSHOTS:		*.jpg or *.png, all are snapshots displayed at the bottom part
+
+	      readScenario( path .. sep .. f ) 
+	      io.write("Loaded scenario at " .. path .. sep .. f .. "\n")
+
+      elseif f == 'scenario.jpg' then
+
+	local s = Map:new()
+	s:load{ kind="scenario", filename=path .. sep .. f }
+	layout:addWindow( s , false )
+	io.write("Loaded scenario image file at " .. path .. sep .. f .. "\n")
+	table.insert( snapshots[2].s, s ) 
+
+      elseif f == 'pawnDefault.jpg' then
+
+	defaultPawnSnapshot = Snapshot:new{ filename = path .. sep .. f }
+	table.insert( snapshots[3].s, defaultPawnSnapshot ) 
+
+      elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
+
+        if string.sub(f,1,4) == 'pawn' then
+
+		local s = Snapshot:new{ filename = path .. sep .. f }
+		table.insert( snapshots[3].s, s ) 
+
+		local pjname = string.sub(f,5, f:len() - 4 )
+		io.write("Looking for PJ " .. pjname .. "\n")
+		local index = findPNJByClass( pjname ) 
+		if index then PNJTable[index].snapshot = s  end
+
+	elseif string.sub(f,1,3) == 'map' then
+
+	  local s = Map:new()
+	  s:load{ filename=path .. sep .. f } 
+	  layout:addWindow( s , false )
+	  table.insert( snapshots[2].s, s ) 
+
+ 	else
+
+	  table.insert( snapshots[1].s, Snapshot:new{ filename = path .. sep .. f } ) 
+	  
+        end
+
+      end
+
+    end
+
+end
+
+
+options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="fading2" , 
 		desc="Path to a base (network) directory, common with projector" },
 	    { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false , 
 		desc="Run in debug mode"},
@@ -2021,6 +2143,11 @@ function love.load( args )
     yui.UI.registerEvents()
     love.window.setTitle( "Fading Suns Combat Tracker" )
 
+    -- load fonts
+    fontDice = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",90)
+    fontRound = love.graphics.newFont("yui/yaoui/fonts/OpenSans-Bold.ttf",12)
+    fontSearch = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",16)
+   
     -- adjust number of rows in screen
     PNJmax = math.floor( viewh / 42 )
 
@@ -2041,15 +2168,30 @@ function love.load( args )
     love.window.setMode( W  , H  , { fullscreen=false, resizable=true, display=1} )
     love.keyboard.setKeyRepeat(true)
 
+    -- some small differences in windows: separator is not the same, and some weird completion
+    -- feature in command line may add an unexpected doublequote char at the end of the path (?)
+    -- that we want to remove
+    if love.system.getOS() == "Windows" then
+	    local n = string.len(fadingDirectory)
+	    if string.sub(fadingDirectory,1,1) ~= '"' and 
+		    string.sub(fadingDirectory,n,n) == '"' then
+		    fadingDirectory=string.sub(fadingDirectory,1,n-1)
+	    end
+    	    sep = '\\'
+    end
+
+    io.write("base directory   : |" .. baseDirectory .. "|\n") ; addMessage("base directory : " .. baseDirectory .. "\n")
+    io.write("fading directory : |" .. fadingDirectory .. "|\n") ; addMessage("fading directory : " .. fadingDirectory .. "\n")
+
     -- initialize class template list  and dropdown list (opt{}) at the same time
-    local opt = loadTemplates() 
+    -- later on, we might attach some images to these classes if we find them
+    -- try 2 locations to find data. Merge results if 2 files 
+    local opt = loadTemplates{ 	baseDirectory .. sep .. "data" , 
+				baseDirectory .. sep .. fadingDirectory .. sep .. "data" } 
+
+    opt = opt or {""}
     local current_class = opt[1]
 
-    -- load fonts
-    fontDice = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",90)
-    fontRound = love.graphics.newFont("yui/yaoui/fonts/OpenSans-Bold.ttf",12)
-    fontSearch = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",16)
-   
     -- create view structure
     love.graphics.setBackgroundColor( 255, 255, 255 )
     view = yui.View(0, 0, vieww, viewh, {
@@ -2116,120 +2258,13 @@ function love.load( args )
     -- later on, an image might be attached to them, if we find one
     createPJ()
 
-    local PJImageNum, mapsNum, scenarioImageNum, scenarioTextNum = 0,0,0,0
-
-    -- some small differences in windows: separator is not the same, and some weird completion
-    -- feature in command line may add an unexpected doublequote char at the end of the path (?)
-    -- that we want to remove
-    if love.system.getOS() == "Windows" then
-	    local n = string.len(fadingDirectory)
-	    if string.sub(fadingDirectory,1,1) ~= '"' and 
-		    string.sub(fadingDirectory,n,n) == '"' then
-		    fadingDirectory=string.sub(fadingDirectory,1,n-1)
-	    end
-    	    sep = '\\'
-    end
-
-    -- default directory is 'fading2' (application folder)
-    if not fadingDirectory or fadingDirectory == "" then fadingDirectory = "fading2" end
-    io.write("base directory   : |" .. baseDirectory .. "|\n")
-    addMessage("base directory : " .. baseDirectory .. "\n")
-    io.write("fading directory : |" .. fadingDirectory .. "|\n")
-    addMessage("fading directory : " .. fadingDirectory .. "\n")
-
-    -- list all files in that directory, by executing a command ls or dir
-    local allfiles = {}, command
-    if love.system.getOS() == "OS X" then
-	    io.write("ls '" .. baseDirectory .. sep .. fadingDirectory .. "' > .temp\n")
-	    os.execute("ls '" .. baseDirectory .. sep .. fadingDirectory .. "' > .temp")
-    elseif love.system.getOS() == "Windows" then
-	    io.write("dir /b \"" .. baseDirectory .. sep .. fadingDirectory .. "\" > .temp\n")
-	    os.execute("dir /b \"" .. baseDirectory .. sep ..fadingDirectory .. "\" > .temp ")
-    end
-
-    -- store output
-    for line in io.lines (".temp") do table.insert(allfiles,line) end
-
-    -- remove temporary file
-    os.remove (".temp")
-
     -- create a new empty atlas (an array of maps)
     atlas = Atlas.new()
 
-    -- check for scenario, snapshots & maps to load
-    for k,f in pairs(allfiles) do
+    -- load various data files 
+    loadStartup{ path = baseDirectory .. sep .. fadingDirectory }
+    loadStartup{ path = baseDirectory .. sep .. "pawns" , kind = "pawns" }
 
-      io.write("scanning file : '" .. f .. "'\n")
-      if debug then table.insert( dialogLog , "scanning file : " .. f ) end
-
-      -- All files are optional. They can be:
-      --   SCENARIO IMAGE: 	named scenario.jpg
-      --   SCENARIO TEXT:	associated to this image, named scenario.txt
-      --   MAPS: 		map*jpg or map*png, they are considered as maps and loaded as such
-      --   PJ IMAGE:		pawnPJname.jpg or .png, they are considered as images for corresponding PJ
-      --   PNJ DEFAULT IMAGE:	pawnDefault.jpg
-      --   PAWN IMAGE:		pawn*.jpg or .png
-      --   SNAPSHOTS:		*.jpg or *.png, all are snapshots displayed at the bottom part
-      
-      if f == 'scenario.txt' then 
-
-	      readScenario( baseDirectory .. sep .. fadingDirectory .. sep .. f ) 
-	      io.write("Loaded scenario at " .. baseDirectory .. sep .. fadingDirectory .. sep .. f .. "\n")
-	      scenarioTextNum = scenarioTextNum + 1
-
-      elseif f == 'scenario.jpg' then
-
-	local s = Map:new()
-	s:load{ kind="scenario", filename=baseDirectory .. sep .. fadingDirectory .. sep .. f }
-	layout:addWindow( s , false )
-	io.write("Loaded scenario image file at " .. baseDirectory .. sep .. fadingDirectory .. sep .. f .. "\n")
-	scenarioImageNum = scenarioImageNum + 1
-	table.insert( snapshots[2].s, s ) 
-
-      elseif f == 'pawnDefault.jpg' then
-
-	defaultPawnSnapshot = Snapshot:new{ filename = baseDirectory .. sep ..fadingDirectory .. sep .. f }
-	table.insert( snapshots[3].s, defaultPawnSnapshot ) 
-
-      elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
-
-        if string.sub(f,1,4) == 'pawn' then
-
-		local s = Snapshot:new{ filename = baseDirectory .. sep .. fadingDirectory .. sep .. f }
-		table.insert( snapshots[3].s, s ) 
-
-		local pjname = string.sub(f,5, f:len() - 4 )
-		io.write("Looking for PJ " .. pjname .. "\n")
-		local index = findPNJByClass( pjname ) 
-		if index then
-			PNJTable[index].snapshot = s  
-			PJImageNum = PJImageNum + 1
-		end
-
-	elseif string.sub(f,1,3) == 'map' then
-
-	  local s = Map:new()
-	  s:load{ filename=baseDirectory .. sep ..fadingDirectory .. sep .. f } 
-	  layout:addWindow( s , false )
-	  table.insert( snapshots[2].s, s ) 
-	  mapsNum = mapsNum + 1
-
- 	else
-
-	  table.insert( snapshots[1].s, Snapshot:new{ filename = baseDirectory .. sep ..fadingDirectory .. sep .. f } ) 
-	  
-        end
-
-      end
-
-    end
-
-    io.write("Loaded " .. #snapshots[1].s .. " snapshots, " .. mapsNum .. " maps, " .. PJImageNum .. " PJ images, " .. scenarioImageNum .. " scenario image, " .. 
-    		scenarioTextNum .. " scenario text\n" )
-
-    addMessage("Loaded " .. #snapshots[1].s .. " snapshots, " .. mapsNum .. " maps, " .. PJImageNum .. " PJ images, " .. scenarioImageNum .. " scenario image, " .. 
-    		scenarioTextNum .. " scenario text\n" )
-	 
 end
 
 

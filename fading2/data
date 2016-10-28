@@ -10,7 +10,7 @@ Class{
 	armor = 2, 
 	dmg = 6, 
 	weapon = "grand sabre", 
-	defense = 1	
+	defense = 1,
 }
 
 Class{
@@ -213,7 +213,8 @@ Class{ 	class = "Symbiote, maitre",
 	defense = 4, 
 	dmg = 8 , 
 	weapon = "blaster symb.",
-	size = 1.5 }
+	size = 1.5,
+	image = "pawnSymbiot1.jpg" }
 
 Class{ 	class = "Ur-Ukar, serf", 
 	intelligence = 4, 

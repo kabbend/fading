@@ -12,18 +12,45 @@ Le repository contient 3 programmes qui fonctionnent ensemble :
 
 ## Prérequis:
 - un compilateur/interpreteur Lua
-- le moteur graphique LÖVE (love2d, version 0.10.0)
+- le moteur graphique LÖVE (love2d, version à partir de 0.10.0)
 - pour l'application mobile, le framework Corona SDK (qui permet de développer également en Lua)
-
-Note: l'editeur de texte ZeroBrane Studio a un support natif pour Lua et Love. Corona a son propre IDE
 
 ## Configuration
 Aucune au moment de l'installation du code.
-Le code s'execute pour le moment en ligne de commande, en passant un certain nombre d'options eventuellement.
+Pour le moment le code s'execute pour le moment en ligne de commande, en passant un certain nombre d'options eventuellement.
 le lancement se fait depuis le répertoire parent qui contient fading2/ et proj2c/
 
-Serveur:
+## Filesystem structure
+Le serveur s'attend à une structure comme suit, où l'on désigne les deux répertoires baseDirectory (chemin complet) et fadingDirectory (chemin relatif par rapport au
+précédent):
 
+```
+#!c
+baseDirectory                 -- banque globale d'images, de data, de maps. Peut contenir un ou plusieurs répertoires pour stocker des scénarios différents
+ !
+ +--- data                    -- fichier (facultatif mais conseillé) qui décrit les classes de PNJ ou les PJ (en principe, pas liés à un scénario donné)
+ !
+ +--- pawns                   -- répertoire (facultatif) d'images pour les pions (pawns) sur les maps
+ !     +--- pawnDefault.jpg   -- image par défaut pour les pions
+ !     +--- pawn*.jpg/png     -- sera associé automatiquement à un PJ si le nom matche (sinon, stocké comme une image classique)
+ !     +--- *.jpg/png         -- sera stocké en mémoire et utilisable durant la partie comme une image de pion, à la discrétion du MJ
+ !                            -- et aussi, sera associé automatiquement à une classe de PNJ si les nom matche avec celui indiqué dans le fichier data
+ !
+ +--- fadingDirectory         -- répertoire du scénario en cours
+       +--- scenario.txt      -- facultatif: texte (structuré) associé au scénario Coggle
+       +--- scenario.jpg      -- facultatif: image du scénario Coggle
+       +--- pawnDefault.jpg   -- image par défaut pour les pions
+       +--- pawn*.jpg/png     -- sera associé automatiquement à un PJ si le nom matche (sinon, stocké comme une image classique)
+       +--- map*.jpg/png      -- map: sera stockée en mémoire et utilisable durant la partie (destinée à être projetée aux joueurs, et porter des pions) 
+       +--- *.jpg/png         -- image générale: sera stocké en mémoire et utilisable durant la partie comme une image générale (destinée à être projetée aux joueurs) 
+       +--- data              -- fichier (facultatif) qui décrit les classes de PNJ ou les PJ (en principe, dédié à un scénario donné).
+                              -- peut compléter le fichier data général (avec des classes particulières, par exemple)
+```
+
+Il faut fournir au moins un fichier data (les deux peuvent se compléter), et une image pawnDefault.jpg de pion par défaut.
+
+##Ligne de commande
+Serveur:
 
 ```
 #!c
@@ -33,14 +60,12 @@ love fading2 [options] args
 [-b|--base baseDirectory] : Path to a base (network) directory, common with projector
 [-d|--debug] :              Run in debug mode
 [-l|--log] :                Log to file (fading.log) instead of stdout
-[-D|--dynamic] :            With FS mobile: Use the port specified by the client to communicate, not the standard one (ie. 12345 by default)
 [-a|--ack] :                With FS mobile: Send an automatic acknowledge reply for each message received
 [-p|--port port] :          Specify server local port, by default 12345
 arg = fadingDirectory :     Path to scenario directory (not absolute, relative to the base directory)
 ```
 
 projecteur:
-
 
 ```
 #!c
@@ -52,12 +77,7 @@ love proj2c [options]
 [-l|--log] :                Log to file (proj.log) instead of stdout
 [-i|--ip address] :         server IP 
 [-p|--port port] :          server port (default 12345)
-[-I|--interact] :           (reserved for future use)
-
 ```
-
-## Database configuration
-Aucune. Pas de database
 
 ## How to run tests
 Et bien, directement. L'option --debug (associée à --log sous Windows, qui a la mauvaise idée de ne pas retranscrire les sorties sur stdout directement dans la console, ce qui oblige a les écrire dans un fichier) permet de savoir ce qui se passe. Sous ZeroBrane Studio existe un mode debug pas à pas pour le moteur Löve, mais très lent je trouve (sur ma config) donc pas utilisable en pratique.
