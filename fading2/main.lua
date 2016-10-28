@@ -4,6 +4,7 @@ local utf8 	= require 'utf8'
 local yui 	= require 'yui.yaoui' 	-- graphical library on top of Love2D
 local socket 	= require 'socket'	-- general networking
 local parser    = require 'parse'	-- parse command line arguments
+local tween	= require 'tween'
 
 require 'scenario'			-- read scenario file and perform text search
 require 'rpg'				-- code related to the RPG itself
@@ -63,6 +64,7 @@ snapshotH 		= messagesH - snapshotSize - snapshotMargin
 pawnMove 		= nil		-- pawn currently moved by mouse movement
 defaultPawnSnapshot	= nil		-- default image to be used for pawns
 pawnMaxLayer		= 1
+pawnMovingTime		= 2.5		-- how many seconds to complete a movement on the map ?
 
 -- snapshot size and image
 H1, W1 = 140, 140
@@ -273,6 +275,7 @@ function Window:move( x, y ) self.x = x; self.y = y end
 function Window:draw() end 
 function Window:getFocus() end
 function Window:looseFocus() end
+function Window:update(dt) end
 
 -- Map class
 -- a Map inherits from Window and from Snapshot, and is referenced both 
@@ -431,6 +434,17 @@ end
 function Map:getFocus() if self.kind == "scenario" then searchActive = true end end
 function Map:looseFocus() if self.kind == "scenario" then searchActive = false end end
 
+function Map:update(dt)	
+	-- move pawns progressively, if needed
+	if self.kind =="map" then
+		for i=1,#self.pawns do
+			local p = self.pawns[i]
+			if p.timer then p.timer:update(dt) end
+		end	
+	end
+	end
+
+
 -- Dialog class
 -- a Dialog is a window which displays some text and let some input. it is not zoomable
 Dialog = Window:new{ class = "dialog" }
@@ -537,8 +551,11 @@ function mainLayout:click( x , y )
 function mainLayout:draw() 
 	if not self.globalDisplay then return end -- do nothing if globalDisplay is not set !
 	for k,v in ipairs( self.sorted ) do if self.sorted[k].d then self.sorted[k].w:draw() end end
-end 
+	end 
 
+function mainLayout:update(dt)
+	for k,v in pairs(self.windows) do v.w:update(dt) end
+	end
 
 -- insert a new message to display
 function addMessage( text, time , important )
@@ -800,6 +817,9 @@ function love.update(dt)
 	  snapshots[currentSnap].offset = snapshots[currentSnap].offset - snapshotMargin * 2
 	  if snapshots[currentSnap].offset < -snapMax then snapshots[currentSnap].offset = -snapMax end
 	end
+
+	-- move pawns progressively
+	layout:update(dt)
 
 	-- change some button behaviour when needed
 	nextButton.button.black = not nextFlash 
@@ -1222,18 +1242,20 @@ function love.mousereleased( x, y )
 			-- it was just a move, change the pawn position
 			-- we consider that the mouse position is at the center of the new image
   			local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
-			pawnMove.x, pawnMove.y = (x - zx) * map.mag - pawnMove.sizex / 2 , (y - zy) * map.mag - pawnMove.sizey / 2
+			pawnMove.moveToX, pawnMove.moveToY = (x - zx) * map.mag - pawnMove.sizex / 2 , (y - zy) * map.mag - pawnMove.sizey / 2
 			pawnMaxLayer = pawnMaxLayer + 1
 			pawnMove.layer = pawnMaxLayer
 			table.sort( map.pawns , function (a,b) return a.layer < b.layer end )
 	
 			-- we must stay within the limits of the map	
-			if pawnMove.x < 0 then pawnMove.x = 0 end
-			if pawnMove.y < 0 then pawnMove.y = 0 end
-			if pawnMove.x + pawnMove.sizex + 6 > map.w then pawnMove.x = math.floor(map.w - pawnMove.sizex - 6) end
-			if pawnMove.y + pawnMove.sizey + 6 > map.h then pawnMove.y = math.floor(map.h - pawnMove.sizey - 6) end
+			if pawnMove.moveToX < 0 then pawnMove.moveToX = 0 end
+			if pawnMove.moveToY < 0 then pawnMove.moveToY = 0 end
+			if pawnMove.moveToX + pawnMove.sizex + 6 > map.w then pawnMove.moveToX = math.floor(map.w - pawnMove.sizex - 6) end
+			if pawnMove.moveToY + pawnMove.sizey + 6 > map.h then pawnMove.moveToY = math.floor(map.h - pawnMove.sizey - 6) end
+
+			pawnMove.timer = tween.new( pawnMovingTime , pawnMove , { x = pawnMove.moveToX, y = pawnMove.moveToY } )
 	
-			tcpsend( projector, "MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.x) .. " " .. math.floor(pawnMove.y) )		
+			tcpsend( projector, "MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.moveToX) .. " " .. math.floor(pawnMove.moveToY) )		
 			
 		end
 		pawnMove = nil; 
@@ -1483,7 +1505,8 @@ function Pawn:new( id, snapshot, width , x, y )
   self.__index = self 
   new.id = id
   new.layer = pawnMaxLayer 
-  new.x, new.y = x or 0, y or 0 	-- relative to the map
+  new.x, new.y = x or 0, y or 0 		-- current pawn position, relative to the map
+  new.moveToX, new.moveToY = new.x, new.y 	-- destination of a move 
   new.snapshot = snapshot
   --new.filename = snapshot.filename  
   --new.baseFilename = string.gsub(imageFilename,baseDirectory,"")
