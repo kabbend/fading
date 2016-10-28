@@ -59,7 +59,7 @@ love fading2 [options] arg
 
 arg = baseDirectory :             Full path to global directory. In principle, this directory is the one shared with the projector 
                                   It may (and is recommended to) be a network shared directory (eg. google drive)
-[-s|--scenario fadingDirectory] : Path to a base (network) directory, common with projector
+[-s|--scenario fadingDirectory] : relative path (from base directory) to the scenario directory
 [-d|--debug] :                    Run in debug mode
 [-l|--log] :                      Log to file (fading.log) instead of stdout
 [-a|--ack] :                      With FS mobile: Send an automatic acknowledge reply for each message received
