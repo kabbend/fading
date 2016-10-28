@@ -329,6 +329,7 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   if self.kind == "map" then self.mask = {} else self.mask = nil end
   self.step = 50
   self.pawns = {}
+  self.basePawnSize = nil -- base size for pawns on this map (in pixels, for map at scale 1)
   self.zoomtable = { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5, 2, 3, 4, 5, 6, 7, 8 , 9, 10}
   self.magindex = 10 -- correspond to mag = 1.0
 
@@ -1540,12 +1541,13 @@ function createPawns( map , sx, sy, requiredSize )
 
   local border = 3 -- size of a colored border, in pixels, at scale 1 (3 pixels on all sides)
 
+  -- use the required size unless the map has pawns already. In this case, reuse the same size
+  local pawnSize = map.basePawnSize or requiredSize 
+  map.basePawnSize = pawnSize
   -- get actual size at scale 1. We round it to avoid issue when sending to projector
-  local createAgain = map.pawns and #map.pawns > 0
-  if createAgain then pawnSize = map.pawns[1].sizex else
-  pawnSize = math.floor((requiredSize) * map.mag - border * 2) end
+  pawnSize = math.floor((pawnSize) * map.mag - border * 2)
 
-  margin = math.floor(pawnSize / 10) -- small space between 2 pawns
+  local margin = math.floor(pawnSize / 10) -- small space between 2 pawns
 
   -- position of the upper-left corner of the map on screen
   local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
@@ -1570,34 +1572,19 @@ function createPawns( map , sx, sy, requiredSize )
 	 local p
 	 local needCreate = true
 
-	 if createAgain then
-		 -- check if pawn with same ID exists or not
-		 for k=1,#map.pawns do if map.pawns[k].id == PNJTable[i].id then needCreate = false; break; end end
-	 end
+	 -- don't create pawns for characters already dead...
+	 if PNJTable[i].is_dead then needCreate = false end
+
+	 -- check if pawn with same ID exists or not
+	 for k=1,#map.pawns do if map.pawns[k].id == PNJTable[i].id then needCreate = false; break; end end
 
 	 if needCreate then
 	  local f
 	  if PNJTable[i].snapshot then
-		--f = PNJTable[i].snapshot.filename 
 	  	p = Pawn:new( PNJTable[i].id , PNJTable[i].snapshot, pawnSize * PNJTable[i].sizefactor , a , b ) 
-		--[[
-		local w,h = PNJTable[i].snapshot.im:getDimensions()
-		local f1,f2 = pawnSize/w, pawnSize/h
-		p.f = math.min(f1,f2)
-		p.offsetx = (pawnSize + border*2 - w * p.f ) / 2
-		p.offsety = (pawnSize + border*2 - h * p.f ) / 2
-		--]]
 	  else
 		assert(defaultPawnSnapshot,"no default image available. You should refrain from using pawns on the map...")
-		--f = defaultPawnSnapshot.filename
 	  	p = Pawn:new( PNJTable[i].id , defaultPawnSnapshot, pawnSize * PNJTable[i].sizefactor , a , b ) 
-		--[[
-		local w,h = defaultPawnSnapshot.im:getDimensions()
-		local f1,f2 = pawnSize/w, pawnSize/h
-		p.f = math.min(f1,f2)
-		p.offsetx = (pawnSize + border*2 - w * p.f ) / 2
-		p.offsety = (pawnSize + border*2 - h * p.f ) / 2
-		--]]
 	  end
 	  io.write("creating pawn " .. i .. " with id " .. p.id .. "\n")
 	  p.PJ = PNJTable[i].PJ
@@ -1608,8 +1595,8 @@ function createPawns( map , sx, sy, requiredSize )
 	  	local flag
 	  	if p.PJ then flag = "1" else flag = "0" end
 	  	local f = p.snapshot.baseFilename -- FIXME: what about pawns loaded dynamically ?
-	  	io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. pawnSize .. " " .. flag .. " " .. f .. "\n")
-	  	tcpsend( projector, "PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. pawnSize .. " " .. flag .. " " .. f)
+	  	io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. math.floor(pawnSize * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f .. "\n")
+	  	tcpsend( projector, "PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. math.floor(pawnSize * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f)
 	  end
 	  -- set position for next image: we display pawns on 4x4 line/column around the mouse position
 	  if i % 4 == 0 then
@@ -1631,14 +1618,18 @@ function Map:isInsidePawn(x,y)
   if self.pawns then
 	local indexWithMaxLayer, maxlayer = 0, 0
 	for i=1,#self.pawns do
-		local lx,ly = self.pawns[i].x, self.pawns[i].y -- position x,y relative to the map, at scale 1
-		local tx,ty = zx + lx / self.mag, zy + ly / self.mag -- position tx,ty relative to the screen
-		local sizex = self.pawns[i].sizex / self.mag -- size relative to the screen
-		local sizey = self.pawns[i].sizey / self.mag -- size relative to the screen
-		if x >= tx and x <= tx + sizex and y >= ty and y <= ty + sizey and self.pawns[i].layer > maxlayer then
+		-- check that this pawn is still active/alive
+		local index = findPNJ( self.pawns[i].id )
+		if index then  
+		  local lx,ly = self.pawns[i].x, self.pawns[i].y -- position x,y relative to the map, at scale 1
+		  local tx,ty = zx + lx / self.mag, zy + ly / self.mag -- position tx,ty relative to the screen
+		  local sizex = self.pawns[i].sizex / self.mag -- size relative to the screen
+		  local sizey = self.pawns[i].sizey / self.mag -- size relative to the screen
+		  if x >= tx and x <= tx + sizex and y >= ty and y <= ty + sizey and self.pawns[i].layer > maxlayer then
 			maxlayer = self.pawns[i].layer
 			indexWithMaxLayer = i
-		end
+		  end
+	  	end
   	end
 	if indexWithMaxLayer == 0 then return nil else return self.pawns[ indexWithMaxLayer ] end
   end
@@ -1682,11 +1673,17 @@ function Atlas:toggleVisible( map )
 		-- send pawns if any
 		for i=1,#map.pawns do
 			local p = map.pawns[i]
-			local flag = 0
-			if p.PJ then flag = 1 end
-	  		local f = p.snapshot.filename -- FIXME: what about pawns loaded dynamically ?
-	  		f = string.gsub(f,baseDirectory,"")
-	  		tcpsend( projector, "PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. math.floor(p.sizex) .. " " .. flag .. " " .. f)
+			-- check the pawn state before sending it: 
+			-- * it might happen that the character has been removed from the list
+			-- * don't send dead pawns (what for?)
+			local index = findPNJ( p.id )
+			if index and (not PNJTable[index].is_dead) then
+				local flag = 0
+				if p.PJ then flag = 1 end
+	  			local f = p.snapshot.filename -- FIXME: what about pawns loaded dynamically ?
+	  			f = string.gsub(f,baseDirectory,"")
+	  			tcpsend( projector, "PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. math.floor(p.sizex) .. " " .. flag .. " " .. f)
+			end
 		end
 		-- set map frame
   		tcpsend( projector, "MAGN " .. 1/map.mag)

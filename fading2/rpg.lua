@@ -376,6 +376,9 @@ end
 -- then update roll results accordingly (but does not reroll)
 function updateTargetByArrow( i, j )
 
+  -- check that the characters have not been removed from the list at some point in time...
+  if (not PNJTable[i]) or (not PNJTable[j]) then return end
+
   -- set new target value
   if PNJTable[i].target == PNJTable[j].id then return end -- no change in target, do nothing
   
