@@ -1969,7 +1969,15 @@ function leave()
 	for i=1,#clients do clients[i].tcp:close() end
 	if tcpbin then tcpbin:close() end
 	if logFile then logFile:close() end
-end
+	end
+
+-- all clicks in yui interface are aborted if a window is in front
+-- we should remove yui completely to avoid this kind of check
+-- return false if the click should be aborted, true otherwise
+function checkClick()
+	local x,y = love.mouse.getPosition()
+	if layout:click(x,y) then return false else return true end
+	end
 
 options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="." , 
 		desc="Path to a base (network) directory, common with projector" },
@@ -2051,22 +2059,27 @@ function love.load( args )
             yui.Flow({name="t",
                 yui.HorizontalSpacing({w=10}),
                 yui.Button({name="nextround", text="  Next Round  ", size=size, black = true, 
-			onClick = function(self) if self.button.black then return end 
+			onClick = function(self) if not checkClick() then return end 
+						 if self.button.black then return end 
 				 		 if checkForNextRound() then nextRound() end end }),
                 yui.Text({text="Round #", size=size, bold=1, center = 1}),
                 yui.Text({name="round", text=tostring(roundNumber), size=32, w = 50, bold=1, color={0,0,0} }),
                 yui.FlatDropdown({options = opt, size=size-2, onSelect = function(self, option) current_class = option end}),
                 yui.HorizontalSpacing({w=10}),
-                yui.Button({text=" Create ", size=size, onClick = function(self) return generateNewPNJ(current_class) and sortAndDisplayPNJ() end }),
+                yui.Button({text=" Create ", size=size, 
+			onClick = function(self) if not checkClick() then return end; return generateNewPNJ(current_class) and sortAndDisplayPNJ() end }),
                 yui.HorizontalSpacing({w=50}),
                 yui.Button({name = "rollatt", text="     Roll Attack     ", size=size, black = true,
-			onClick = function(self) if self.button.black then return end rollAttack("attack") end }), yui.HorizontalSpacing({w=10}),
+			onClick = function(self) if not checkClick() then return end; 
+						 if self.button.black then return end rollAttack("attack") end }), 
+		yui.HorizontalSpacing({w=10}),
                 yui.Button({name = "rollarm", text="     Roll  Armor     ", size=size, black = true,
-			onClick = function(self) if self.button.black then return end rollAttack("armor") end }),
+			onClick = function(self) if not checkClick() then return end; if self.button.black then return end rollAttack("armor") end }),
                 yui.HorizontalSpacing({w=150}),
-                yui.Button({name="cleanup", text="       Cleanup       ", size=size, onClick = function(self) return removeDeadPNJ() and sortAndDisplayPNJ() end }),
+                yui.Button({name="cleanup", text="       Cleanup       ", size=size, 
+			onClick = function(self) if not checkClick() then return end ; return removeDeadPNJ() and sortAndDisplayPNJ() end }),
                 yui.HorizontalSpacing({w=270}),
-                yui.Button({text="    Quit    ", size=size, onClick = function(self) leave(); love.event.quit() end }),
+                yui.Button({text="    Quit    ", size=size, onClick = function(self) if not checkClick() then return end ; leave(); love.event.quit() end }),
               }), -- end of Flow
             createPNJGUIFrame(),
            }) -- end of Stack
