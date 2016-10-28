@@ -405,11 +405,13 @@ function Map:draw()
 		       		nzx = zx + map.pawns[i].offsetx / map.mag
 		       		nzy = zy + map.pawns[i].offsety / map.mag
 		       		love.graphics.draw( map.pawns[i].snapshot.im , nzx, nzy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
-		       		love.graphics.setColor(0,0,0) 
-		       		love.graphics.rectangle( "fill", zx, zy, 22 / map.mag, 22 / map.mag)
+				-- display hits number and ID
+		       		love.graphics.setColor(0,0,0)  
+		       		love.graphics.rectangle( "fill", zx, zy, 22 / map.mag, 44 / map.mag)
 		       		love.graphics.setColor(255,255,255) 
         			love.graphics.setFont(fontSearch)
 				love.graphics.print( PNJTable[index].hits , zx, zy , 0, 1/map.mag, 1/map.mag )
+				love.graphics.print( PNJTable[index].id , zx, zy + 22 / map.mag , 0, 1/map.mag, 1/map.mag )
 	     	     	end
 		     end
 	     end
@@ -522,7 +524,10 @@ function mainLayout:setDisplay( window, display )
 function mainLayout:getDisplay( window ) if self.windows[window] then return self.windows[window].d else return false end end
 
 -- we can set a global value to display, or hide, all windows in one shot
-function mainLayout:toggleDisplay() self.globalDisplay = not self.globalDisplay end
+function mainLayout:toggleDisplay() 
+	self.globalDisplay = not self.globalDisplay 
+ 	if not self.globalDisplay then self:setFocus(nil) end -- no more window focus	
+	end
 
 -- return (if there is one) or set the window with focus 
 -- if we set focus, the window automatically gets in front layer
@@ -548,6 +553,7 @@ function mainLayout:setFocus( window )
 function mainLayout:click( x , y )
 	local layer = 0
 	local result = nil
+	if not self.globalDisplay then return nil end -- in ESC mode, no window at all
 	for k,l in pairs( self.windows ) do
 		if l.d and l.w:isInside(x,y) and l.l > layer then result = l.w ; layer = l.l end  
 	end
