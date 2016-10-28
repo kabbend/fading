@@ -4,7 +4,7 @@ local utf8 	= require 'utf8'
 local yui 	= require 'yui.yaoui' 	-- graphical library on top of Love2D
 local socket 	= require 'socket'	-- general networking
 local parser    = require 'parse'	-- parse command line arguments
-local tween	= require 'tween'
+local tween	= require 'tween'	-- tweening library (manage transition states)
 
 require 'scenario'			-- read scenario file and perform text search
 require 'rpg'				-- code related to the RPG itself
@@ -64,7 +64,7 @@ snapshotH 		= messagesH - snapshotSize - snapshotMargin
 pawnMove 		= nil		-- pawn currently moved by mouse movement
 defaultPawnSnapshot	= nil		-- default image to be used for pawns
 pawnMaxLayer		= 1
-pawnMovingTime		= 2.5		-- how many seconds to complete a movement on the map ?
+pawnMovingTime		= 2		-- how many seconds to complete a movement on the map ?
 
 -- snapshot size and image
 H1, W1 = 140, 140
@@ -397,7 +397,11 @@ function Map:draw()
   		       		local zx,zy = (map.pawns[i].x) * 1/map.mag + x , (map.pawns[i].y) * 1/map.mag + y
 		       		if PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
 		       		love.graphics.rectangle( "fill", zx, zy, (map.pawns[i].sizex+6) / map.mag, (map.pawns[i].sizey+6) / map.mag)
-		       		if dead then love.graphics.setColor(50,50,50,200) else 	love.graphics.setColor(255,255,255) end
+		       		if dead then 
+					love.graphics.setColor(50,50,50,200) -- dead are grey
+				else 	
+					love.graphics.setColor( unpack(map.pawns[i].color) )  
+				end
 		       		nzx = zx + map.pawns[i].offsetx / map.mag
 		       		nzy = zy + map.pawns[i].offsety / map.mag
 		       		love.graphics.draw( map.pawns[i].snapshot.im , nzx, nzy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
@@ -437,10 +441,12 @@ function Map:looseFocus() if self.kind == "scenario" then searchActive = false e
 
 function Map:update(dt)	
 	-- move pawns progressively, if needed
+	-- restore their color (white) which may have been modified if they are current target of an arrow
 	if self.kind =="map" then
 		for i=1,#self.pawns do
 			local p = self.pawns[i]
 			if p.timer then p.timer:update(dt) end
+			p.color = color.white
 		end	
 	end
 	end
@@ -824,8 +830,29 @@ function love.update(dt)
 	  if snapshots[currentSnap].offset < -snapMax then snapshots[currentSnap].offset = -snapMax end
 	end
 
+	-- restore pawn color when needed
 	-- move pawns progressively
 	layout:update(dt)
+
+  	-- store current mouse position in arrow mode
+  	if arrowMode then 
+		arrowX, arrowY = love.mouse.getPosition() 
+	end
+  
+	-- change pawn color to red if they are the target of an arrow
+	if pawnMove then
+		-- check that we are in the map...
+		local map = layout:getFocus()
+		if (not map) or (not map:isInside(arrowX,arrowY)) then return end
+	
+		-- check if we are just over another pawn
+		local target = map:isInsidePawn(arrowX,arrowY)
+
+		if target and target ~= pawnMove then
+			-- we are targeting someone, draw the target in red color !
+			target.color = color.red
+		end
+	end
 
 	-- change some button behaviour when needed
 	nextButton.button.black = not nextFlash 
@@ -855,11 +882,6 @@ function love.update(dt)
 	  clnButton.button.timer:tween('color', 0.25, clnButton.button, {color = { 20, 20, 20}}, 'linear') 
 	end
 
-  	-- store current mouse position in arrow mode
-  	if arrowMode then 
-		arrowX, arrowY = love.mouse.getPosition() 
-	end
-  
   	-- draw dices if requested
 	-- there are two phases of 1 second each: drawDices (all dices) then drawDicesResult (does not count failed ones)
   	if drawDices then
@@ -1525,6 +1547,7 @@ function Pawn:new( id, snapshot, width , x, y )
   new.offsetx = (new.sizex + 3*2 - w * new.f ) / 2
   new.offsety = (new.sizey + 3*2 - h * new.f ) / 2
   new.PJ = false
+  new.color = color.white
   return new
   end
 
