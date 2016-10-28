@@ -60,12 +60,13 @@ function Pawn:new( id, filename, sizex, x, y , pj )
   -- set basic data
   new.id = id
   new.PJ = pj or false 
-  new.dead = false 				-- so far
-  new.x = x or 0 				-- position of the upper left corner of the pawn, relative to the map
-  new.y = y or 0         			-- position of the upper left corner of the pawn, relative to the map
-  new.moveToX, new.moveToY = new.x, new.y	-- destination of a move
-  new.layer = maxLayer				-- determine if a pawn is drawn on top (or below) another one
-  new.timer = nil				-- tween timer to perform the move
+  new.dead = false 					-- so far
+  new.x = x or 0 					-- position of the upper left corner of the pawn, relative to the map
+  new.y = y or 0         				-- position of the upper left corner of the pawn, relative to the map
+  new.moveToX, new.moveToY = new.x, new.y		-- destination for a move
+  new.timer = nil					-- tween timer to perform the move
+  new.layer = maxLayer					-- determine if a pawn is drawn on top (or below) another one
+  if new.PJ then new.layer = new.layer + 10e6 end	-- PJ are always on top, so we increase their layer artificially !
   new.filename = filename
   -- load pawn image
   local file = io.open( filename , "rb" )
@@ -167,9 +168,10 @@ function love.mousereleased (x,y)
 			local zx,zy = -( X * mag - W2 / 2), -( Y * mag - H2 / 2)
                         pawnMove.moveToX, pawnMove.moveToY = (x - zx) / mag - pawnMove.sizex / 2 , (y - zy) / mag - pawnMove.sizey / 2
 
-			-- the last pawn to move is always on top
+			-- the last pawn to move is always on top, except if it is a PNJ
 			maxLayer = maxLayer + 1
 			pawnMove.layer = maxLayer
+			if pawnMove.PJ then pawnMove.layer = pawnMove.layer + 10e6 end
 			table.sort( pawns , function (a,b) return a.layer < b.layer end )
 
                         -- we must stay within the limits of the map    
@@ -500,6 +502,7 @@ function love.update( dt )
 				pawns[i].moveToX = x; pawns[i].moveToY = y 
 				maxLayer = maxLayer + 1
 				pawns[i].layer = maxLayer
+				if pawns[i].PJ then pawns[i].layer = pawns[i].layer + 10e6 end
 				pawns[i].timer = tween.new( pawnMovingTime, pawns[i], { x = pawns[i].moveToX, y = pawns[i].moveToY } )
 			end 
 		end
