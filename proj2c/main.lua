@@ -66,6 +66,7 @@ function Pawn:new( id, filename, sizex, x, y , pj )
   new.moveToX, new.moveToY = new.x, new.y		-- destination for a move
   new.timer = nil					-- tween timer to perform the move
   new.layer = maxLayer					-- determine if a pawn is drawn on top (or below) another one
+  new.color = { 255, 255, 255 }				-- base color is white a priori
   if new.PJ then new.layer = new.layer + 10e6 end	-- PJ are always on top, so we increase their layer artificially !
   new.filename = filename
   -- load pawn image
@@ -254,10 +255,15 @@ function love.draw()
                      local px,py = p.x * mag + zx , p.y * mag + zy
                      love.graphics.setColor(250,50,50)
                      love.graphics.rectangle( "fill", px, py, (p.sizex + 6 ) * mag ,(p.sizey + 6) * mag )
-                     if p.dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
+                     if p.dead then 
+			love.graphics.setColor(50,50,50,200) 
+		     else 
+			love.graphics.setColor(unpack(p.color)) 
+		     end
                      px = px + p.offsetx * mag
                      py = py + p.offsety * mag
                      love.graphics.draw( p.im , px, py, 0, p.f * mag , p.f * mag )
+		     p.color = { 255, 255, 255 } -- restore base color
 		 end
         	end
 
@@ -273,10 +279,15 @@ function love.draw()
                      local px,py = p.x * mag + zx , p.y * mag + zy
                      love.graphics.setColor(50,50,250)
                      love.graphics.rectangle( "fill", px, py, (p.sizex + 6) * mag, (p.sizey + 6) * mag)
-                     if p.dead then love.graphics.setColor(50,50,50,200) else love.graphics.setColor(255,255,255) end
+                     if p.dead then 
+			love.graphics.setColor(50,50,50,200) 
+		     else 
+			love.graphics.setColor(unpack(p.color)) 
+		     end
                      px = px + p.offsetx * mag
                      py = py + p.offsety * mag
                      love.graphics.draw( p.im , px, py, 0, p.f * mag , p.f * mag )
+		     p.color = { 255, 255, 255 } -- restore base color
 		 end
         end
 
@@ -300,6 +311,14 @@ function love.update( dt )
         if arrowMode then
                 arrowX, arrowY = love.mouse.getPosition()
         end
+
+	-- change color to red when pawn is target of an arrow
+        if pawnMove then
+                local target = isInsidePawn(arrowX,arrowY)
+                if target and target ~= pawnMove then
+			target.color = { 255 , 0 , 0 }
+		end
+	end
 
 	-- move pawns if needed
 	for k,v in ipairs(pawns) do
