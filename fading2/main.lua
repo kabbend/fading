@@ -721,6 +721,20 @@ function mainLayout:setFocus( window )
 	self.focus = window
 	end 
 
+function mainLayout:nextWindow()
+ 	local t = {}
+	local index = nil
+	if not self.globalDisplay then return end
+	for i=1,#self.sorted do if self.sorted[i].d then 
+		table.insert( t , self.sorted[i].w ) 
+		if self.sorted[i].w == self:getFocus() then index = i end
+		end end
+	if not index then return end
+ 	index = index + 1
+	if index > #t then index = 1 end	
+	self:setFocus( t[index] )	
+	end
+
 -- check if there is (and return) a window present at the given position in the screen
 -- this takes into account the fact that a window is displayed or not (of course) but
 -- also the layer value (the window with highest layer is selected).
@@ -1921,6 +1935,7 @@ function love.keypressed( key, isrepeat )
 -- keys applicable in any context
 -- we expect:
 -- 'lctrl + d' : open dialog window
+-- 'lctrl + tab' : give focus to the next window if any
 -- 'escape' : hide or restore all windows 
 if key == "d" and love.keyboard.isDown("lctrl") then
   if dialogWindow then 
@@ -1931,9 +1946,15 @@ if key == "d" and love.keyboard.isDown("lctrl") then
 	layout:addWindow( dialogWindow , true ) -- display it. Set focus
 	layout:setFocus( dialogWindow ) 
   end
+  return
 end
 if key == "escape" then
 	layout:toggleDisplay()
+	return
+end
+if key == "tab" and love.keyboard.isDown("lctrl") then
+	layout:nextWindow()
+	return
 end
 
 -- other keys applicable 
