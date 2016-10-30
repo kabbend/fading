@@ -269,11 +269,25 @@ end
 function Window:isInside(x,y)
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
   return x >= zx and x <= zx + self.w / self.mag and 
-  	 y >= zy and y <= zy + self.h / self.mag
+  	 y >= zy - 20 and y <= zy + self.h / self.mag -- 20 needed to take window bar into account
 end
 
 function Window:zoom( mag ) if self.zoomable then self.mag = mag end end
 function Window:move( x, y ) self.x = x; self.y = y end
+
+function Window:drawBar()
+ love.graphics.setColor(170,50,0)
+ local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+ love.graphics.rectangle( "fill", zx , zy - 20 , self.w / self.mag , 20 )
+ love.graphics.setColor(255,255,255)
+ love.graphics.setFont(fontRound)
+ love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
+  -- draw small circle or rectangle in upper corner, to show which mode we are in
+ if self.class == "map" and self.kind == "map" then
+    if maskType == "RECT" then love.graphics.rectangle("line",zx + 5, zy - 16 ,12, 12) end
+       if maskType == "CIRC" then love.graphics.circle("line",zx + 10, zy - 10, 5) end
+     end
+end
 
 -- to be redefined in inherited classes
 function Window:draw() end 
@@ -427,12 +441,6 @@ function Map:draw()
        love.graphics.setStencilTest()
      end
 
-     -- draw small circle or rectangle in upper corner, to show which mode we are in
-     if map.kind == "map" then
-       love.graphics.setColor(200,0,0,180)
-       if maskType == "RECT" then love.graphics.rectangle("line",x + 5, y + 5,20/map.mag,20/map.mag) end
-       if maskType == "CIRC" then love.graphics.circle("line",x + 15, y + 15,10/map.mag) end
-     end
 
      -- draw pawns, if any
      if map.pawns then
@@ -487,6 +495,9 @@ function Map:draw()
       	if searchIterator then love.graphics.printf( "( " .. searchIndex .. " [" .. string.format("%.2f", searchPertinence) .. "] out of " .. 
 						           searchSize .. " )", 800, H - 40, 400) end
     end
+
+    -- print window button bar
+    self:drawBar()
 
 end
 
@@ -662,6 +673,9 @@ function Dialog:draw()
    -- print MJ input eventually
    love.graphics.setColor(200,200,255)
    love.graphics.printf(dialog, zx , zy + self.h - 22 , self.w )
+
+   -- print bar
+   self:drawBar()
 end
 
 function Dialog:getFocus() dialogActive = true end
@@ -1251,12 +1265,12 @@ function love.draw()
 		if currentSnap == 2 and snapshots[currentSnap].s[i].kind == "scenario" then
 			-- do not draw scenario, too big... Just print "Scenario"
   			love.graphics.setColor(0,0,0)
- 			love.graphics.setFont(fontRound)
 			love.graphics.rectangle("line", 
 				snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1),
 				snapshotH, 
 				snapshotSize, 
 				snapshotSize)
+ 			love.graphics.setFont(fontRound)
 			love.graphics.print( "Scenario" , 3 + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1), snapshotH )
 		else
   			love.graphics.setColor(255,255,255)
