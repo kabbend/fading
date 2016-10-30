@@ -278,6 +278,36 @@ function Window:getFocus() end
 function Window:looseFocus() end
 function Window:update(dt) end
 
+--
+--  Pawn object 
+--  A pawn holds the image, with proper scale defined at pawn creation on the map,
+--  along with the ID of the corresponding PJ/PNJ.
+--  Both sizes of the pawn image (sizex and sizey) are computed to follow the image
+--  original height/width ratio. Sizex is directly defined by the MJ at pawn creation,
+--  using the arrow on the map, sizey is then derived from it
+-- 
+Pawn = {}
+function Pawn:new( id, snapshot, width , x, y ) 
+  local new = {}
+  setmetatable(new,self)
+  self.__index = self 
+  new.id = id
+  new.layer = pawnMaxLayer 
+  new.x, new.y = x or 0, y or 0 		-- current pawn position, relative to the map
+  new.moveToX, new.moveToY = new.x, new.y 	-- destination of a move 
+  new.snapshot = snapshot
+  new.sizex = width 				-- width size of the image in pixels, for map at scale 1
+  local w,h = new.snapshot.w, new.snapshot.h
+  new.sizey = new.sizex * (h/w) 
+  local f1,f2 = new.sizex/w, new.sizey/h
+  new.f = math.min(f1,f2)
+  new.offsetx = (new.sizex + 3*2 - w * new.f ) / 2
+  new.offsety = (new.sizey + 3*2 - h * new.f ) / 2
+  new.PJ = false
+  new.color = color.white
+  return new
+  end
+
 -- Map class
 -- a Map inherits from Window and from Snapshot, and is referenced both 
 -- in the Atlas and in the snapshots list
@@ -287,7 +317,9 @@ function Window:update(dt) end
 -- * it can be visible, meaning it is displayed to the players on
 --   the projector, in realtime. There is maximum one visible map at a time
 --   (but there may be several maps displayed on the server, to the MJ)
+
 Map = createClass( Window , Snapshot )
+
 function Map:load( t ) -- create from filename or file object (one mandatory). kind is optional
   local t = t or {}
   if not t.kind then self.kind = "map" else self.kind = t.kind end 
@@ -456,6 +488,119 @@ function Map:update(dt)
 	end
 	end
 
+--
+-- Create characters from PNJTable as pawns on the 'map', with the 'requiredSize' (in pixels, 
+-- for map at scale 1), and around the position 'sx','sy' (expressed in pixel position in the screen)
+--
+-- createPawns() only create characters that are not already created on this 'map'. 
+-- When new characters are created on a map with existing pawns, 'requiredSize' is ignored, replaced by 
+-- the current value for existing pawns on the map.
+--
+-- createPawns() will create all characters of the existing list. But if 'id' is provided, it will 
+-- only create this character
+--
+function Map:createPawns( sx, sy, requiredSize , id ) 
+
+  local map = self
+
+  local border = 3 -- size of a colored border, in pixels, at scale 1 (3 pixels on all sides)
+
+  -- use the required size unless the map has pawns already. In this case, reuse the same size
+  local pawnSize = map.basePawnSize or requiredSize 
+  map.basePawnSize = pawnSize
+  -- get actual size at scale 1. We round it to avoid issue when sending to projector
+  pawnSize = math.floor((pawnSize) * map.mag - border * 2)
+
+  local margin = math.floor(pawnSize / 10) -- small space between 2 pawns
+
+  -- position of the upper-left corner of the map on screen
+  local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
+
+  -- position of the mouse, relative to the map at scale 1 (and not to the screen)
+  sx, sy = ( sx - zx ) * map.mag, ( sy - zy ) * map.mag 
+
+  -- set position of 1st pawn to draw (relative to the map)
+  local starta,startb = math.floor(sx - 2 * (pawnSize + border*2 + margin)) , math.floor(sy - 2 * (pawnSize + border*2 + margin)) 
+
+  -- a,b could be outside the map, check for this...
+  local aw, bh = (pawnSize + border*2 + margin) * 4, (pawnSize + border*2 + margin) * 4
+  if starta < 0 then starta = 0 end
+  if starta + aw > map.w then starta = map.w - aw end
+  if startb < 0 then startb = 0 end
+  if startb + bh > map.h then startb = map.h - bh end
+
+  local a,b = starta, startb
+
+  for i=1,PNJnum-1 do
+
+	 local p
+	 local needCreate = true
+
+	 -- don't create pawns for characters already dead...
+	 if PNJTable[i].is_dead then needCreate = false end
+
+	 -- check if pawn with same ID exists or not on the map
+	 for k=1,#map.pawns do if map.pawns[k].id == PNJTable[i].id then needCreate = false; break; end end
+
+	 -- limit creation to only 1 character if ID is provided
+	 if id and (PNJTable[i].id ~= id) then needCreate = false end
+
+	 if needCreate then
+	  local f
+	  if PNJTable[i].snapshot then
+	  	p = Pawn:new( PNJTable[i].id , PNJTable[i].snapshot, pawnSize * PNJTable[i].sizefactor , a , b ) 
+	  else
+		assert(defaultPawnSnapshot,"no default image available. You should refrain from using pawns on the map...")
+	  	p = Pawn:new( PNJTable[i].id , defaultPawnSnapshot, pawnSize * PNJTable[i].sizefactor , a , b ) 
+	  end
+	  io.write("creating pawn " .. i .. " with id " .. p.id .. "\n")
+	  p.PJ = PNJTable[i].PJ
+	  map.pawns[#map.pawns+1] = p
+
+	  -- send to projector...
+	  if atlas:isVisible(map) then
+	  	local flag
+	  	if p.PJ then flag = "1" else flag = "0" end
+	  	local f = p.snapshot.baseFilename -- FIXME: what about pawns loaded dynamically ?
+	  	io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. math.floor(pawnSize * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f .. "\n")
+	  	tcpsend( projector, "PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. math.floor(pawnSize * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f)
+	  end
+	  -- set position for next image: we display pawns on 4x4 line/column around the mouse position
+	  if i % 4 == 0 then
+			a = starta 
+			b = b + pawnSize + border*2 + margin
+	  	else
+			a = a + pawnSize + border*2 + margin	
+	  end
+	  end
+
+  end
+  end
+
+-- return a pawn if position x,y on the screen (typically, the mouse), is
+-- inside any pawn of the map. If several pawns at same location, return the
+-- one with highest layer value
+function Map:isInsidePawn(x,y)
+  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2) -- position of the map on the screen
+  if self.pawns then
+	local indexWithMaxLayer, maxlayer = 0, 0
+	for i=1,#self.pawns do
+		-- check that this pawn is still active/alive
+		local index = findPNJ( self.pawns[i].id )
+		if index then  
+		  local lx,ly = self.pawns[i].x, self.pawns[i].y -- position x,y relative to the map, at scale 1
+		  local tx,ty = zx + lx / self.mag, zy + ly / self.mag -- position tx,ty relative to the screen
+		  local sizex = self.pawns[i].sizex / self.mag -- size relative to the screen
+		  local sizey = self.pawns[i].sizey / self.mag -- size relative to the screen
+		  if x >= tx and x <= tx + sizex and y >= ty and y <= ty + sizey and self.pawns[i].layer > maxlayer then
+			maxlayer = self.pawns[i].layer
+			indexWithMaxLayer = i
+		  end
+	  	end
+  	end
+	if indexWithMaxLayer == 0 then return nil else return self.pawns[ indexWithMaxLayer ] end
+  end
+end
 
 -- Dialog class
 -- a Dialog is a window which displays some text and let some input. it is not zoomable
@@ -1189,6 +1334,11 @@ function love.draw()
  -- bottom applicative message
  local appmessage = "> " .. snapText[currentSnap]
  if not layout.globalDisplay then appmessage = appmessage .. " -- ESC mode is ON" end 	
+ local m = layout:getFocus() 
+ if m and atlas:isVisible(m) then 
+	appmessage = appmessage .. " -- Map is VISIBLE"  	
+	if m.is_stuck then appmessage = appmessage .. " and STICKY"  end
+ end
  love.graphics.setColor(170,5,255)
  love.graphics.setFont(fontRound)
  love.graphics.print( appmessage, 5, messagesH )
@@ -1321,7 +1471,7 @@ function love.mousereleased( x, y )
   	  	--local map = atlas:getMap()
 		local map = layout:getFocus()
 		local w = distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY)
-		createPawns( map, arrowX, arrowY, w )
+		map:createPawns( arrowX, arrowY, w )
 		table.sort( map.pawns, function(a,b) return a.layer < b.layer end )
 		arrowPawn = false
 		return
@@ -1537,145 +1687,6 @@ function love.mousepressed( x, y , button )
 
 end
 
---
---  Pawn object 
---  A pawn holds the image, with proper scale defined at pawn creation on the map,
---  along with the ID of the corresponding PJ/PNJ.
---  Both sizes of the pawn image (sizex and sizey) are computed to respect the image
---  original height/width ratio. Sizex is directly defined by the MJ at pawn creation,
---  using the arrow on the map
--- 
-Pawn = {}
-function Pawn:new( id, snapshot, width , x, y ) 
-  local new = {}
-  setmetatable(new,self)
-  self.__index = self 
-  new.id = id
-  new.layer = pawnMaxLayer 
-  new.x, new.y = x or 0, y or 0 		-- current pawn position, relative to the map
-  new.moveToX, new.moveToY = new.x, new.y 	-- destination of a move 
-  new.snapshot = snapshot
-  --new.filename = snapshot.filename  
-  --new.baseFilename = string.gsub(imageFilename,baseDirectory,"")
-  --new.im = img 
-  new.sizex = width 			-- width size of the image in pixels, for map at scale 1
-  local w,h = new.snapshot.w, new.snapshot.h
-  new.sizey = new.sizex * (h/w) 
-  local f1,f2 = new.sizex/w, new.sizey/h
-  new.f = math.min(f1,f2)
-  new.offsetx = (new.sizex + 3*2 - w * new.f ) / 2
-  new.offsety = (new.sizey + 3*2 - h * new.f ) / 2
-  new.PJ = false
-  new.color = color.white
-  return new
-  end
-
---
--- Create characters in PNJTable as pawns on the map, with the required (square) size (in pixels, 
--- for map at scale 1), and around the position sx,sy (expressed as pixel position in the screen)
---
--- If createPawns() is called another time, it will only create new characters since last call.
--- In that case, requiredSize is not necessary and ignored, replaced by the current value for
--- other pawns of the map.
---
-function createPawns( map , sx, sy, requiredSize ) 
-  assert(map)
-
-  local border = 3 -- size of a colored border, in pixels, at scale 1 (3 pixels on all sides)
-
-  -- use the required size unless the map has pawns already. In this case, reuse the same size
-  local pawnSize = map.basePawnSize or requiredSize 
-  map.basePawnSize = pawnSize
-  -- get actual size at scale 1. We round it to avoid issue when sending to projector
-  pawnSize = math.floor((pawnSize) * map.mag - border * 2)
-
-  local margin = math.floor(pawnSize / 10) -- small space between 2 pawns
-
-  -- position of the upper-left corner of the map on screen
-  local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
-
-  -- position of the mouse, relative to the map at scale 1 (and not to the screen)
-  sx, sy = ( sx - zx ) * map.mag, ( sy - zy ) * map.mag 
-
-  -- set position of 1st pawn to draw (relative to the map)
-  local starta,startb = math.floor(sx - 2 * (pawnSize + border*2 + margin)) , math.floor(sy - 2 * (pawnSize + border*2 + margin)) 
-
-  -- a,b could be outside the map, check for this...
-  local aw, bh = (pawnSize + border*2 + margin) * 4, (pawnSize + border*2 + margin) * 4
-  if starta < 0 then starta = 0 end
-  if starta + aw > map.w then starta = map.w - aw end
-  if startb < 0 then startb = 0 end
-  if startb + bh > map.h then startb = map.h - bh end
-
-  local a,b = starta, startb
-
-  for i=1,PNJnum-1 do
-
-	 local p
-	 local needCreate = true
-
-	 -- don't create pawns for characters already dead...
-	 if PNJTable[i].is_dead then needCreate = false end
-
-	 -- check if pawn with same ID exists or not
-	 for k=1,#map.pawns do if map.pawns[k].id == PNJTable[i].id then needCreate = false; break; end end
-
-	 if needCreate then
-	  local f
-	  if PNJTable[i].snapshot then
-	  	p = Pawn:new( PNJTable[i].id , PNJTable[i].snapshot, pawnSize * PNJTable[i].sizefactor , a , b ) 
-	  else
-		assert(defaultPawnSnapshot,"no default image available. You should refrain from using pawns on the map...")
-	  	p = Pawn:new( PNJTable[i].id , defaultPawnSnapshot, pawnSize * PNJTable[i].sizefactor , a , b ) 
-	  end
-	  io.write("creating pawn " .. i .. " with id " .. p.id .. "\n")
-	  p.PJ = PNJTable[i].PJ
-	  map.pawns[#map.pawns+1] = p
-
-	  -- send to projector...
-	  if atlas:isVisible(map) then
-	  	local flag
-	  	if p.PJ then flag = "1" else flag = "0" end
-	  	local f = p.snapshot.baseFilename -- FIXME: what about pawns loaded dynamically ?
-	  	io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. math.floor(pawnSize * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f .. "\n")
-	  	tcpsend( projector, "PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. math.floor(pawnSize * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f)
-	  end
-	  -- set position for next image: we display pawns on 4x4 line/column around the mouse position
-	  if i % 4 == 0 then
-			a = starta 
-			b = b + pawnSize + border*2 + margin
-	  	else
-			a = a + pawnSize + border*2 + margin	
-	  end
-	  end
-
-  end
-  end
-
--- return a pawn if position x,y on the screen (typically, the mouse), is
--- inside any pawn of the map. If several pawns at same location, return the
--- one with highest layer value
-function Map:isInsidePawn(x,y)
-  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2) -- position of the map on the screen
-  if self.pawns then
-	local indexWithMaxLayer, maxlayer = 0, 0
-	for i=1,#self.pawns do
-		-- check that this pawn is still active/alive
-		local index = findPNJ( self.pawns[i].id )
-		if index then  
-		  local lx,ly = self.pawns[i].x, self.pawns[i].y -- position x,y relative to the map, at scale 1
-		  local tx,ty = zx + lx / self.mag, zy + ly / self.mag -- position tx,ty relative to the screen
-		  local sizex = self.pawns[i].sizex / self.mag -- size relative to the screen
-		  local sizey = self.pawns[i].sizey / self.mag -- size relative to the screen
-		  if x >= tx and x <= tx + sizex and y >= ty and y <= ty + sizey and self.pawns[i].layer > maxlayer then
-			maxlayer = self.pawns[i].layer
-			indexWithMaxLayer = i
-		  end
-	  	end
-  	end
-	if indexWithMaxLayer == 0 then return nil else return self.pawns[ indexWithMaxLayer ] end
-  end
-end
 
 Atlas = {}
 Atlas.__index = Atlas
