@@ -583,7 +583,7 @@ function Map:createPawns( sx, sy, requiredSize , id )
 	  if id then uniquepawn = p end
 
 	  -- send to projector...
-	  if atlas:isVisible(map) then
+	  if not id and atlas:isVisible(map) then
 	  	local flag
 	  	if p.PJ then flag = "1" else flag = "0" end
 	  	local f = p.snapshot.baseFilename -- FIXME: what about pawns loaded dynamically ?
@@ -1500,7 +1500,18 @@ function love.mousereleased( x, y )
 				if p.y < 0 then p.y = 0 end
 				if p.x + p.sizex + 6 > map.w then p.x = math.floor(map.w - p.sizex - 6) end
 				if p.y + p.sizey + 6 > map.h then p.y = math.floor(map.h - p.sizey - 6) end
-			
+		
+				if atlas:isVisible(map) then	
+	  				local flag
+	  				if p.PJ then flag = "1" else flag = "0" end
+					local i = findPNJ( p.id )
+	  				local f = p.snapshot.baseFilename -- FIXME: what about pawns loaded dynamically ?
+	  				io.write("PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. 
+						math.floor(p.sizex * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f .. "\n")
+	  				tcpsend( projector, "PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. 
+						math.floor(p.sizex * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f)
+				end
+
 			end
 		--
 		-- we stay on same map: it may be a move or an attack

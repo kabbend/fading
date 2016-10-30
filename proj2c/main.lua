@@ -377,6 +377,8 @@ function love.update( dt )
 	--
 	-- ERAS 		remove all pawns from the map
 	--
+	-- ERAP id		remove one pawn from the map
+	--
 	-- MPAW id x y		move pawn id to new position x,y (relative to the map at scale 1)
 	--
 	-- BNRY 		binary file is about to be sent. Will be done when BEOF is received
@@ -531,6 +533,14 @@ function love.update( dt )
 		local str = string.sub(data , 6)
 		local _,_,id = string.find( str, "(%a+)" )
 		for i=1,#pawns do if pawns[i].id == id then pawns[i].dead = true end end
+
+	  elseif command == "ERAP" then
+		local str = string.sub(data , 6)
+		local _,_,id = string.find( str, "(%a+)" )
+		for i=1,#pawns do if pawns[i].id == id then 
+			table.remove( pawns, i ) 
+			break 
+		end end
 
 	  elseif command == "ERAS" then
 		pawns = {}
