@@ -348,10 +348,15 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   local lfn = love.filesystem.newFileData
   local lin = love.image.newImageData
   local lgn = love.graphics.newImage
-  success, img = pcall(function() return lgn(lin(lfn(image, 'img', 'file')), { mipmaps=true } ) end)
-  pcall(function() img:setMipmapFilter( "nearest" ) end)
-  local mode, sharpness = img:getMipmapFilter( )
-  io.write("map load: mode, sharpness = " .. tostring(mode) .. " " .. tostring(sharpness) .. "\n")
+  local success, img 
+  if self.kind == "map" then
+  	success, img = pcall(function() return lgn(lin(lfn(image, 'img', 'file')), { mipmaps=true } ) end)
+  	pcall(function() img:setMipmapFilter( "nearest" ) end)
+  	local mode, sharpness = img:getMipmapFilter( )
+  	io.write("map load: mode, sharpness = " .. tostring(mode) .. " " .. tostring(sharpness) .. "\n")
+  else
+	success, img = pcall(function() return lgn(lin(lfn(image, 'img', 'file')) ) end)
+  end
   self.im = img
   self.w, self.h = self.im:getDimensions()
   local f1, f2 = snapshotSize / self.w, snapshotSize / self.h
@@ -1242,12 +1247,24 @@ function love.draw()
 				snapshotH, 
 				snapshotSize, 
 				snapshotSize)
-  			love.graphics.setColor(255,255,255)
 		end
-		love.graphics.draw( 	snapshots[currentSnap].s[i].im , 
+		if currentSnap == 2 and snapshots[currentSnap].s[i].kind == "scenario" then
+			-- do not draw scenario, too big... Just print "Scenario"
+  			love.graphics.setColor(0,0,0)
+ 			love.graphics.setFont(fontRound)
+			love.graphics.rectangle("line", 
+				snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1),
+				snapshotH, 
+				snapshotSize, 
+				snapshotSize)
+			love.graphics.print( "Scenario" , 3 + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1), snapshotH )
+		else
+  			love.graphics.setColor(255,255,255)
+			love.graphics.draw( 	snapshots[currentSnap].s[i].im , 
 				x ,
 				snapshotH - ( snapshots[currentSnap].s[i].h * snapshots[currentSnap].s[i].snapmag - snapshotSize ) / 2, 
 			    	0 , snapshots[currentSnap].s[i].snapmag, snapshots[currentSnap].s[i].snapmag )
+		end
 	end
   end
   
