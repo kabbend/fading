@@ -218,7 +218,10 @@ function Snapshot:new( t ) -- create from filename or file object (one mandatory
   local lfn = love.filesystem.newFileData
   local lin = love.image.newImageData
   local lgn = love.graphics.newImage
-  success, img = pcall(function() return lgn(lin(lfn(image, 'img', 'file'))) end)
+  local img = lgn(lin(lfn(image, 'img', 'file')), { mipmaps=true } ) 
+  pcall( function() img:setMipmapFilter( "nearest" ) end )
+  local mode, sharpness = img:getMipmapFilter( )
+  io.write("snapshot load: mode, sharpness = " .. tostring(mode) .. " " .. tostring(sharpness) .. "\n")
   new.im = img
   new.w, new.h = new.im:getDimensions()
   local f1, f2 = snapshotSize / new.w, snapshotSize / new.h
@@ -345,7 +348,10 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   local lfn = love.filesystem.newFileData
   local lin = love.image.newImageData
   local lgn = love.graphics.newImage
-  success, img = pcall(function() return lgn(lin(lfn(image, 'img', 'file'))) end)
+  success, img = pcall(function() return lgn(lin(lfn(image, 'img', 'file')), { mipmaps=true } ) end)
+  pcall(function() img:setMipmapFilter( "nearest" ) end)
+  local mode, sharpness = img:getMipmapFilter( )
+  io.write("map load: mode, sharpness = " .. tostring(mode) .. " " .. tostring(sharpness) .. "\n")
   self.im = img
   self.w, self.h = self.im:getDimensions()
   local f1, f2 = snapshotSize / self.w, snapshotSize / self.h
@@ -394,11 +400,17 @@ function Map:draw()
      local x,y = -( SX * 1/MAG - W / 2), -( SY * 1/MAG - H / 2)
 
      if map.mask then	
-       love.graphics.setColor(100,100,50,200)
+       --love.graphics.setColor(100,100,50,200)
+       if layout:getFocus() == map then
+		love.graphics.setColor(200,200,100)
+       else
+		love.graphics.setColor(150,150,150)
+       end	
        love.graphics.stencil( myStencilFunction, "increment" )
        love.graphics.setStencilTest("equal", 1)
      else
-       love.graphics.setColor(255,255,255,240)
+       --love.graphics.setColor(255,255,255,240)
+       love.graphics.setColor(255,255,255)
      end
 
      love.graphics.draw( map.im, x, y, 0, 1/MAG, 1/MAG )
@@ -483,6 +495,7 @@ function Map:update(dt)
 		for i=1,#self.pawns do
 			local p = self.pawns[i]
 			if p.timer then p.timer:update(dt) end
+			if p.x == p.moveToX and p.y == p.moveToY then p.timer = nil end -- remove timer in the end
 			p.color = color.white
 		end	
 	end
@@ -2099,7 +2112,7 @@ function loadStartup( t )
 
     for k,f in pairs(allfiles) do
 
-      io.write("scanning file : '" .. f .. "'\n")
+      io.write("scanning file '" .. f .. ":")
 
       if kind == "pawns" then
 
