@@ -529,7 +529,7 @@ function Map:createPawns( sx, sy, requiredSize , id )
 
   -- set to scale 1
   -- get actual size, without borders.
-  requiredSize = math.floor((requiredSize) * map.mag - border*2)
+  requiredSize = math.floor((requiredSize) * map.mag) - border*2
 
   -- use the required size unless the map has pawns already. In this case, reuse the same size
   local pawnSize = map.basePawnSize or requiredSize 
@@ -1796,6 +1796,7 @@ function Atlas:toggleVisible( map )
 	if map.kind == "scenario" then return end -- a scenario is never displayed to the players
 	if self.visible == map then 
 		self.visible = nil 
+		map.is_stuck = false
 		-- erase snapshot !
 		currentImage = nil 
 	  	-- remove all pawns remotely !
