@@ -1500,8 +1500,14 @@ function love.mousereleased( x, y )
 				if p.y < 0 then p.y = 0 end
 				if p.x + p.sizex + 6 > map.w then p.x = math.floor(map.w - p.sizex - 6) end
 				if p.y + p.sizey + 6 > map.h then p.y = math.floor(map.h - p.sizey - 6) end
-		
+	
+				if atlas:isVisible(sourcemap) then	
+					tcpsend( projector , "ERAP " .. p.id )
+					io.write("ERAP " .. p.id .. "\n")
+				end
+
 				if atlas:isVisible(map) then	
+
 	  				local flag
 	  				if p.PJ then flag = "1" else flag = "0" end
 					local i = findPNJ( p.id )
