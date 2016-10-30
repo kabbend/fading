@@ -55,6 +55,7 @@ snapshots    = {}
 snapshots[1] = { s = {}, index = 1, offset = 0 } 	-- small snapshots at the bottom, for general images
 snapshots[2] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for scenario & maps
 snapshots[3] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for pawns
+snapText = { "IMAGES", "MAPS", "PAWNS" }
 currentSnap		= 1				-- by default, we display images
 snapshotSize 		= 70 				-- w and h of each snapshot
 snapshotMargin 		= 7 				-- space between images and screen border
@@ -1046,11 +1047,12 @@ function love.draw()
   			love.graphics.setColor(255,255,255)
 		end
 		love.graphics.draw( 	snapshots[currentSnap].s[i].im , 
-				x,
+				x ,
 				snapshotH - ( snapshots[currentSnap].s[i].h * snapshots[currentSnap].s[i].snapmag - snapshotSize ) / 2, 
 			    	0 , snapshots[currentSnap].s[i].snapmag, snapshots[currentSnap].s[i].snapmag )
 	end
   end
+  
 
   -- small snapshot
   love.graphics.setColor(230,230,230)
@@ -1184,6 +1186,14 @@ function love.draw()
  love.graphics.setColor(255,255,255)
  love.graphics.rectangle( "fill", 0, messagesH, W, 22 )
 
+ -- bottom applicative message
+ local appmessage = "> " .. snapText[currentSnap]
+ if not layout.globalDisplay then appmessage = appmessage .. " -- ESC mode is ON" end 	
+ love.graphics.setColor(170,5,255)
+ love.graphics.setFont(fontRound)
+ love.graphics.print( appmessage, 5, messagesH )
+ love.graphics.setColor(255,255,255)
+
  -- print messages eventually
  if messages[1] then
         if messages[1].important then 
@@ -1191,9 +1201,10 @@ function love.draw()
 	else
 		love.graphics.setColor(10,60,220)
 	end
+	local wi = string.len(messages[1].text) * 6
         love.graphics.setFont(fontRound)
-	love.graphics.setScissor( 0, messagesH, W, 22 )
-	love.graphics.printf( messages[1].text, 10 , messagesH - messages[1].offset ,W)
+	love.graphics.setScissor( 0, messagesH, W , 22 )
+	love.graphics.printf( messages[1].text, W - wi - 15 , messagesH - messages[1].offset ,W)
 	love.graphics.setScissor()
  end
 
