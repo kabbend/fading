@@ -488,9 +488,14 @@ function Map:update(dt)
 	end
 	end
 
+-- remove a pawn from the list (different from killing the pawn)
+function Map:removePawn( id )
+	for i=1,#self.pawns do if self.pawns[i].id == id then table.remove( self.pawns , i ) ; break end end
+	end
+
 --
--- Create characters from PNJTable as pawns on the 'map', with the 'requiredSize' (in pixels, 
--- for map at scale 1), and around the position 'sx','sy' (expressed in pixel position in the screen)
+-- Create characters from PNJTable as pawns on the 'map', with the 'requiredSize' (in pixels on the screen) 
+-- and around the position 'sx','sy' (expressed in pixel position in the screen)
 --
 -- createPawns() only create characters that are not already created on this 'map'. 
 -- When new characters are created on a map with existing pawns, 'requiredSize' is ignored, replaced by 
@@ -499,17 +504,23 @@ function Map:update(dt)
 -- createPawns() will create all characters of the existing list. But if 'id' is provided, it will 
 -- only create this character
 --
+-- return the pawns array if multiple pawns requested, or the unique pawn if 'id' provided
+--
 function Map:createPawns( sx, sy, requiredSize , id ) 
 
   local map = self
 
+  local uniquepawn = nil
+
   local border = 3 -- size of a colored border, in pixels, at scale 1 (3 pixels on all sides)
+
+  -- set to scale 1
+  -- get actual size, without borders.
+  requiredSize = math.floor((requiredSize) * map.mag - border*2)
 
   -- use the required size unless the map has pawns already. In this case, reuse the same size
   local pawnSize = map.basePawnSize or requiredSize 
-  map.basePawnSize = pawnSize
-  -- get actual size at scale 1. We round it to avoid issue when sending to projector
-  pawnSize = math.floor((pawnSize) * map.mag - border * 2)
+  if not map.basePawnSize then map.basePawnSize = pawnSize end
 
   local margin = math.floor(pawnSize / 10) -- small space between 2 pawns
 
@@ -556,6 +567,7 @@ function Map:createPawns( sx, sy, requiredSize , id )
 	  io.write("creating pawn " .. i .. " with id " .. p.id .. "\n")
 	  p.PJ = PNJTable[i].PJ
 	  map.pawns[#map.pawns+1] = p
+	  if id then uniquepawn = p end
 
 	  -- send to projector...
 	  if atlas:isVisible(map) then
@@ -575,6 +587,9 @@ function Map:createPawns( sx, sy, requiredSize , id )
 	  end
 
   end
+
+  if id then return uniquepawn else return map.pawns end
+
   end
 
 -- return a pawn if position x,y on the screen (typically, the mouse), is
@@ -706,6 +721,17 @@ function mainLayout:click( x , y )
 		if l.d and l.w:isInside(x,y) and l.l > layer then result = l.w ; layer = l.l end  
 	end
 	self:setFocus( result ) -- this gives or removes focus
+	return result
+	end
+
+-- same as click function, except that no click is actually performed, so focus does not change
+function mainLayout:getWindow( x , y )
+	local layer = 0
+	local result = nil
+	if not self.globalDisplay then return nil end -- in ESC mode, no window at all
+	for k,l in pairs( self.windows ) do
+		if l.d and l.w:isInside(x,y) and l.l > layer then result = l.w ; layer = l.l end  
+	end
 	return result
 	end
 
@@ -1421,20 +1447,63 @@ function love.mousereleased( x, y )
 
 		arrowMode = false
 
-		-- check that we are in the map...
-		local map = layout:getFocus()
-		if (not map) or (not map:isInside(x,y)) then pawnMove = nil; return end
+		-- check that we are in the map, or in another map...
+		local sourcemap = layout:getFocus()
+		local targetmap = layout:getWindow( x , y )
+		if (not targetmap) or (targetmap.class ~= "map") then pawnMove = nil; return end -- we are nowhere ! abort
+
+		local map = targetmap
+
+		--
+		-- we are in another map: we just allow a move, not an attack
+		--
+		if map ~= sourcemap then
+
+			-- if the target map has no pawn size already fixed, it is not easy to determine the right one
+			-- here, we do a kind of ratio depending on the images respective widths
+			local size = (sourcemap.basePawnSize / sourcemap.w) * map.w
+			size = size / map.mag
+
+			-- create the new pawn at 0,0, remove the old one
+			local p = map:createPawns( 0, 0 , size , pawnMove.id ) -- size is ignored if map has pawns already...
+			if p then
+			
+				sourcemap:removePawn( pawnMove.id )
+
+				-- we consider that the mouse position is at the center of the new image
+  				local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
+				local px, py = (x - zx) * map.mag - p.sizex / 2 , (y - zy) * map.mag - p.sizey / 2
+
+				-- now it is created, set it to correct position
+				p.x, p.y = px, py
+
+				-- the pawn will popup, no tween
+				pawnMaxLayer = pawnMaxLayer + 1
+				pawnMove.layer = pawnMaxLayer
+				table.sort( map.pawns , function (a,b) return a.layer < b.layer end )
 	
-		-- check if we are just stopping on another pawn
-		local target = map:isInsidePawn(x,y)
-		if target and target ~= pawnMove then
+				-- we must stay within the limits of the map	
+				if p.x < 0 then p.x = 0 end
+				if p.y < 0 then p.y = 0 end
+				if p.x + p.sizex + 6 > map.w then p.x = math.floor(map.w - p.sizex - 6) end
+				if p.y + p.sizey + 6 > map.h then p.y = math.floor(map.h - p.sizey - 6) end
+			
+			end
+		--
+		-- we stay on same map: it may be a move or an attack
+		--
+		else
+
+		  -- check if we are just stopping on another pawn
+		  local target = map:isInsidePawn(x,y)
+		  if target and target ~= pawnMove then
 
 			-- we have a target
 			local indexP = findPNJ( pawnMove.id )
 			local indexT = findPNJ( target.id )
 			updateTargetByArrow( indexP, indexT )
 			
-		else
+		  else
 
 			-- it was just a move, change the pawn position
 			-- we consider that the mouse position is at the center of the new image
@@ -1454,9 +1523,13 @@ function love.mousereleased( x, y )
 	
 			tcpsend( projector, "MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.moveToX) .. " " .. math.floor(pawnMove.moveToY) )		
 			
+		  end
+
 		end
+
 		pawnMove = nil; 
 		return 
+
 	end
 
 	-- we were not drawing anything, nothing to do
