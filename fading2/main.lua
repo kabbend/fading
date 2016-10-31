@@ -277,10 +277,10 @@ function Window:move( x, y ) self.x = x; self.y = y end
 
 -- drawn upper button bar
 function Window:drawBar()
- love.graphics.setColor(170,50,0)
+ love.graphics.setColor(224,224,224)
  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
  love.graphics.rectangle( "fill", zx , zy - 20 , self.w / self.mag , 20 )
- love.graphics.setColor(255,255,255)
+ love.graphics.setColor(255,0,0)
  love.graphics.setFont(fontRound)
  love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
   -- draw small circle or rectangle in upper corner, to show which mode we are in
@@ -758,6 +758,7 @@ function mainLayout:setFocus( window )
 	self.focus = window
 	end 
 
+-- when ctrl+tab is pressed, select the next window to put focus on
 function mainLayout:nextWindow()
  	local t = {}
 	local index = nil
@@ -766,7 +767,10 @@ function mainLayout:nextWindow()
 		table.insert( t , self.sorted[i].w ) 
 		if self.sorted[i].w == self:getFocus() then index = i end
 		end end
-	if not index then return end
+	if not index then
+		if #t >= 1 then index = 1
+		else return end
+	end
  	index = index + 1
 	if index > #t then index = 1 end	
 	self:setFocus( t[index] )	
@@ -1273,6 +1277,9 @@ function love.draw()
 
   local alpha = 80
 
+  love.graphics.setColor(255,255,255,200)
+  love.graphics.draw( backgroundImage , 0 , 0)
+
   -- bottom snapshots list
   love.graphics.setColor(255,255,255)
   for i=snapshots[currentSnap].index, #snapshots[currentSnap].s do
@@ -1490,7 +1497,7 @@ function love.draw()
 
     -- draw number if needed
     if drawDicesResult then
-      love.graphics.setColor(unpack(color.red))
+      love.graphics.setColor(unpack(color.white))
       love.graphics.setFont(fontDice)
       love.graphics.print(diceSum,650,4*viewh/5)
     end
@@ -2396,7 +2403,9 @@ function love.load( args )
     local current_class = opt[1]
 
     -- create view structure
-    love.graphics.setBackgroundColor( 255, 255, 255 )
+    --love.graphics.setBackgroundColor( 255, 205, 205 )
+    backgroundImage = love.graphics.newImage( "background.jpg" )
+
     view = yui.View(0, 0, vieww, viewh, {
         margin_top = 5,
         margin_left = 5,
