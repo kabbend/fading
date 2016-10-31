@@ -282,7 +282,7 @@ end
 --   and are displayed "on top" of this main screen.
 --
 Window = { class = "window", w = 0, h = 0, mag = 1.0, x = 0, y = 0 , zoomable = false ,
-	   is_stuck = false, stickx = 0, sticky = 0, stickmag = 0 , markForClosure = false }
+	   sticky = false, stickX = 0, stickY = 0, stickmag = 0 , markForClosure = false }
 function Window:new( t ) 
   local new = t or {}
   setmetatable( new , self )
@@ -440,7 +440,7 @@ end
 -- We might send the same movement to the projector as well
 function Map:move( x, y ) 
 		self.x = x; self.y = y
-		if atlas:isVisible(self) and not self.is_stuck then 
+		if atlas:isVisible(self) and not self.sticky then 
 			tcpsend( projector, "CHXY " .. math.floor(self.x) .. " " .. math.floor(self.y) ) 
 		end
 	end
@@ -450,7 +450,7 @@ function Map:zoom( mag )
 		if self.magindex < 1 then self.magindex = 1 end
 		if self.magindex > #self.zoomtable then self.magindex = #self.zoomtable end
 		self.mag = self.zoomtable[self.magindex]
-		if atlas:isVisible(self) and not self.is_stuck then tcpsend( projector, "MAGN " .. 1/self.mag ) end	
+		if atlas:isVisible(self) and not self.sticky then tcpsend( projector, "MAGN " .. 1/self.mag ) end	
 	end
 
 function Map:maximize()
@@ -548,7 +548,7 @@ function Map:draw()
      -- print visible 
      if atlas:isVisible( map ) then
 	local char = "V" -- a priori
-	if map.is_stuck then char = "S" end -- stands for S(tuck)
+	if map.sticky then char = "S" end -- stands for S(tuck)
         love.graphics.setColor(200,0,0,180)
         love.graphics.setFont(fontDice)
 	love.graphics.print( char , x + 5 , y + (40 / map.mag) , 0, 2/map.mag, 2/map.mag) -- bigger letters
@@ -1533,7 +1533,7 @@ function love.draw()
  local m = layout:getFocus() 
  if m and atlas:isVisible(m) then 
 	appmessage = appmessage .. " -- Map is VISIBLE"  	
-	if m.is_stuck then appmessage = appmessage .. " and STICKY"  end
+	if m.sticky then appmessage = appmessage .. " and STICKY"  end
  end
  love.graphics.setColor(170,5,255)
  love.graphics.setFont(fontRound)
@@ -1987,7 +1987,7 @@ function Atlas:toggleVisible( map )
 	if map.kind == "scenario" then return end -- a scenario is never displayed to the players
 	if self.visible == map then 
 		self.visible = nil 
-		map.is_stuck = false
+		map.sticky = false
 		-- erase snapshot !
 		currentImage = nil 
 	  	-- remove all pawns remotely !
@@ -2106,6 +2106,7 @@ function love.keypressed( key, isrepeat )
 -- keys applicable in any context
 -- we expect:
 -- 'lctrl + d' : open dialog window
+-- 'lctrl + h' : open help window
 -- 'lctrl + tab' : give focus to the next window if any
 -- 'escape' : hide or restore all windows 
 if key == "d" and love.keyboard.isDown("lctrl") then
@@ -2152,6 +2153,7 @@ if not window then
       focusAttackers = PNJTable[ focus ].attackers
       focusTarget  = PNJTable[ focus ].target
     end
+    return
   end
   
   if focus and key == "up" then
@@ -2167,31 +2169,20 @@ if not window then
   if key == 'space' then
 	  currentSnap = currentSnap + 1
 	  if currentSnap == 4 then currentSnap = 1 end
+	  return
   end
   
 else
   -- a window is selected. Keys applicable to any window:
   -- 'lctrl + c' : recenter window
   -- 'lctrl + x' : close window
-  -- 'lctrl + s' : stick the window
   if key == "x" and love.keyboard.isDown("lctrl") then
 	layout:setDisplay( window, false )
 	return
   end
   if key == "c" and love.keyboard.isDown("lctrl") then
-	if window.is_stuck then
-		window:move( window.stickx , window.sticky )
-		window.magindex = window.stickmag
-		window:zoom(0)
-		window.is_stuck = false
-	else
-		window:move( window.w / 2, window.h / 2 )
-	end
+	window:move( window.w / 2, window.h / 2 )
 	return
-  end
-  if key == "s" and love.keyboard.isDown("lctrl") then
-	window.is_stuck = true
-	window.stickx, window.sticky, window.stickmag = window.x, window.y, window.magindex
   end
 
   if     window.class == "dialog" then
@@ -2222,7 +2213,26 @@ else
 	-- 'tab' to get to circ or rect mode
 	-- 'lctrl + p' to remove all pawns
 	-- 'lctrl + v' : toggle visible / not visible
-	-- 'lctrl + z' : zoom
+	-- 'lctrl + z' : maximize/minimize (zoom)
+	-- 'lctrl + s' : stick map
+	-- 'lctrl + u' : unstick map
+
+  	if key == "s" and love.keyboard.isDown("lctrl") then
+		if not atlas:isVisible(map) then return end -- if map is not visible, do nothing
+		map.sticky = true
+		map.stickX, map.stickY, map.stickmag = map.x, map.y, map.magindex
+		return
+  	end
+
+  	if key == "u" and love.keyboard.isDown("lctrl") then
+		if not map.sticky then return end
+		window:move( window.stickX , window.stickY )
+		window.magindex = window.stickmag
+		window:zoom(0)
+		window.sticky = false
+		return
+	end
+
     	if key == keyZoomIn then
 		ignoreLastChar = true
 		map:zoom( 1 )
@@ -2235,7 +2245,7 @@ else
     
 	if key == "v" and love.keyboard.isDown("lctrl") then
 		atlas:toggleVisible( map )
-		if not atlas:isVisible( map ) then map.is_stuck = false end
+		if not atlas:isVisible( map ) then map.sticky = false end
     	end
 
    	if key == "p" and love.keyboard.isDown("lctrl") then
