@@ -102,6 +102,7 @@ HelpLog = {
 	{"",0,""},
 	{"CTRL+H",170,"Help. Ouvre cette fenêtre"},
 	{"CTRL+X",170,"Ferme la fenêtre courante"},
+	{"CTRL+D",170,"Dialog. Ouvre la fenêtre de dialogue (communication avec les joueurs)"},
 	{"CTRL+C",170,"Center. Recentre la fenêtre au milieu de l'écran"},
 	{"CTRL+TAB",170,"Passe à la fenêtre suivante"},
 	{"CTRL+V",170,"Visible. Rend la Map sélectionnée visible/invisible des joueurs, sur le projecteur"},
@@ -1005,6 +1006,7 @@ function love.filedropped(file)
 	  		currentImage = snap.im 
 			-- remove the 'visible' flag from maps (eventually)
 			atlas:removeVisible()
+		  	tcpsend(projector,"ERAS") 	-- remove all pawns (if any) 
 			if not is_local then
     	  	  		-- send the filename (without path) over the socket
 		  		filename = string.gsub(filename,baseDirectory,"")
@@ -1911,6 +1913,7 @@ function love.mousepressed( x, y , button )
 	      	currentImage = snapshots[currentSnap].s[index].im
 	      	-- remove the 'visible' flag from maps (eventually)
 	      	atlas:removeVisible()
+		tcpsend(projector,"ERAS") 	-- remove all pawns (if any) 
     	      	-- send the filename over the socket
 		if snapshots[currentSnap].s[index].is_local then
 			tcpsendBinary( snapshots[currentSnap].s[index].file )
