@@ -2221,7 +2221,7 @@ else
 	-- keys for map. We expect:
 	-- Zoom in and out
 	-- 'tab' to get to circ or rect mode
-	-- 'lctrl + p' to remove all pawns
+	-- 'lctrl + p' : remove all pawns
 	-- 'lctrl + v' : toggle visible / not visible
 	-- 'lctrl + z' : maximize/minimize (zoom)
 	-- 'lctrl + s' : stick map
@@ -2229,8 +2229,18 @@ else
 
   	if key == "s" and love.keyboard.isDown("lctrl") then
 		if not atlas:isVisible(map) then return end -- if map is not visible, do nothing
-		map.sticky = true
-		map.stickX, map.stickY, map.stickmag = map.x, map.y, map.magindex
+		if not map.sticky then
+			-- we enter sticky mode. Normally, the projector is fully aligned already, so
+			-- we just save the current status for future restoration
+			map.stickX, map.stickY, map.stickmag = map.x, map.y, map.magindex
+			map.sticky = true
+		else
+			-- we were already sticky, with a different status probably. So we store this
+			-- new one, but we need to align the projector as well
+			map.stickX, map.stickY, map.stickmag = map.x, map.y, map.magindex
+			tcpsend( projector, "CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) ) 
+			tcpsend( projector, "MAGN " .. 1/map.mag ) 
+		end
 		return
   	end
 
