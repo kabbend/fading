@@ -97,6 +97,32 @@ dialogActive		= false
 dialogLog		= {}			-- store all dialogs for complete display
 ack			= false			-- automatic acknowledge when message received ?
 
+-- Help stuff
+HelpLog = {
+	{"",0,""},
+	{"CTRL+H",170,"Help. Ouvre cette fenêtre"},
+	{"CTRL+X",170,"Ferme la fenêtre courante"},
+	{"CTRL+C",170,"Center. Recentre la fenêtre au milieu de l'écran"},
+	{"CTRL+TAB",170,"Passe à la fenêtre suivante"},
+	{"CTRL+V",170,"Visible. Rend la Map sélectionnée visible/invisible des joueurs, sur le projecteur"},
+	{"CTRL+S",170,"Stick. Active le mode 'sticky' sur la Map sélectionnée, si elle est visible"},
+	{"CTRL+U",170,"Unstick. Retire le mode 'sticky' de la Map sélectionnée"},
+	{"CTRL+Z",170,"Zoom. Active la maximization/minimization de la Map sélectionnée"},
+	{"CTRL+P",170,"Pions. Sur une Map avec des pions, retire tous les pions"},
+	{"SHIFT+Mouse",170,"Sur une Map, créé une forme géométrique qui réduit le brouillard de guerre"},
+	{"CTRL+Mouse",170,"Sur une Map, créé et positionne des pions"},
+	{"TAB",170,"Pour les Maps, passe du mode Rectangle au mode Cercle pour tracer les brouillards de guerre"},
+	{"ESPACE",170,"Change la catégorie de la barre de snapshots, entre images, maps et pions"},
+	{"ESC",170,"Cache toutes les fenêtres (ou les restaure)"},
+	{"",0,""},
+	{": ou = (macbook pro)",300,"Sur une Map, Zoom - ou +"},
+	{": ou ! (windows)",300,"Sur une Map, Zoom - ou +"},
+	{"",0,""},
+	{"Double-click (snapshot image)",300,"L'envoie au projecteur"},
+	{"Double-click (snapshot Map)",300, "Ouvre la map"},
+	{"Double-click (Snapshot pion)",300,"Associe le pion au personnage sélectionné dans la liste"},
+	}
+
 -- some basic colors
 color = {
   masked = {210,210,210}, black = {0,0,0}, red = {250,80,80}, darkblue = {66,66,238}, purple = {127,0,255}, 
@@ -685,6 +711,33 @@ function Map:isInsidePawn(x,y)
   	end
 	if indexWithMaxLayer == 0 then return nil else return self.pawns[ indexWithMaxLayer ] end
   end
+end
+
+-- Help class
+-- a Help is a window which displays some fixed text . it is not zoomable
+Help = Window:new{ class = "help" }
+
+function Help:new( t ) -- create from w, h, x, y
+  local new = t or {}
+  setmetatable( new , self )
+  self.__index = self
+  return new
+end
+
+function Help:draw()
+   -- draw window frame
+   love.graphics.setFont(fontSearch)
+   love.graphics.setColor(10,10,10,150)
+   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+   love.graphics.rectangle( "fill", zx , zy , self.w , self.h )  
+   -- print current help text
+   love.graphics.setColor(255,255,255)
+   for i=1,#HelpLog do 
+	love.graphics.printf( HelpLog[i][1] , zx + 5, zy + (i-1)*18 , self.w )	
+	love.graphics.printf( HelpLog[i][3] , zx + HelpLog[i][2], zy + (i-1)*18 , self.w )	
+   end
+   -- print bar
+   self:drawBar()
 end
 
 -- Dialog class
@@ -1771,7 +1824,7 @@ function love.mousepressed( x, y , button )
 
 	local window = layout:click(x,y)
 
-	if window and window.class == "dialog" then
+	if window and window.class ~= "map" then
 		-- want to move window 
 	   	mouseMove = true
 	   	arrowMode = false
@@ -2060,6 +2113,17 @@ if key == "d" and love.keyboard.isDown("lctrl") then
 	dialogWindow = Dialog:new{w=800,h=220,x=400,y=110}
 	layout:addWindow( dialogWindow , true ) -- display it. Set focus
 	layout:setFocus( dialogWindow ) 
+  end
+  return
+end
+if key == "h" and love.keyboard.isDown("lctrl") then
+  if helpWindow then 
+	layout:setDisplay( helpWindow, true )
+	layout:setFocus( helpWindow ) 
+  else
+	helpWindow = Help:new{w=1000,h=420,x=500,y=220}
+	layout:addWindow( helpWindow , true ) -- display it. Set focus
+	layout:setFocus( helpWindow ) 
   end
   return
 end

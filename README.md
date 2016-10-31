@@ -4,7 +4,8 @@
 
 Le repository contient 3 programmes qui fonctionnent ensemble :
 
-- le serveur, sous le repertoire fading2. Le serveur contient aussi l'interface qui tourne sur le PC du MJ, et qui contient la majeure partie des fonctionnalites. Le serveur peut tourner sans les 2 autres.
+- le serveur, sous le repertoire fading2. Le serveur contient aussi l'interface qui tourne sur le PC du MJ, et qui contient la majeure partie des fonctionnalites. Le
+  serveur peut tourner sans les 2 autres. Tapez 'Left-Control + h' pour avoir la fenêtre d'aide et un résumé des commandes.
 
 - le projecteur, sous le repertoire proj2c. Le projecteur est en visibilite des joueurs, depuis un 2nd moniteur du PC serveur, ou bien sur un autre PC. 
 
@@ -28,13 +29,13 @@ precedent):
 #!c
 baseDirectory                 -- banque globale d'images, de data, de maps. Peut contenir un ou plusieurs repertoires pour stocker des scenarios differents
  !
- +--- data                    -- fichier (facultatif mais conseille) qui decrit les classes de PNJ ou les PJ (en principe, pas lies à un scenario donne)
+ +--- data                    -- fichier qui decrit les classes de PNJ ou les PJ (en principe celles qui ne sont pas liees à un scenario donne)
  !
  +--- pawns                   -- repertoire (facultatif) d'images pour les pions (pawns) sur les maps
  !     +--- pawnDefault.jpg   -- image par defaut pour les pions
- !     +--- pawn*.jpg/png     -- sera associe automatiquement à un PJ si le nom matche (sinon, stocke comme une image classique)
+ !     +--- pawn*.jpg/png     -- sera associe automatiquement à un PJ si le nom matche (sinon, sera stocke comme une image classique)
  !     +--- *.jpg/png         -- sera stocke en memoire et utilisable durant la partie comme une image de pion, à la discretion du MJ
- !                            -- et aussi, sera associe automatiquement à une classe de PNJ si les nom matche avec celui indique dans le fichier data
+ !                            -- et aussi, sera associe automatiquement à une classe de PNJ si le nom matche avec celui indique dans le fichier data
  !
  +--- fadingDirectory         -- repertoire du scenario en cours
        +--- scenario.txt      -- facultatif: texte (structure) associe au scenario Coggle
@@ -47,7 +48,7 @@ baseDirectory                 -- banque globale d'images, de data, de maps. Peut
                               -- peut completer le fichier data general (avec des classes particulières, par exemple)
 ```
 
-Il faut fournir au moins un fichier data (les deux peuvent se completer), et une image pawnDefault.jpg de pion par defaut.
+Il faut fournir au moins un fichier data (ils se completent l'un l'autre s'ils sont présents tous les deux), et une image pawnDefault.jpg de pion par defaut. Tous les autres fichiers (images, maps, scenario...) sont facultatifs
 
 ##Ligne de commande
 Serveur:
@@ -55,14 +56,14 @@ Serveur:
 ```
 #!c
 
-love fading2 [options] arg
+love fading2 [options] baseDirectory 
 
-arg = baseDirectory :             Full path to global directory. In principle, this directory is the one shared with the projector 
+baseDirectory :                   Full path to the global directory. This directory is the one shared with the projector 
                                   It may (and is recommended to) be a network shared directory (eg. google drive)
-[-s|--scenario fadingDirectory] : relative path (from base directory) to the scenario directory
+[-s|--scenario fadingDirectory] : relative path (starting from base directory) to the scenario directory
 [-d|--debug] :                    Run in debug mode
 [-l|--log] :                      Log to file (fading.log) instead of stdout
-[-a|--ack] :                      With FS mobile: Send an automatic acknowledge reply for each message received
+[-a|--ack] :                      With fsmob application: Send an automatic acknowledge reply for each message received
 [-p|--port port] :                Specify server local port, by default 12345
 ```
 
