@@ -282,7 +282,8 @@ end
 --   and are displayed "on top" of this main screen.
 --
 Window = { class = "window", w = 0, h = 0, mag = 1.0, x = 0, y = 0 , zoomable = false ,
-	   sticky = false, stickX = 0, stickY = 0, stickmag = 0 , markForClosure = false }
+	   sticky = false, stickX = 0, stickY = 0, stickmag = 0 , markForClosure = false,
+	   title = "" }
 function Window:new( t ) 
   local new = t or {}
   setmetatable( new , self )
@@ -301,16 +302,24 @@ end
 
 function Window:zoom( mag ) if self.zoomable then self.mag = mag end end
 function Window:move( x, y ) self.x = x; self.y = y end
+function Window:setTitle( title ) self.title = title end
 
 -- drawn upper button bar
 function Window:drawBar()
+ local reservedForButtons = 20*4
+ local availableForTitle = self.w / self.mag - reservedForButtons - 20
+ local numChar = math.floor(availableForTitle / 7)
+ local title = string.sub( self.title , 1, numChar ) 
  love.graphics.setColor(224,224,224)
  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
  love.graphics.rectangle( "fill", zx , zy - 20 , self.w / self.mag , 20 )
  love.graphics.setColor(255,0,0)
  love.graphics.setFont(fontRound)
  love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
+ love.graphics.setColor(0,0,0)
+ love.graphics.print( title , zx + 20 , zy - 18 )
   -- draw small circle or rectangle in upper corner, to show which mode we are in
+ love.graphics.setColor(255,0,0)
  if self.class == "map" and self.kind == "map" then
     if maskType == "RECT" then love.graphics.rectangle("line",zx + 5, zy - 16 ,12, 12) end
        if maskType == "CIRC" then love.graphics.circle("line",zx + 10, zy - 10, 5) end
@@ -402,6 +411,7 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
 	self.is_local = true
 	self.baseFilename = nil
   end
+  self.title = self.baseFilename or ""
   local lfn = love.filesystem.newFileData
   local lin = love.image.newImageData
   local lgn = love.graphics.newImage
@@ -716,7 +726,7 @@ end
 
 -- Help class
 -- a Help is a window which displays some fixed text . it is not zoomable
-Help = Window:new{ class = "help" }
+Help = Window:new{ class = "help" , title = "Help" }
 
 function Help:new( t ) -- create from w, h, x, y
   local new = t or {}
@@ -743,7 +753,7 @@ end
 
 -- Dialog class
 -- a Dialog is a window which displays some text and let some input. it is not zoomable
-Dialog = Window:new{ class = "dialog" }
+Dialog = Window:new{ class = "dialog" , title = "Dialog" }
 
 function Dialog:new( t ) -- create from w, h, x, y
   local new = t or {}
@@ -2125,7 +2135,7 @@ if key == "h" and love.keyboard.isDown("lctrl") then
 	layout:setDisplay( helpWindow, true )
 	layout:setFocus( helpWindow ) 
   else
-	helpWindow = Help:new{w=1000,h=420,x=500,y=220}
+	helpWindow = Help:new{w=1000,h=480,x=500,y=240}
 	layout:addWindow( helpWindow , true ) -- display it. Set focus
 	layout:setFocus( helpWindow ) 
   end
