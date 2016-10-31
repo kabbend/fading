@@ -406,7 +406,7 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   self.basePawnSize = nil -- base size for pawns on this map (in pixels, for map at scale 1)
   self.zoomtable = { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5, 2, 3, 4, 5, 6, 7, 8 , 9, 10}
   self.magindex = 10 -- correspond to mag = 1.0
-
+  self.maskMinX, self.maskMaxX, self.maskMinY, self.maskMaxY = 100 * self.w , -100 * self.w, 100 * self.h, - 100 * self.h 
 end
 
 -- a Map move or zoom is a  bit more than a window move or zoom: 
@@ -424,6 +424,31 @@ function Map:zoom( mag )
 		if self.magindex > #self.zoomtable then self.magindex = #self.zoomtable end
 		self.mag = self.zoomtable[self.magindex]
 		if atlas:isVisible(self) and not self.is_stuck then tcpsend( projector, "MAGN " .. 1/self.mag ) end	
+	end
+
+function Map:maximize()
+
+	-- if values are stored for restoration, we restore
+	if self.restoreX then
+		self.x, self.y, self.magindex, self.mag = self.restoreX, self.restoreY, self.restoreMagindex, self.restoreMag
+		self.restoreX, self.restoreY, self.restoreMagindex, self.restoreMag = nil,nil,nil,nil 
+		return
+	end
+
+	-- store values for restoration
+	self.restoreX, self.restoreY, self.restoreMagindex, self.restoreMag = self.x, self.y, self.magindex, self.mag
+
+	if not self.mask or (self.mask and #self.mask == 0) then
+		-- no mask, just center the window with scale 1:0
+		self.x, self.y = self.w / 2, self.h / 2
+		self.magindex = 10 -- scale 1
+		self.mag = 1.0
+	else
+		-- there are masks. We take the center of the combined masks
+		self.x, self.y = (self.maskMinX + self.maskMaxX) / 2, (self.maskMinY + self.maskMaxY) / 2 
+		self.magindex = 10 -- scale 1
+		self.mag = 1.0
+	end
 	end
 
 function Map:draw()
@@ -1673,6 +1698,8 @@ function love.mousereleased( x, y )
 
 	  	local command = nil
 
+		local maxX, maxY, minX, minY = 0,0,0,0
+
 	  	if arrowModeMap == "RECT" then
 
 	  		if arrowStartX > arrowX then arrowStartX, arrowX = arrowX, arrowStartX end
@@ -1682,6 +1709,13 @@ function love.mousereleased( x, y )
 	  		local w = math.floor((arrowX - arrowStartX) * map.mag)
 	  		local h = math.floor((arrowY - arrowStartY) * map.mag)
 	  		command = "RECT " .. sx .. " " .. sy .. " " .. w .. " " .. h 
+		
+			maxX = sx + w
+			minX = sx
+			maxY = sy + h
+			minY = sy
+			if minX > maxX then minX, maxX = maxX, minX end
+			if minY > maxY then minY, maxY = maxY, minY end
 
 	  	elseif arrowModeMap == "CIRC" then
 
@@ -1691,11 +1725,21 @@ function love.mousereleased( x, y )
 			local r = distanceFrom( arrowX, arrowY, arrowStartX, arrowStartY) * map.mag / 2
 	  		if r ~= 0 then command = "CIRC " .. sx .. " " .. sy .. " " .. r end
 
+			maxX = sx + r
+			minX = sx - r
+			maxY = sy + r
+			minY = sy - r
 	  	end
 
 	  	if command then 
 			table.insert( map.mask , command ) 
 			io.write("inserting new mask " .. command .. "\n")
+
+			if minX < map.maskMinX then map.maskMinX = minX end
+			if minY < map.maskMinY then map.maskMinY = minY end
+			if maxX > map.maskMaxX then map.maskMaxX = maxX end
+			if maxY > map.maskMaxY then map.maskMaxY = maxY end
+
 	  		-- send over if requested
 	  		if atlas:isVisible( map ) then tcpsend( projector, command ) end
 	  	end
@@ -2111,6 +2155,7 @@ else
 	-- 'tab' to get to circ or rect mode
 	-- 'lctrl + p' to remove all pawns
 	-- 'lctrl + v' : toggle visible / not visible
+	-- 'lctrl + z' : zoom
     	if key == keyZoomIn then
 		ignoreLastChar = true
 		map:zoom( 1 )
@@ -2131,6 +2176,9 @@ else
 	   map.basePawnSize = nil
 	   tcpsend( projector, "ERAS" )    
    	end
+   	if key == "z" and love.keyboard.isDown("lctrl") then
+		map:maximize()
+	end
 
    	if key == "tab" then
 	  if maskType == "RECT" then maskType = "CIRC" else maskType = "RECT" end
