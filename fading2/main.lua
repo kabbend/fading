@@ -255,7 +255,7 @@ end
 --   and are displayed "on top" of this main screen.
 --
 Window = { class = "window", w = 0, h = 0, mag = 1.0, x = 0, y = 0 , zoomable = false ,
-	   is_stuck = false, stickx = 0, sticky = 0, stickmag = 0 }
+	   is_stuck = false, stickx = 0, sticky = 0, stickmag = 0 , markForClosure = false }
 function Window:new( t ) 
   local new = t or {}
   setmetatable( new , self )
@@ -275,6 +275,7 @@ end
 function Window:zoom( mag ) if self.zoomable then self.mag = mag end end
 function Window:move( x, y ) self.x = x; self.y = y end
 
+-- drawn upper button bar
 function Window:drawBar()
  love.graphics.setColor(170,50,0)
  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
@@ -288,6 +289,21 @@ function Window:drawBar()
        if maskType == "CIRC" then love.graphics.circle("line",zx + 10, zy - 10, 5) end
      end
 end
+
+-- click in the window. Check some rudimentary behaviour (quit...)
+function Window:click(x,y)
+ 	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+	-- click on X symbol
+	if x >= zx + self.w / self.mag - 12 and x <= zx + self.w / self.mag and
+		y >= zy - 20 and y <= zy then
+		self.markForClosure = true
+		-- mark the window for a future closure. We don't close it right now, because
+		-- there might be another object clickable just below that would be wrongly
+		-- activated ( a yui button ). So we wait for the mouse release to perform
+		-- the actual closure
+	end
+	return self
+	end
 
 -- to be redefined in inherited classes
 function Window:draw() end 
@@ -727,6 +743,8 @@ function mainLayout:toggleDisplay()
 -- return (if there is one) or set the window with focus 
 -- if we set focus, the window automatically gets in front layer
 function mainLayout:getFocus() return self.focus end
+
+-- set the focus on the given window. if window is nil, remove existing focus if any
 function mainLayout:setFocus( window ) 
 	if window then
 		if window == self.focus then return end -- this window was already in focus. nothing happens
@@ -765,6 +783,12 @@ function mainLayout:click( x , y )
 	if not self.globalDisplay then return nil end -- in ESC mode, no window at all
 	for k,l in pairs( self.windows ) do
 		if l.d and l.w:isInside(x,y) and l.l > layer then result = l.w ; layer = l.l end  
+	end
+	if result then
+		-- a window was actually clicked. Call corresponding click() function 
+		-- this gives opportunity to the window to react, and potentially to close itself
+		-- if the close button is pressed. 
+		result:click(x,y)
 	end
 	self:setFocus( result ) -- this gives or removes focus
 	return result
@@ -1056,6 +1080,9 @@ function love.update(dt)
 	  if snapshots[currentSnap].offset < -snapMax then snapshots[currentSnap].offset = -snapMax end
 	end
 
+  	view:update(dt)
+  	yui.update({view})
+
 	-- restore pawn color when needed
 	-- move pawns progressively
 	layout:update(dt)
@@ -1204,8 +1231,6 @@ function love.update(dt)
     		flashTimer = 0
   	end
 
-  	view:update(dt)
-  	yui.update({view})
 
 	end
 
@@ -1496,6 +1521,14 @@ function computeTriangle( x1, y1, x2, y2 )
 -- when mouse is released and an arrow is being draw, check if the ending point
 -- is on a given PNJ, and update PNJ accordingly
 function love.mousereleased( x, y )   
+
+	-- check if we must close the window
+	local x,y = love.mouse.getPosition()
+	local w = layout:getWindow(x,y)
+	if w and w.markForClosure then 
+		w.markForClosure = false
+		layout:setDisplay(w,false) 
+	end
 
 	-- we were moving the map. We stop now
 	if mouseMove then mouseMove = false; return end
@@ -2149,14 +2182,6 @@ function leave()
 	if logFile then logFile:close() end
 	end
 
--- all clicks in yui interface are aborted if a window is in front
--- we should remove yui completely to avoid this kind of check
--- return false if the click should be aborted, true otherwise
-function checkClick()
-	local x,y = love.mouse.getPosition()
-	if layout:click(x,y) then return false else return true end
-	end
-
 -- load initial data from file at startup
 function loadStartup( t )
 
@@ -2379,27 +2404,25 @@ function love.load( args )
             yui.Flow({name="t",
                 yui.HorizontalSpacing({w=10}),
                 yui.Button({name="nextround", text="  Next Round  ", size=size, black = true, 
-			onClick = function(self) if not checkClick() then return end 
-						 if self.button.black then return end 
+			onClick = function(self) if self.button.black then return end 
 				 		 if checkForNextRound() then nextRound() end end }),
                 yui.Text({text="Round #", size=size, bold=1, center = 1}),
                 yui.Text({name="round", text=tostring(roundNumber), size=32, w = 50, bold=1, color={0,0,0} }),
                 yui.FlatDropdown({options = opt, size=size-2, onSelect = function(self, option) current_class = option end}),
                 yui.HorizontalSpacing({w=10}),
                 yui.Button({text=" Create ", size=size, 
-			onClick = function(self) if not checkClick() then return end; return generateNewPNJ(current_class) and sortAndDisplayPNJ() end }),
+			onClick = function(self) return generateNewPNJ(current_class) and sortAndDisplayPNJ() end }),
                 yui.HorizontalSpacing({w=50}),
                 yui.Button({name = "rollatt", text="     Roll Attack     ", size=size, black = true,
-			onClick = function(self) if not checkClick() then return end; 
-						 if self.button.black then return end rollAttack("attack") end }), 
+			onClick = function(self) if self.button.black then return end rollAttack("attack") end }), 
 		yui.HorizontalSpacing({w=10}),
                 yui.Button({name = "rollarm", text="     Roll  Armor     ", size=size, black = true,
-			onClick = function(self) if not checkClick() then return end; if self.button.black then return end rollAttack("armor") end }),
+			onClick = function(self) if self.button.black then return end rollAttack("armor") end }),
                 yui.HorizontalSpacing({w=150}),
                 yui.Button({name="cleanup", text="       Cleanup       ", size=size, 
-			onClick = function(self) if not checkClick() then return end ; return removeDeadPNJ() and sortAndDisplayPNJ() end }),
+			onClick = function(self) return removeDeadPNJ() and sortAndDisplayPNJ() end }),
                 yui.HorizontalSpacing({w=270}),
-                yui.Button({text="    Quit    ", size=size, onClick = function(self) if not checkClick() then return end ; leave(); love.event.quit() end }),
+                yui.Button({text="    Quit    ", size=size, onClick = function(self) leave(); love.event.quit() end }),
               }), -- end of Flow
             createPNJGUIFrame(),
            }) -- end of Stack

@@ -39,6 +39,10 @@ function Button:new(yui, settings)
 end
 
 function Button:update(dt)
+
+    local x,y = love.mouse.getPosition()
+    if layout:getWindow(x,y) then self.button.hot = false end
+
     if self.button.hot and self.button.released then
         if self.onClick then
             self:onClick()

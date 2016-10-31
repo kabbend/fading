@@ -539,7 +539,6 @@ function createPNJGUIFrame()
         yui.HorizontalSpacing({w=10}),
         yui.Checkbox({name = "done", text = '', w = 30, 
             onClick = function(self) 
-	      if not checkClick() then return end
               if (PNJTable[i]) then 
                 PNJTable[i].done = self.checkbox.checked; 
                 updateLineColor(i)
@@ -553,7 +552,6 @@ function createPNJGUIFrame()
 
         yui.Button({name="initm", text = '-', size=size-4,
             onClick = function(self) 
-	      if not checkClick() then return end
               if (i>=PNJnum) then return end
               if (PNJTable[i].is_dead) then return end
               if (PNJTable[i].PJ) then 
@@ -566,7 +564,6 @@ function createPNJGUIFrame()
         yui.HorizontalSpacing({w=3}),
         yui.Button({name="initp", text = '+', size=size-4,
             onClick = function(self) 
-	      if not checkClick() then return end
               if (i>=PNJnum) then return end
               if (PNJTable[i].is_dead) then return end
               if (PNJTable[i].PJ) then 
@@ -586,7 +583,6 @@ function createPNJGUIFrame()
 
         yui.Button({name="minusd", text = '-', size=size,
             onClick = function(self) 
-	      if not checkClick() then return end
               if (i>=PNJnum) then return end
               if (PNJTable[i].is_dead) then return end
               changeDefense(i,-1,nil)
@@ -597,7 +593,6 @@ function createPNJGUIFrame()
 
         yui.Button({name="minus", text = '-1', size=size-2,
             onClick = function(self) 
-	      if not checkClick() then return end
               if (i>=PNJnum) then return end
               if (PNJTable[i].is_dead) then return end
               PNJTable[i].hits = PNJTable[i].hits - 1
@@ -641,7 +636,6 @@ function createPNJGUIFrame()
         yui.HorizontalSpacing({w=3}),
         yui.Button({name="shot", text = '0', size=size-2,
             onClick = function(self) 
-	      if not checkClick() then return end
               if (i>=PNJnum) then return end
               if (PNJTable[i].is_dead) then return end
               -- remove DEF if allowed
@@ -656,7 +650,6 @@ function createPNJGUIFrame()
         yui.HorizontalSpacing({w=3}),
         yui.Button({name="kill", text = 'kill', size=size-2, 
             onClick = function(self)
-	      if not checkClick() then return end
               if (i>=PNJnum) then return end
               if (PNJTable[i].is_dead) then return end
               PNJTable[i].hits = 0
@@ -685,7 +678,6 @@ function createPNJGUIFrame()
         yui.Text({name="stance",text="", w=100, size=size, center = 1}),
         yui.Button({name="agressive", text = 'A', size=size,
             onClick = function(self)
-	      if not checkClick() then return end
               if (i>=PNJnum) then return end
               if (PNJTable[i].is_dead) then return end
               PNJTable[i].goalstancebonus = 3;
@@ -702,7 +694,6 @@ function createPNJGUIFrame()
         yui.HorizontalSpacing({w=3}),
         yui.Button({name="neutral", text = 'N', size=size,
             onClick = function(self)
-	      if not checkClick() then return end
               if (i>=PNJnum) then return end
               if (PNJTable[i].is_dead) then return end
               PNJTable[i].goalstancebonus = 0;
@@ -719,7 +710,6 @@ function createPNJGUIFrame()
         yui.HorizontalSpacing({w=3}),
         yui.Button({name="defense", text = 'D', size=size,
             onClick = function(self)
-	      if not checkClick() then return end
               if (i>=PNJnum) then return end
               if (PNJTable[i].is_dead) then return end
               PNJTable[i].goalstancebonus = -3;

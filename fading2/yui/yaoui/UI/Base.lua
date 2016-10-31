@@ -49,10 +49,11 @@ end
 
 function Base:basePreUpdate(dt, parent)
     local x, y = self.getMousePosition()
+
     if parent and not self.draggable and not self.resizable and self.type ~= 'Scrollarea' then self.x, self.y = parent.x + self.ix, parent.y + self.iy end
 
     -- Check for hot
-    self.hot = self:collision(x, y)
+    self.hot = self:collision(x, y) and not layout:getWindow(x,y)
 
     -- Check for enter 
     if self.hot and not self.previous_hot then
@@ -87,7 +88,7 @@ function Base:basePreUpdate(dt, parent)
         self.pressing = true
     end
     if self.pressing and self.input:down('left-click') then
-        self.down = true
+        self.down = true 
     end
     if self.pressing and self.input:released('left-click') then
         self.released = true
@@ -111,6 +112,9 @@ function Base:basePreUpdate(dt, parent)
 end
 
 function Base:basePostUpdate(dt)
+    --local x, y = self.getMousePosition()
+    --if layout:getWindow(x,y) then return end
+
     if self.pressed and self.previous_pressed then self.pressed = false end
     if self.released and self.previous_released then self.released = false end
 
