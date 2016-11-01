@@ -41,7 +41,7 @@ chunksize 		= (8192 - 1)		-- size of the datagram when sending binary file
 fullBinary		= false			-- if true, the server will systematically send binary files instead of local references
 
 -- main screen size
-W, H = 1420, 790 	-- main window size default values (may be changed dynamically on some systems)
+W, H = 1440, 790 	-- main window size default values (may be changed dynamically on some systems)
 viewh = H - 170 	-- view height
 vieww = W - 300		-- view width
 size = 19 		-- base font size
@@ -797,6 +797,142 @@ end
 function Dialog:getFocus() dialogActive = true end
 function Dialog:looseFocus() dialogActive = false end
 
+-- snapshotBarclass
+-- a snapshotBar is a window which displays images. it is not zoomable
+snapshotBar = Window:new{ class = "snapshot" , title = "Images" }
+
+function snapshotBar:new( t ) -- create from w, h, x, y
+  local new = t or {}
+  setmetatable( new , self )
+  self.__index = self
+  return new
+end
+
+function snapshotBar:draw()
+
+  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+
+  -- bottom snapshots list
+  love.graphics.setColor(255,255,255)
+  love.graphics.rectangle( "fill", zx , zy , self.w , self.h )  
+  for i=snapshots[currentSnap].index, #snapshots[currentSnap].s do
+	local x = zx + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1) - (snapshots[currentSnap].s[i].w * snapshots[currentSnap].s[i].snapmag - snapshotSize) / 2
+	if x > zx + self.w / self.mag  + snapshotSize then break end
+	if x >= zx - snapshotSize then 
+  		love.graphics.setScissor( zx, zy, self.w / self.mag, self.h / self.mag ) 
+		if snapshots[currentSnap].s[i].selected then
+  			love.graphics.setColor(unpack(color.red))
+			love.graphics.rectangle("line", 
+				zx + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1),
+				zy, 
+				snapshotSize, 
+				snapshotSize)
+		end
+		if currentSnap == 2 and snapshots[currentSnap].s[i].kind == "scenario" then
+			-- do not draw scenario, too big... Just print "Scenario"
+  			love.graphics.setColor(255,255,255)
+			love.graphics.rectangle("fill", 
+				x + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1),
+				zy, 
+				snapshotSize, 
+				snapshotSize)
+  			love.graphics.setColor(0,0,0)
+ 			love.graphics.setFont(fontRound)
+			love.graphics.print( "Scenario" , zx + 3 + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1), zy )
+		else
+  			love.graphics.setColor(255,255,255)
+			love.graphics.draw( 	snapshots[currentSnap].s[i].im , 
+				x ,
+				zy - ( snapshots[currentSnap].s[i].h * snapshots[currentSnap].s[i].snapmag - snapshotSize ) / 2, 
+			    	0 , snapshots[currentSnap].s[i].snapmag, snapshots[currentSnap].s[i].snapmag )
+		end
+  		love.graphics.setScissor() 
+	end
+  end
+  
+   -- print bar
+   self:drawBar()
+end
+
+function snapshotBar:update(dt)
+  	local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
+	-- change snapshot offset if mouse  at bottom right or left
+	local snapMax = #snapshots[currentSnap].s * (snapshotSize + snapshotMargin) - W
+	if snapMax < 0 then snapMax = 0 end
+	local x,y = love.mouse.getPosition()
+	local left = math.max(zx,0)
+	local right = math.min(zx+self.w,W)
+	if (x < left + snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h) then
+	  snapshots[currentSnap].offset = snapshots[currentSnap].offset + snapshotMargin * 2
+	  if snapshots[currentSnap].offset > 0 then snapshots[currentSnap].offset = 0  end
+	end
+	if (x > right - snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h) then
+	  snapshots[currentSnap].offset = snapshots[currentSnap].offset - snapshotMargin * 2
+	  if snapshots[currentSnap].offset < -snapMax then snapshots[currentSnap].offset = -snapMax end
+	end
+	end
+
+function snapshotBar:click(x,y)
+
+  Window.click(self,x,y)
+
+  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+    --arrowMode = false
+    -- check if there is a snapshot there
+    local index = math.floor(((x-zx) - snapshots[currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
+    -- 2 possibilities: if this image is already selected, then use it
+    -- otherwise, just select it (and deselect any other eventually)
+    if index >= 1 and index <= #snapshots[currentSnap].s then
+      if snapshots[currentSnap].s[index].selected then
+	      -- already selected
+	      snapshots[currentSnap].s[index].selected = false 
+
+	      -- Three different ways to use a snapshot
+
+	      -- 1: general image, sent it to projector
+	      if currentSnap == 1 then
+	      	currentImage = snapshots[currentSnap].s[index].im
+	      	-- remove the 'visible' flag from maps (eventually)
+	      	atlas:removeVisible()
+		tcpsend(projector,"ERAS") 	-- remove all pawns (if any) 
+    	      	-- send the filename over the socket
+		if snapshots[currentSnap].s[index].is_local then
+			tcpsendBinary{ file = snapshots[currentSnap].s[index].file } 
+ 			tcpsend(projector,"BEOF")
+		elseif fullBinary then
+			tcpsendBinary{ filename = snapshots[currentSnap].s[index].filename } 
+ 			tcpsend(projector,"BEOF")
+		else
+	      		tcpsend( projector, "OPEN " .. snapshots[currentSnap].s[index].baseFilename)
+		end
+	      	tcpsend( projector, "DISP") 	-- display immediately
+
+	      -- 2: map. This should open a window 
+	      elseif currentSnap == 2 then
+
+			layout:setDisplay( snapshots[currentSnap].s[index] , true )
+			layout:setFocus( snapshots[currentSnap].s[index] ) 
+	
+	      -- 3: Pawn. If focus is set, use this image as PJ/PNJ pawn image 
+	      else
+			if focus then PNJTable[ focus ].snapshot = snapshots[currentSnap].s[index] end
+
+	      end
+
+      else
+	      -- not selected, select it now
+	    for i,v in ipairs(snapshots[currentSnap].s) do
+	      if i == index then snapshots[currentSnap].s[i].selected = true
+	      else snapshots[currentSnap].s[i].selected = false end
+	    end
+
+	    -- If in pawn mode, this does NOT change the focus, so we break now !
+	    if currentSnap == 3 then return end
+      end
+  end
+
+  end
+
 --
 -- mainLayout class
 -- store all windows, with their display status (displayed or not) and layer value
@@ -1207,19 +1343,6 @@ function love.update(dt)
 
 	end -- end of client loop
 
-	-- change snapshot offset if mouse  at bottom right or left
-	local snapMax = #snapshots[currentSnap].s * (snapshotSize + snapshotMargin) - W
-	if snapMax < 0 then snapMax = 0 end
-	local x,y = love.mouse.getPosition()
-	if (x < snapshotMargin * 4 ) and (y > snapshotH) and (y < messagesH) then
-	  snapshots[currentSnap].offset = snapshots[currentSnap].offset + snapshotMargin * 2
-	  if snapshots[currentSnap].offset > 0 then snapshots[currentSnap].offset = 0  end
-	end
-	if (x > W - snapshotMargin * 4 ) and (y > snapshotH) and (y < messagesH) then
-	  snapshots[currentSnap].offset = snapshots[currentSnap].offset - snapshotMargin * 2
-	  if snapshots[currentSnap].offset < -snapMax then snapshots[currentSnap].offset = -snapMax end
-	end
-
   	view:update(dt)
   	yui.update({view})
 
@@ -1415,42 +1538,6 @@ function love.draw()
 
   love.graphics.setColor(255,255,255,200)
   love.graphics.draw( backgroundImage , 0 , 0)
-
-  -- bottom snapshots list
-  love.graphics.setColor(255,255,255)
-  for i=snapshots[currentSnap].index, #snapshots[currentSnap].s do
-	local x = snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1) - (snapshots[currentSnap].s[i].w * snapshots[currentSnap].s[i].snapmag - snapshotSize) / 2
-	if x > W then break end
-	if x >= -snapshotSize then 
-		if snapshots[currentSnap].s[i].selected then
-  			love.graphics.setColor(unpack(color.red))
-			love.graphics.rectangle("line", 
-				snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1),
-				snapshotH, 
-				snapshotSize, 
-				snapshotSize)
-		end
-		if currentSnap == 2 and snapshots[currentSnap].s[i].kind == "scenario" then
-			-- do not draw scenario, too big... Just print "Scenario"
-  			love.graphics.setColor(255,255,255)
-			love.graphics.rectangle("fill", 
-				snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1),
-				snapshotH, 
-				snapshotSize, 
-				snapshotSize)
-  			love.graphics.setColor(0,0,0)
- 			love.graphics.setFont(fontRound)
-			love.graphics.print( "Scenario" , 3 + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1), snapshotH )
-		else
-  			love.graphics.setColor(255,255,255)
-			love.graphics.draw( 	snapshots[currentSnap].s[i].im , 
-				x ,
-				snapshotH - ( snapshots[currentSnap].s[i].h * snapshots[currentSnap].s[i].snapmag - snapshotSize ) / 2, 
-			    	0 , snapshots[currentSnap].s[i].snapmag, snapshots[currentSnap].s[i].snapmag )
-		end
-	end
-  end
-  
 
   -- small snapshot
   love.graphics.setColor(230,230,230)
@@ -1950,64 +2037,6 @@ function love.mousepressed( x, y , button )
     return
   end
  
-  -- Clicking on bottom section may select a snapshot image
-  if y > H - snapshotSize - snapshotMargin * 2 then
-    -- incidentally, this cancels the arrow as well
-    arrowMode = false
-    -- check if there is a snapshot there
-    local index = math.floor((x - snapshots[currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
-    -- 2 possibilities: if this image is already selected, then use it
-    -- otherwise, just select it (and deselect any other eventually)
-    if index >= 1 and index <= #snapshots[currentSnap].s then
-      if snapshots[currentSnap].s[index].selected then
-	      -- already selected
-	      snapshots[currentSnap].s[index].selected = false 
-
-	      -- Three different ways to use a snapshot
-
-	      -- 1: general image, sent it to projector
-	      if currentSnap == 1 then
-	      	currentImage = snapshots[currentSnap].s[index].im
-	      	-- remove the 'visible' flag from maps (eventually)
-	      	atlas:removeVisible()
-		tcpsend(projector,"ERAS") 	-- remove all pawns (if any) 
-    	      	-- send the filename over the socket
-		if snapshots[currentSnap].s[index].is_local then
-			tcpsendBinary{ file = snapshots[currentSnap].s[index].file } 
- 			tcpsend(projector,"BEOF")
-		elseif fullBinary then
-			tcpsendBinary{ filename = snapshots[currentSnap].s[index].filename } 
- 			tcpsend(projector,"BEOF")
-		else
-	      		tcpsend( projector, "OPEN " .. snapshots[currentSnap].s[index].baseFilename)
-		end
-	      	tcpsend( projector, "DISP") 	-- display immediately
-
-	      -- 2: map. This should open a window 
-	      elseif currentSnap == 2 then
-
-			layout:setDisplay( snapshots[currentSnap].s[index] , true )
-			layout:setFocus( snapshots[currentSnap].s[index] ) 
-	
-	      -- 3: Pawn. If focus is set, use this image as PJ/PNJ pawn image 
-	      else
-			if focus then PNJTable[ focus ].snapshot = snapshots[currentSnap].s[index] end
-
-	      end
-
-      else
-	      -- not selected, select it now
-	    for i,v in ipairs(snapshots[currentSnap].s) do
-	      if i == index then snapshots[currentSnap].s[i].selected = true
-	      else snapshots[currentSnap].s[i].selected = false end
-	    end
-
-	    -- If in pawn mode, this does NOT change the focus, so we break now !
-	    if currentSnap == 3 then return end
-      end
-    end
-  end
-
   -- we assume that the mouse was pressed outside PNJ list, this might change below
   lastFocus = focus
   focus = nil
@@ -2590,6 +2619,10 @@ function love.load( args )
     love.window.setMode( W  , H  , { fullscreen=false, resizable=true, display=1} )
     love.keyboard.setKeyRepeat(true)
 
+    -- create basic windows
+    snapshotWindow = snapshotBar:new{ w=W, h=80, x=W/2,y=45-(H/2-70)}
+    layout:addWindow( snapshotWindow , true )
+
     -- some small differences in windows: separator is not the same, and some weird completion
     -- feature in command line may add an unexpected doublequote char at the end of the path (?)
     -- that we want to remove
@@ -2686,6 +2719,7 @@ function love.load( args )
     -- load various data files 
     loadStartup{ path = baseDirectory .. sep .. fadingDirectory }
     loadStartup{ path = baseDirectory .. sep .. "pawns" , kind = "pawns" }
+
 
 end
 
