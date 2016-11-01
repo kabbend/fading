@@ -530,7 +530,9 @@ function Map:draw()
 		     	dead = PNJTable[ index ].is_dead
 		     	if map.pawns[i].snapshot.im then
   		       		local zx,zy = (map.pawns[i].x) * 1/map.mag + x , (map.pawns[i].y) * 1/map.mag + y
-		       		if PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
+				-- color is different depending on PJ/PNJ, and if the character has played this round or not
+		       		if PNJTable[index].done then love.graphics.setColor(unpack(color.green))
+				elseif PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
 		       		love.graphics.rectangle( "fill", zx, zy, (map.pawns[i].sizex+6) / map.mag, (map.pawns[i].sizey+6) / map.mag)
 		       		if dead then 
 					love.graphics.setColor(50,50,50,200) -- dead are grey
