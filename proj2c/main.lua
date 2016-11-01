@@ -17,7 +17,7 @@ W,H = 0,0 		-- image dimensions, at scale 1
 X,Y = 0,0		-- current center position of the image
 
 -- file loaded over the network
-binary 		= false
+fullBinary 	= false
 tempfile 	= nil
 
 -- pawns
@@ -361,7 +361,7 @@ function love.update( dt )
 	if not connect and timer > connectRetryTime then
 		-- nobody was listening, probably. we retry
 		io.write("calling server...\n")
-		tcp:send("CONNECT\n")
+		if fullBinary then tcp:send("CONNECTB\n") else tcp:send("CONNECT\n") end
 		timer = 0
 	end
 
@@ -508,8 +508,8 @@ function love.update( dt )
 	  end
 	
 	  if command == "CONN" then
-		connect = true
  	  	io.write("Connected to " .. address .. " " .. port .. "\n")
+		connect = true
 	  end
 
 	  if command == "OPEN" then
@@ -639,7 +639,7 @@ function love.keypressed( key )
  if key == "q" then love.event.quit() end
 end
 
-options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="." },
+options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="" },
             { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false },
             { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false },
             { opcode="-i", longopcode="--ip", mandatory=false, varname="address", value=true, default="localhost" },
@@ -666,6 +666,9 @@ function love.load( args )
  debug = parse.debug
  interact = parse.interact
 
+ -- no directory provided, we will request full binary mode to the server
+ if baseDirectory == "" then fullBinary = true end
+
  io.write("IP address = " .. address .. "\n")
  io.write("base directory = " .. baseDirectory .. "\n")
  
@@ -676,7 +679,7 @@ function love.load( args )
  tcp:settimeout(0)
  -- trying to reach server
  tcp:connect(address, port) 
- tcp:send("CONNECT\n")
+ if fullBinary then tcp:send("CONNECTB\n") else tcp:send("CONNECT\n") end
 
  -- GUI initializations
  -- in remote: we go to 1st display fullscreen

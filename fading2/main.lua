@@ -1116,6 +1116,15 @@ function love.update(dt)
 		projector = clients[i].tcp
 	    	tcpsend(projector,"CONN")
 	
+	      elseif data == "CONNECTB" then 
+		io.write("receiving projector call, binary mode\n")
+		addMessage("Receiving projector call")
+		addMessage("Projector is requesting full binary mode")
+		fullBinary = true
+		clients[i].id = projectorId
+		projector = clients[i].tcp
+	    	tcpsend(projector,"CONN")
+	
 	      elseif 
 		-- scan for the command itself to find the player's name
 	       string.lower(command) == "eric" or -- FIXME, hardcoded
@@ -1145,6 +1154,13 @@ function love.update(dt)
 
 	    else
 		-- this is the projector
+
+		-- allowed commands from projector are:
+		--
+		-- TARG id1 id2 	Pawn with id1 attacks pawn with id2
+		-- MPAW id x y		Pawn with id moves to x,y in the map
+		--
+
 	      if command == "TARG" then
 
 		local map = atlas:getVisible()
