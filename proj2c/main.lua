@@ -98,6 +98,36 @@ function Pawn:new( id, filename, sizex, x, y , pj )
   return new
   end
 
+function Pawn:newBinary( id, sizex, x, y , pj , img )
+
+  local new = {}
+  setmetatable(new,self)
+  self.__index = self
+
+  -- set basic data
+  new.id = id
+  new.PJ = pj or false 
+  new.dead = false 					-- so far
+  new.x = x or 0 					-- position of the upper left corner of the pawn, relative to the map
+  new.y = y or 0         				-- position of the upper left corner of the pawn, relative to the map
+  new.moveToX, new.moveToY = new.x, new.y		-- destination for a move
+  new.timer = nil					-- tween timer to perform the move
+  new.layer = maxLayer					-- determine if a pawn is drawn on top (or below) another one
+  new.color = { 255, 255, 255 }				-- base color is white a priori
+  if new.PJ then new.layer = new.layer + 10e6 end	-- PJ are always on top, so we increase their layer artificially !
+  new.filename = nil 
+  new.im = img 
+  -- compute scaling factor f, offsets (to center the image within the square)
+  local w,h = new.im:getDimensions()
+  new.sizex = sizex                       -- width size of the image in pixels, for map at scale 1. The image is 
+					 -- modified (with factor f) to fit the appropriate rectangular shape 
+  new.sizey = new.sizex * (h/w)
+  local f1,f2 = new.sizex/w, new.sizey/h
+  new.f = math.min(f1,f2)
+  new.offsetx = (new.sizex + 3*2 - w * new.f ) / 2
+  new.offsety = (new.sizey + 3*2 - h * new.f ) / 2
+  return new
+  end
 
 function distanceFrom(x1,y1,x2,y2) return math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2) end
 
@@ -343,47 +373,41 @@ function love.update( dt )
 
 	-- supported commands are:
 	--
-	-- CONN			Connected. Answer from server
+	-- working with server:
 	--
-	-- OPEN filename	open a new filename from disk, store it but do not display it yet (waiting DISP command)
-	--			remove current image from screen if any. Reset position, scaling (magnifier) factor and mask
-	--			to default values (image is centered by default, factor is computed to be fullscreen, and no mask)
+	--   CONN			Connected. Answer from server
 	--
-	-- DISP			display last opened image, applying a stencil if needed. This command is used at the 
-	--			end of the transmission, to indicate that the RECT and CIRC sequence is complete and the 
-	--			full mask can now be displayed. Note that by default, an image is considered as having no
-	--			mask at all (and thus is fully displayed), unless a sequence of RECT/CIRC has been sent
-	--			between the last OPEN and the DISP command. These RECT/CIRC commands indicate that the
-	--			image has stencils ( = unmask shapes ), thus a full (black) mask is displayed on top when
-	--			using DISP. 
+	-- working with images and maps:
 	--
-	-- HIDE			hide current image (black screen), do not change stored one or current mask or scaling factor 
-	--			if any
+	--   OPEN filename		open a new filename from disk, store it but do not display it yet (waiting DISP command)
+	--				remove current image from screen if any. Reset position, scaling (magnifier) factor and mask
+	--				to default values (image is centered by default, factor is computed to be fullscreen, and no mask).
+	--   DISP			Display last opened image, applying a stencil if needed. This command is used at the 
+	--				end of the transmission, to indicate that the RECT and CIRC sequence is complete and the 
+	--				full mask can now be displayed. Note that by default, an image is considered as having no
+	--				mask at all (and thus is fully displayed), unless a sequence of RECT/CIRC has been sent
+	--				between the last OPEN and the DISP command. These RECT/CIRC commands indicate that the
+	--				image has stencils ( = unmask shapes ), thus a full (black) mask is displayed on top when using DISP. 
+	--   HIDE			Hide current image (black screen), do not change stored one or current mask or scaling factor if any
+	--   MAGN f 			Set scaling (magnifier) factor (a decimal number)
+	--   CHXY x y 			Change position to x , y (relative to image with scaling factor = 1)
+	--   RECT x y w h		Set a new stencil (unmask) rectangle at corner x,y, and of dimensions w and h (relative to imag	with scaling factor = 1)
+	--   CIRC x y r			Set a new stencil (unmask) circle at position x,y, of radius r (a decimal number)
 	--
-	-- MAGN f 		set scaling (magnifier) factor (a decimal number)
+	-- working with pawns:
 	--
-	-- CHXY x y 		change position to x , y (relative to image with scaling factor = 1)
+	--   PAWN id x y s p filename	Create a new pawn with id, at position x,y (relative to the map at scale 1), of size s (width in pixels 
+	--				at scale 1), with boolean true/false p (if PJ or not), with image filename
+	--   KILL id			Kill pawn with id given
+	--   ERAS 			Remove all pawns from the map
+	--   ERAP id			Remove one pawn from the map
+	--   MPAW id x y		Move pawn id to new position x,y (relative to the map at scale 1)
 	--
-	-- RECT x y w h		set a new stencil (unmask) rectangle at corner x,y, and of dimensions w and h (relative to image
-	--			with scaling factor = 1)
+	-- working with binary files:
 	--
-	-- CIRC x y r 		set a new stencil (unmask) circle at position x,y, of radius r (a decimal number)
-	--
-	-- PAWN id x y s p filename
-	--			create a new pawn with id, at position x,y (relative to the map at scale 1), of size s (width in pixels 
-	--			at scale 1), with boolean true/false p (if PJ or not), with image filename
-	--
-	-- KILL id		kill pawn with id given
-	--
-	-- ERAS 		remove all pawns from the map
-	--
-	-- ERAP id		remove one pawn from the map
-	--
-	-- MPAW id x y		move pawn id to new position x,y (relative to the map at scale 1)
-	--
-	-- BNRY 		binary file is about to be sent. Will be done when BEOF is received
-	--
-	-- BEOF			end of binary file
+	--   BNRY 			Binary file is about to be sent. Will be done when BEOF or PEOF is received
+	--   BEOF			End of binary file. Store the received data as an image or a map
+	--   PEOF id x y s p		End of binary file. Store the received data as a pawn image. The pawn is created at the same time
 	--
 	
 	  local command = string.sub( data, 1, 4)
@@ -447,8 +471,42 @@ function love.update( dt )
 		currentImage = nil
 	    	mask = nil
 
-	  end
+	  --end
 
+	  elseif command == "PEOF" then
+
+		io.write("receiving PEOF\n") 
+
+		tempfile:close()
+
+		tempfile = io.open("image.tmp", 'rb')
+            	local image = tempfile:read("*a")
+            	tempfile:close()
+
+            	local lfn = love.filesystem.newFileData
+            	local lin = love.image.newImageData
+            	local lgn = love.graphics.newImage
+            	local success, img = pcall(function() return lgn(lin(lfn(image, 'img', 'file'))) end)
+  		local success, w, h = pcall( function() return storedImage:getDimensions() end )
+		if not success then 
+			io.write("sorry, something bad happened in getDimensions() ... \n")
+		end
+		
+		local str = string.sub(data , 6)
+		local _,_,id,x,y,size,pj = string.find( str, "(%a+) (%d+) (%d+) (%d+) (%d)" )
+		-- The two innocent lines below are important: x and y are parsed as strings, not numbers, 
+		-- which cause issue later with tween function expecting type(number)... we force them to be numbers here...
+		x = x + 0
+		y = y + 0 
+ 		if pj == "1" then pj = true; else pj = false end
+		local p = Pawn:newBinary(id,f,size,x,y,pj,img) 
+		if p then 
+			table.insert( pawns, p ) 
+			table.sort( pawns , function (a,b) return a.layer < b.layer end )
+		end
+
+	  end
+	
 	  if command == "CONN" then
 		connect = true
  	  	io.write("Connected to " .. address .. " " .. port .. "\n")

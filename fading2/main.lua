@@ -38,6 +38,7 @@ clients			= {}			-- list of clients. A client is a couple { tcp-object , id } wh
 projector		= nil			-- direct access to tcp object for projector
 projectorId		= "*proj"		-- special ID to distinguish projector from other clients
 chunksize 		= (8192 - 1)		-- size of the datagram when sending binary file
+fullBinary		= false			-- if true, the server will systematically send binary files instead of local references
 
 -- main screen size
 W, H = 1420, 790 	-- main window size default values (may be changed dynamically on some systems)
@@ -924,18 +925,34 @@ function tcpsend( tcp, data , verbose )
   end
 
 -- send a whole binary file over the network
-function tcpsendBinary( file )
+-- t is table with one (and only one) of file or filename
+function tcpsendBinary( t )
+
  if not projector then return end 	-- no projector connected yet !
+ local file = t.file
+ local filename = t.filename
+ assert( file or filename )
+
  tcpsend( projector, "BNRY") 		-- alert the projector that we are about to send a binary file
  local c = tcpbin:accept() 		-- wait for the projector to open a dedicated channel
  -- we send a given number of chunks in a row.
  -- At the end of file, we might send a smaller one, then nothing...
- file:open('r')
- local data, size = file:read( chunksize )
- while size ~= 0 do
-       	c:send(data) -- send chunk
-	io.write("sending " .. size .. " bytes. \n")
-        data, size = file:read( chunksize )
+ if file then
+ 	file:open('r')
+ 	local data, size = file:read( chunksize )
+ 	while size ~= 0 do
+       		c:send(data) -- send chunk
+		io.write("sending " .. size .. " bytes. \n")
+        	data, size = file:read( chunksize )
+ 	end
+ else
+  	file = assert( io.open( filename, 'rb' ) )
+  	local data = file:read(chunksize)
+ 	while data do
+       		c:send(data) -- send chunk
+		io.write("sending " .. string.len(size) .. " bytes. \n")
+        	data = file:read( chunksize )
+ 	end
  end
  file:close()
  c:close()
@@ -1017,14 +1034,19 @@ function love.filedropped(file)
 			-- remove the 'visible' flag from maps (eventually)
 			atlas:removeVisible()
 		  	tcpsend(projector,"ERAS") 	-- remove all pawns (if any) 
-			if not is_local then
+			if not is_local and not fullBinary then
     	  	  		-- send the filename (without path) over the socket
 		  		filename = string.gsub(filename,baseDirectory,"")
 		  		tcpsend(projector,"OPEN " .. filename)
 		  		tcpsend(projector,"DISP") 	-- display immediately
+			elseif fullBinary then
+		  		-- send the file itself... not the same story...
+		  		tcpsendBinary{ filename=filename } 
+		  		-- display it
+		  		tcpsend(projector,"DISP")
 			else
 		  		-- send the file itself... not the same story...
-		  		tcpsendBinary( file )
+		  		tcpsendBinary{ file=file } 
 		  		-- display it
 		  		tcpsend(projector,"DISP")
 			end
@@ -1926,7 +1948,9 @@ function love.mousepressed( x, y , button )
 		tcpsend(projector,"ERAS") 	-- remove all pawns (if any) 
     	      	-- send the filename over the socket
 		if snapshots[currentSnap].s[index].is_local then
-			tcpsendBinary( snapshots[currentSnap].s[index].file )
+			tcpsendBinary{ file = snapshots[currentSnap].s[index].file } 
+		elseif fullBinary then
+			tcpsendBinary{ filename = snapshots[currentSnap].s[index].filename } 
 		else
 	      		tcpsend( projector, "OPEN " .. snapshots[currentSnap].s[index].baseFilename)
 		end
@@ -2011,8 +2035,10 @@ function Atlas:toggleVisible( map )
 	  	-- remove all pawns remotely !
 		tcpsend( projector, "ERAS")
 		-- send to projector
-		if map.is_local then
-		  tcpsendBinary( map.file )
+		if map.is_local and not fullBinary then
+		  tcpsendBinary{ file=map.file } 
+		elseif fullBinary then
+		  tcpsendBinary{ filename=map.filename } 
 		else 
   		  tcpsend( projector, "OPEN " .. map.baseFilename )
 		end
@@ -2466,6 +2492,8 @@ options = { { opcode="-s", longopcode="--scenario", mandatory=false, varname="fa
 		desc="With FS mobile: Send an automatic acknowledge reply for each message received"},
 	    { opcode="-p", longopcode="--port", mandatory=false, varname="port", value=true, default=serverport,
 		desc="Specify server local port, by default 12345" },
+	    { opcode="-y", longopcode="--binary", mandatory=false, varname="binary", value=false, default=false,
+		desc="Systematically send binary files to the projector, instead of filesystem references" },
 	    { opcode="", mandatory=true, varname="baseDirectory" , desc="Path to global directory"} }
 	    
 --
@@ -2485,6 +2513,7 @@ function love.load( args )
     baseDirectory = parse.arguments[1]
     debug = parse.debug
     serverport = parse.port
+    fullBinary = parse.binary
     ack = parse.acknowledge
     sep = '/'
 
