@@ -305,8 +305,10 @@ function Window:setTitle( title ) self.title = title end
 
 -- drawn upper button bar
 function Window:drawBar()
- local reservedForButtons = 20*4
- local availableForTitle = self.w / self.mag - reservedForButtons - 20
+ local reservedForButtons = 20*3
+ local marginForRect = 0
+ if self.class == "map" and self.kind == "map" then marginForRect = 20 end
+ local availableForTitle = self.w / self.mag - reservedForButtons - marginForRect 
  local numChar = math.floor(availableForTitle / 7)
  local title = string.sub( self.title , 1, numChar ) 
  love.graphics.setColor(224,224,224)
@@ -316,7 +318,7 @@ function Window:drawBar()
  love.graphics.setFont(fontRound)
  love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
  love.graphics.setColor(0,0,0)
- love.graphics.print( title , zx + 20 , zy - 18 )
+ love.graphics.print( title , zx + marginForRect , zy - 18 )
   -- draw small circle or rectangle in upper corner, to show which mode we are in
  love.graphics.setColor(255,0,0)
  if self.class == "map" and self.kind == "map" then
@@ -797,6 +799,37 @@ end
 function Dialog:getFocus() dialogActive = true end
 function Dialog:looseFocus() dialogActive = false end
 
+-- projectorWindow class
+-- a projectorWindow is a window which displays images. it is not zoomable
+projectorWindow = Window:new{ class = "projector" , title = "Projector" }
+
+function projectorWindow:new( t ) -- create from w, h, x, y
+  local new = t or {}
+  setmetatable( new , self )
+  self.__index = self
+  return new
+end
+
+function projectorWindow:draw()
+
+  local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
+  -- small snapshot
+  love.graphics.setColor(unpack(color.white))
+  love.graphics.rectangle("fill",  zx, zy , W1 , H1 )
+  if currentImage then 
+    local w, h = currentImage:getDimensions()
+    -- compute magnifying factor f to fit to screen, with max = 2
+    local xfactor = (W1-5) / w
+    local yfactor = (H1-5) / h
+    local f = math.min( xfactor, yfactor )
+    if f > 2 then f = 2 end
+    w , h = f * w , f * h
+    love.graphics.draw( currentImage , zx +  (W1 - w) / 2, zy + ( H1 - h ) / 2, 0 , f, f )
+  end
+  -- print bar
+  self:drawBar()
+  end
+
 -- snapshotBarclass
 -- a snapshotBar is a window which displays images. it is not zoomable
 snapshotBar = Window:new{ class = "snapshot" , title = "Images" }
@@ -824,7 +857,7 @@ function snapshotBar:draw()
   			love.graphics.setColor(unpack(color.red))
 			love.graphics.rectangle("line", 
 				zx + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1),
-				zy, 
+				zy + 5, 
 				snapshotSize, 
 				snapshotSize)
 		end
@@ -833,17 +866,17 @@ function snapshotBar:draw()
   			love.graphics.setColor(255,255,255)
 			love.graphics.rectangle("fill", 
 				x + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1),
-				zy, 
+				zy + 5, 
 				snapshotSize, 
 				snapshotSize)
   			love.graphics.setColor(0,0,0)
  			love.graphics.setFont(fontRound)
-			love.graphics.print( "Scenario" , zx + 3 + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1), zy )
+			love.graphics.print( "Scenario" , zx + 3 + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1), zy + 5 )
 		else
   			love.graphics.setColor(255,255,255)
 			love.graphics.draw( 	snapshots[currentSnap].s[i].im , 
 				x ,
-				zy - ( snapshots[currentSnap].s[i].h * snapshots[currentSnap].s[i].snapmag - snapshotSize ) / 2, 
+				zy - ( snapshots[currentSnap].s[i].h * snapshots[currentSnap].s[i].snapmag - snapshotSize ) / 2 + 5, 
 			    	0 , snapshots[currentSnap].s[i].snapmag, snapshots[currentSnap].s[i].snapmag )
 		end
   		love.graphics.setScissor() 
@@ -877,6 +910,9 @@ function snapshotBar:click(x,y)
   Window.click(self,x,y)
 
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+  
+  if y - zy < 0 then return end
+
     --arrowMode = false
     -- check if there is a snapshot there
     local index = math.floor(((x-zx) - snapshots[currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
@@ -952,6 +988,13 @@ function mainLayout:addWindow( window, display )
 	-- sort windows by layer (ascending) value
 	table.insert( self.sorted , self.windows[window] )
 	table.sort( self.sorted , function(a,b) return a.l < b.l end )
+	window.startupX, window.startupY, window.startupW, window.startupH = window.x, window.y, window.w, window.h
+	end
+
+-- restore a window to its default value
+function mainLayout:restoreBase(window)
+	window.x, window.y, window.w, window.h = window.startupX, window.startupY, window.startupW, window.startupH 
+	self.windows[window].d = true
 	end
 
 function mainLayout:removeWindow( window ) 
@@ -974,6 +1017,10 @@ function mainLayout:getDisplay( window ) if self.windows[window] then return sel
 function mainLayout:toggleDisplay() 
 	self.globalDisplay = not self.globalDisplay 
  	if not self.globalDisplay then self:setFocus(nil) end -- no more window focus	
+	end
+
+function mainLayout:hideAll()
+	for i=1,#self.sorted do self.sorted[i].d = false end
 	end
 
 -- return (if there is one) or set the window with focus 
@@ -1210,6 +1257,9 @@ function love.filedropped(file)
 -- GUI basic functions
 function love.update(dt)
 
+
+	view.x, view.y = view.x + 1, view.y + 1
+	
 	-- decrease timelength of 1st message if any
 	if messages[1] then 
 	  if messages[1].time < 0 then
@@ -1539,19 +1589,6 @@ function love.draw()
   love.graphics.setColor(255,255,255,200)
   love.graphics.draw( backgroundImage , 0 , 0)
 
-  -- small snapshot
-  love.graphics.setColor(230,230,230)
-  love.graphics.rectangle("line", W - W1 - 10, H - H1 - snapshotSize - snapshotMargin * 6 , W1 , H1 )
-  if currentImage then 
-    local w, h = currentImage:getDimensions()
-    -- compute magnifying factor f to fit to screen, with max = 2
-    local xfactor = W1 / w
-    local yfactor = H1 / h
-    local f = math.min( xfactor, yfactor )
-    if f > 2 then f = 2 end
-    w , h = f * w , f * h
-    love.graphics.draw( currentImage , W - W1 - 10 +  (W1 - w) / 2, H - H1 - snapshotSize - snapshotMargin * 6 + ( H1 - h ) / 2, 0 , f, f )
-  end
 
     love.graphics.setLineWidth(3)
 
@@ -1672,7 +1709,7 @@ function love.draw()
  love.graphics.rectangle( "fill", 0, messagesH, W, 22 )
 
  -- bottom applicative message
- local appmessage = "> " .. snapText[currentSnap]
+ local appmessage = "" 
  if not layout.globalDisplay then appmessage = appmessage .. " -- ESC mode is ON" end 	
  local m = layout:getFocus() 
  if m and atlas:isVisible(m) then 
@@ -2242,13 +2279,17 @@ if key == "tab" and love.keyboard.isDown("lctrl") then
 	layout:nextWindow()
 	return
 end
+if key == "r" and love.keyboard.isDown("lctrl") then
+	layout:hideAll()	
+	layout:restoreBase(pWindow)
+	layout:restoreBase(snapshotWindow)
+end
 
 -- other keys applicable 
 local window = layout:getFocus()
 if not window then
   -- no window selected at the moment, we expect:
   -- 'up', 'down' within the PNJ list
-  -- 'space' to change snapshot list
   if focus and key == "down" then
     if focus < PNJnum-1 then 
       lastFocus = focus
@@ -2269,11 +2310,6 @@ if not window then
     return
   end
 
-  if key == 'space' then
-	  currentSnap = currentSnap + 1
-	  if currentSnap == 4 then currentSnap = 1 end
-	  return
-  end
   
 else
   -- a window is selected. Keys applicable to any window:
@@ -2307,6 +2343,16 @@ else
          end
   	end
 	
+  elseif window.class == "snapshot" then
+  
+  	-- 'space' to change snapshot list
+	if key == 'space' then
+	  currentSnap = currentSnap + 1
+	  if currentSnap == 4 then currentSnap = 1 end
+	  window:setTitle( snapText[currentSnap] ) 
+	  return
+  	end
+
   elseif window.class == "map" and window.kind == "map" then
 
 	local map = window
@@ -2620,8 +2666,10 @@ function love.load( args )
     love.keyboard.setKeyRepeat(true)
 
     -- create basic windows
-    snapshotWindow = snapshotBar:new{ w=W, h=80, x=W/2,y=45-(H/2-70)}
+    snapshotWindow = snapshotBar:new{ w=W, h=80, x=W/2,y=45-(H/2-60)}
     layout:addWindow( snapshotWindow , true )
+    pWindow = projectorWindow:new{ w=W1, h=H1, x=-W/2+W1,y=45-(H/2-70)+H1+15}
+    layout:addWindow( pWindow , true )
 
     -- some small differences in windows: separator is not the same, and some weird completion
     -- feature in command line may add an unexpected doublequote char at the end of the path (?)
