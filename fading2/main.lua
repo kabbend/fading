@@ -128,7 +128,7 @@ HelpLog = {
 -- some basic colors
 color = {
   masked = {210,210,210}, black = {0,0,0}, red = {250,80,80}, darkblue = {66,66,238}, purple = {127,0,255}, 
-  orange = {204,102,0},   darkgreen = {0,102,0},   white = {255,255,255} } 
+  orange = {204,102,0},   darkgreen = {0,102,0},   white = {255,255,255} , green = {0,240,0} } 
 
 -- array of actual PNJs, from index 1 to index (PNJnum - 1)
 -- None at startup (they are created upon user request)
@@ -248,8 +248,6 @@ function Snapshot:new( t ) -- create from filename or file object (one mandatory
   local lgn = love.graphics.newImage
   local img = lgn(lin(lfn(image, 'img', 'file')), { mipmaps=true } ) 
   pcall( function() img:setMipmapFilter( "nearest" ) end )
-  local mode, sharpness = img:getMipmapFilter( )
-  io.write("snapshot load: mode, sharpness = " .. tostring(mode) .. " " .. tostring(sharpness) .. "\n")
   new.im = img
   new.w, new.h = new.im:getDimensions()
   local f1, f2 = snapshotSize / new.w, snapshotSize / new.h
@@ -1432,12 +1430,13 @@ function love.draw()
 		end
 		if currentSnap == 2 and snapshots[currentSnap].s[i].kind == "scenario" then
 			-- do not draw scenario, too big... Just print "Scenario"
-  			love.graphics.setColor(0,0,0)
-			love.graphics.rectangle("line", 
+  			love.graphics.setColor(255,255,255)
+			love.graphics.rectangle("fill", 
 				snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1),
 				snapshotH, 
 				snapshotSize, 
 				snapshotSize)
+  			love.graphics.setColor(0,0,0)
  			love.graphics.setFont(fontRound)
 			love.graphics.print( "Scenario" , 3 + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1), snapshotH )
 		else
@@ -2422,7 +2421,7 @@ function loadStartup( t )
 
     for k,f in pairs(allfiles) do
 
-      io.write("scanning file '" .. f .. ":")
+      io.write("scanning file '" .. f .. "\n")
 
       if kind == "pawns" then
 
