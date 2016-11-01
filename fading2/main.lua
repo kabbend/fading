@@ -681,9 +681,19 @@ function Map:createPawns( sx, sy, requiredSize , id )
 	  if not id and atlas:isVisible(map) then
 	  	local flag
 	  	if p.PJ then flag = "1" else flag = "0" end
-	  	local f = p.snapshot.baseFilename -- FIXME: what about pawns loaded dynamically ?
-	  	io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. math.floor(pawnSize * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f .. "\n")
-	  	tcpsend( projector, "PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. math.floor(pawnSize * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f)
+		-- send over the socket
+		if p.snapshot.is_local then
+			tcpsendBinary{ file=p.snapshot.file }
+	  		tcpsend( projector, "PEOF " .. p.id .. " " .. a .. " " .. b .. " " .. math.floor(pawnSize * PNJTable[i].sizefactor) .. " " .. flag )
+		elseif fullBinary then
+			tcpsendBinary{ filename=p.snapshot.filename }
+	  		tcpsend( projector, "PEOF " .. p.id .. " " .. a .. " " .. b .. " " .. math.floor(pawnSize * PNJTable[i].sizefactor) .. " " .. flag )
+		else
+	  		local f = p.snapshot.filename
+	  		f = string.gsub(f,baseDirectory,"")
+	  		io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. math.floor(pawnSize * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f .. "\n")
+	  		tcpsend( projector, "PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. math.floor(pawnSize * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f)
+		end
 	  end
 	  -- set position for next image: we display pawns on 4x4 line/column around the mouse position
 	  if i % 4 == 0 then
@@ -956,8 +966,6 @@ function tcpsendBinary( t )
  end
  file:close()
  c:close()
- -- send a EOF agreed sequence: Binary EOF
- tcpsend(projector,"BEOF")
  end
 
 -- send dialog message to player
@@ -1040,14 +1048,14 @@ function love.filedropped(file)
 		  		tcpsend(projector,"OPEN " .. filename)
 		  		tcpsend(projector,"DISP") 	-- display immediately
 			elseif fullBinary then
-		  		-- send the file itself... not the same story...
+		  		-- send the file itself...
 		  		tcpsendBinary{ filename=filename } 
-		  		-- display it
+ 				tcpsend(projector,"BEOF")
 		  		tcpsend(projector,"DISP")
 			else
-		  		-- send the file itself... not the same story...
+		  		-- send the file itself...
 		  		tcpsendBinary{ file=file } 
-		  		-- display it
+ 				tcpsend(projector,"BEOF")
 		  		tcpsend(projector,"DISP")
 			end
 		end
@@ -1949,8 +1957,10 @@ function love.mousepressed( x, y , button )
     	      	-- send the filename over the socket
 		if snapshots[currentSnap].s[index].is_local then
 			tcpsendBinary{ file = snapshots[currentSnap].s[index].file } 
+ 			tcpsend(projector,"BEOF")
 		elseif fullBinary then
 			tcpsendBinary{ filename = snapshots[currentSnap].s[index].filename } 
+ 			tcpsend(projector,"BEOF")
 		else
 	      		tcpsend( projector, "OPEN " .. snapshots[currentSnap].s[index].baseFilename)
 		end
@@ -2037,8 +2047,10 @@ function Atlas:toggleVisible( map )
 		-- send to projector
 		if map.is_local and not fullBinary then
 		  tcpsendBinary{ file=map.file } 
+ 		  tcpsend(projector,"BEOF")
 		elseif fullBinary then
 		  tcpsendBinary{ filename=map.filename } 
+ 		  tcpsend(projector,"BEOF")
 		else 
   		  tcpsend( projector, "OPEN " .. map.baseFilename )
 		end
@@ -2058,9 +2070,18 @@ function Atlas:toggleVisible( map )
 			if index and (not PNJTable[index].is_dead) then
 				local flag = 0
 				if p.PJ then flag = 1 end
-	  			local f = p.snapshot.filename -- FIXME: what about pawns loaded dynamically ?
-	  			f = string.gsub(f,baseDirectory,"")
-	  			tcpsend( projector, "PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. math.floor(p.sizex) .. " " .. flag .. " " .. f)
+				-- send over the socket
+				if p.snapshot.is_local then
+					tcpsendBinary{ file=p.snapshot.file }
+	  				tcpsend( projector, "PEOF " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. math.floor(p.sizex) .. " " .. flag )
+				elseif fullBinary then
+					tcpsendBinary{ filename=p.snapshot.filename }
+	  				tcpsend( projector, "PEOF " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. math.floor(p.sizex) .. " " .. flag )
+				else
+	  				local f = p.snapshot.filename
+	  				f = string.gsub(f,baseDirectory,"")
+	  				tcpsend( projector, "PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. math.floor(p.sizex) .. " " .. flag .. " " .. f)
+				end
 			end
 		end
 		-- set map frame

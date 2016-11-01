@@ -499,7 +499,7 @@ function love.update( dt )
 		x = x + 0
 		y = y + 0 
  		if pj == "1" then pj = true; else pj = false end
-		local p = Pawn:newBinary(id,f,size,x,y,pj,img) 
+		local p = Pawn:newBinary(id,size,x,y,pj,img) 
 		if p then 
 			table.insert( pawns, p ) 
 			table.sort( pawns , function (a,b) return a.layer < b.layer end )
