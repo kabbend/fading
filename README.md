@@ -18,12 +18,11 @@ Le repository contient 3 programmes qui fonctionnent ensemble :
 
 ## Configuration
 Aucune au moment de l'installation du code.
-Pour le moment le code s'execute pour le moment en ligne de commande, en passant un certain nombre d'options eventuellement.
+Pour le moment le code s'execute en ligne de commande, en passant un certain nombre d'options eventuellement.
 le lancement se fait depuis le repertoire parent qui contient fading2/ et proj2c/
 
 ## Filesystem structure
-Le serveur s'attend à une structure comme suit, où l'on designe les deux repertoires baseDirectory (chemin complet) et fadingDirectory (chemin relatif par rapport au
-precedent):
+Le serveur s'attend à une structure comme ci-dessous, et à ce qu'on lui designe les deux repertoires baseDirectory (chemin complet) et fadingDirectory (chemin relatif par rapport au precedent):
 
 ```
 #!c
@@ -65,6 +64,7 @@ baseDirectory :                   Full path to the global directory. This direct
 [-l|--log] :                      Log to file (fading.log) instead of stdout
 [-a|--ack] :                      With fsmob application: Send an automatic acknowledge reply for each message received
 [-p|--port port] :                Specify server local port, by default 12345
+[-y|--binary] :                   Force full binary mode (all files are sent in binary form over the network to the projector) 
 ```
 
 Projecteur:
@@ -74,7 +74,8 @@ Projecteur:
 
 love proj2c [options]
 
-[-b|--base baseDirectory] : Path to a base directory, common with server
+[-b|--base baseDirectory] : Path to a base directory, common with server. If no base directory is given, the projector will request
+                            full binary mode to the server, ie. meaning that all files will be sent over the network
 [-d|--debug] :              Run in debug mode
 [-l|--log] :                Log to file (proj.log) instead of stdout
 [-i|--ip address] :         server IP 
