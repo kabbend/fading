@@ -27,8 +27,12 @@ require 'fading2/dice/default/config'
 debug = false
 
 -- main layout
-layout = nil
-currentWindowDraw = nil
+layout 			= nil
+currentWindowDraw 	= nil
+intW			= 2 
+
+-- main screen size
+W, H = 1440, 800 	-- main window size default values (may be changed dynamically on some systems)
 
 -- tcp information for network
 address, serverport	= "*", "12345"		-- server information
@@ -39,13 +43,6 @@ projector		= nil			-- direct access to tcp object for projector
 projectorId		= "*proj"		-- special ID to distinguish projector from other clients
 chunksize 		= (8192 - 1)		-- size of the datagram when sending binary file
 fullBinary		= false			-- if true, the server will systematically send binary files instead of local references
-
--- main screen size
-W, H = 1440, 790 	-- main window size default values (may be changed dynamically on some systems)
-viewh = H - 170 	-- view height
-vieww = W - 300		-- view width
-size = 19 		-- base font size
-margin = 20		-- screen margin in map mode
 
 -- messages zone
 messages 		= {}
@@ -61,6 +58,14 @@ currentSnap		= 1				-- by default, we display images
 snapshotSize 		= 70 				-- w and h of each snapshot
 snapshotMargin 		= 7 				-- space between images and screen border
 snapshotH 		= messagesH - snapshotSize - snapshotMargin
+
+HC = H - 4 * intW - 3 * 20 - snapshotSize
+WC = 1290
+viewh = HC 		-- view height
+vieww = W - 260		-- view width
+size = 19 		-- base font size
+margin = 20		-- screen margin in map mode
+
 
 -- pawns and PJ snapshots
 pawnMove 		= nil		-- pawn currently moved by mouse movement
@@ -290,6 +295,9 @@ function Window:new( t )
   return new
 end
 
+function Window:cx( zx ) return (-zx + W/2)*self.mag end
+function Window:cy( zy ) return (-zy + H/2)*self.mag - 20 end
+
 -- return true if the point (x,y) (expressed in layout coordinates system,
 -- typically the mouse), is inside the window frame (whatever the display or
 -- layer value, managed at higher-level)
@@ -313,13 +321,13 @@ function Window:drawBar()
  local title = string.sub( self.title , 1, numChar ) 
  love.graphics.setColor(224,224,224)
  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
- love.graphics.rectangle( "fill", zx , zy - 20 , self.w / self.mag , 20 , 5 , 5 )
+ love.graphics.rectangle( "fill", zx , zy - 20 , self.w / self.mag , 20 )
  love.graphics.rectangle( "fill", zx , zy - 5 , self.w / self.mag , 5 )
  love.graphics.setColor(255,0,0)
  love.graphics.setFont(fontRound)
  love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
  love.graphics.setColor(0,0,0)
- love.graphics.print( title , zx + marginForRect , zy - 18 )
+ love.graphics.print( title , zx + 3 + marginForRect , zy - 18 )
   -- draw small circle or rectangle in upper corner, to show which mode we are in
  love.graphics.setColor(255,0,0)
  if self.class == "map" and self.kind == "map" then
@@ -349,8 +357,9 @@ function Window:click(x,y)
 		-- there might be another object clickable just below that would be wrongly
 		-- activated ( a yui button ). So we wait for the mouse release to perform
 		-- the actual closure
+		return self
 	end
-	return self
+	return nil
 	end
 
 -- to be redefined in inherited classes
@@ -843,6 +852,18 @@ function projectorWindow:draw()
   self:drawBar()
   end
 
+function projectorWindow:click(x,y)
+
+  	Window.click(self,x,y)
+
+	-- want to move window 
+	mouseMove = true
+	arrowMode = false
+	arrowStartX, arrowStartY = x, y
+	arrowModeMap = nil
+
+	end
+
 --
 -- Combat class
 -- a Combat is a window which displays PNJ list and buttons 
@@ -858,11 +879,64 @@ end
 
 function Combat:draw()
 
+  local alpha = 80
+
   -- draw background
   self:drawBack()
 
   view:draw()
  
+  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+
+  -- draw FOCUS if applicable
+  love.graphics.setColor(0,102,0,alpha)
+  if focus then love.graphics.rectangle("fill",PNJtext[focus].x+2,PNJtext[focus].y-5,WC,42) end
+
+  -- draw ATTACKERS if applicable
+  love.graphics.setColor(174,102,0,alpha)
+    if focusAttackers then
+      for i,v in pairs(focusAttackers) do
+        if v then
+          local index = findPNJ(i)
+          if index then 
+		  love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,WC,42) 
+		  -- emphasize defense value, but only for PNJ
+    		  if not PNJTable[index].PJ then
+			  love.graphics.setColor(255,0,0,200)
+		  	  love.graphics.rectangle("fill",PNJtext[index].x+743,PNJtext[index].y-3, 26,39) 
+		  end
+		  PNJtext[index].def.color = { unpack(color.white) }
+    		  love.graphics.setColor(204,102,0,alpha)
+	  end
+        end
+      end
+    end 
+
+    -- draw TARGET if applicable
+    love.graphics.setColor(250,60,60,alpha*1.5)
+    local index = findPNJ(focusTarget)
+    if index then love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,WC,42) end
+
+    -- draw PNJ snapshot if applicable
+    for i=1,PNJnum-1 do
+      if PNJTable[i].snapshot then
+       	    love.graphics.setColor(255,255,255)
+	    local s = PNJTable[i].snapshot
+	    local xoffset = s.w * s.snapmag * 0.5 / 2
+	    love.graphics.draw( s.im , zx + 210 - xoffset , PNJtext[i].y - 2 , 0 , s.snapmag * 0.5, s.snapmag * 0.5 ) 
+      end
+    end
+
+  if nextFlash then
+    -- draw a blinking rectangle until Next button is pressed
+    if flashSequence then
+      love.graphics.setColor(250,80,80,alpha*1.5)
+    else
+      love.graphics.setColor(0,0,0,alpha*1.5)
+    end
+    love.graphics.rectangle("fill",PNJtext[1].x+1010,PNJtext[1].y-5,400,(PNJnum-1)*43)
+  end
+
   -- print bar
   self:drawBar()
 
@@ -880,6 +954,41 @@ function Combat:update(dt)
 function Combat:click(x,y)
 
   	Window.click(self,x,y)
+
+  	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+  	-- we assume that the mouse was pressed outside PNJ list, this might change below
+  	lastFocus = focus
+  	focus = nil
+  	focusTarget = nil
+  	focusAttackers = nil
+
+  	-- check which PNJ was selected, depending on position on y-axis
+  	for i=1,PNJnum-1 do
+    	if (y >= PNJtext[i].y -5 and y < PNJtext[i].y + 42 - 5) then
+      		PNJTable[i].focus = true
+      		lastFocus = focus
+      		focus = i
+      		focusTarget = PNJTable[i].target
+      		focusAttackers = PNJTable[i].attackers
+      		-- this starts the arrow mode if PNJ
+      		--if not PNJTable[i].PJ then
+        	arrowMode = true
+        	arrowStartX = x
+        	arrowStartY = y
+        	arrowStartIndex = i
+    	else
+      		PNJTable[i].focus = false
+    	end
+
+  	end
+
+	if not focus then
+		-- want to move window 
+		mouseMove = true
+		arrowMode = false
+		arrowStartX, arrowStartY = x, y
+		arrowModeMap = nil
+	end
 
   	end
 
@@ -921,16 +1030,7 @@ function snapshotBar:draw()
 				snapshotSize)
 		end
 		if currentSnap == 2 and snapshots[currentSnap].s[i].kind == "scenario" then
-			-- do not draw scenario, too big... Just print "Scenario"
-  			love.graphics.setColor(255,255,255)
-			love.graphics.rectangle("fill", 
-				x + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1),
-				zy + 5, 
-				snapshotSize, 
-				snapshotSize)
-  			love.graphics.setColor(0,0,0)
- 			love.graphics.setFont(fontRound)
-			love.graphics.print( "Scenario" , zx + 3 + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1), zy + 5 )
+			-- do not draw scenario, ...
 		else
   			love.graphics.setColor(255,255,255)
 			love.graphics.draw( 	snapshots[currentSnap].s[i].im , 
@@ -970,8 +1070,6 @@ function snapshotBar:click(x,y)
 
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
   
-  if y - zy < 0 then return end
-
     --arrowMode = false
     -- check if there is a snapshot there
     local index = math.floor(((x-zx) - snapshots[currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
@@ -1025,6 +1123,12 @@ function snapshotBar:click(x,y)
 	    if currentSnap == 3 then return end
       end
   end
+
+  -- want to move window 
+  mouseMove = true
+  arrowMode = false
+  arrowStartX, arrowStartY = x, y
+  arrowModeMap = nil
 
   end
 
@@ -1643,53 +1747,17 @@ function love.draw()
   local alpha = 80
 
   love.graphics.setColor(255,255,255)
-  love.graphics.draw( backgroundImage , 0 , 0)
 
 
-    love.graphics.setLineWidth(3)
+  local x,y = love.mouse.getPosition()
+  love.graphics.draw( backgroundImage , 0, 0)
+  love.graphics.draw( actionImage, W - 350, H / 10 )
+  love.graphics.draw( storyImage, 40 , H / 10 )
 
-    -- draw FOCUS if applicable
-    love.graphics.setColor(0,102,0,alpha)
-    if focus then love.graphics.rectangle("fill",PNJtext[focus].x+2,PNJtext[focus].y-5,W-12,42) end
+  love.graphics.setLineWidth(3)
 
-    -- draw ATTACKERS if applicable
-    love.graphics.setColor(174,102,0,alpha)
-    if focusAttackers then
-      for i,v in pairs(focusAttackers) do
-        if v then
-          local index = findPNJ(i)
-          if index then 
-		  love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,W-12,42) 
-		  -- emphasize defense value, but only for PNJ
-    		  if not PNJTable[index].PJ then
-			  love.graphics.setColor(255,0,0,200)
-		  	  love.graphics.rectangle("fill",PNJtext[index].x+743,PNJtext[index].y-3, 26,39) 
-		  end
-		  PNJtext[index].def.color = { unpack(color.white) }
-    		  love.graphics.setColor(204,102,0,alpha)
-	  end
-        end
-      end
-    end 
 
-    -- draw TARGET if applicable
-    love.graphics.setColor(250,60,60,alpha*1.5)
-    local index = findPNJ(focusTarget)
-    if index then love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,W-12,42) end
-
-  if nextFlash then
-    -- draw a blinking rectangle until Next button is pressed
-    if flashSequence then
-      love.graphics.setColor(250,80,80,alpha*1.5)
-    else
-      love.graphics.setColor(0,0,0,alpha*1.5)
-    end
-    love.graphics.rectangle("fill",PNJtext[1].x+1010,PNJtext[1].y-5,400,(PNJnum-1)*43)
-  end
-
-  -- draw view itself
-  -- view:draw()
-   
+--[[
   -- display global dangerosity
   local danger = computeGlobalDangerosity( )
   if danger ~= -1 then drawRound( 1315 , 70, "danger", tostring(danger) ) end
@@ -1726,15 +1794,9 @@ function love.draw()
       if danger ~= -1 then drawRound( PNJtext[i].x + offset, PNJtext[i].y + 15, "danger", tostring(danger) ) end
     end
     
-    -- draw PNJ snapshot if applicable
-    if PNJTable[i].snapshot then
-       	    love.graphics.setColor(255,255,255)
-	    local s = PNJTable[i].snapshot
-	    local xoffset = s.w * s.snapmag * 0.5 / 2
-	    love.graphics.draw( s.im , 210 - xoffset , PNJtext[i].y - 2 , 0 , s.snapmag * 0.5, s.snapmag * 0.5 ) 
-    end
 
   end
+--]]
 
   -- draw windows
   layout:draw() 
@@ -2062,15 +2124,6 @@ function love.mousepressed( x, y , button )
 
 	local window = layout:click(x,y)
 
-	if window and window.class ~= "map" then
-		-- want to move window 
-	   	mouseMove = true
-	   	arrowMode = false
-	   	arrowStartX, arrowStartY = x, y
-		arrowModeMap = nil
-		return
-	end
-
 	-- clicking somewhere in the map, this starts either a Move or a Mask	
 	if window and window.class == "map" then
 
@@ -2123,38 +2176,14 @@ function love.mousepressed( x, y , button )
 
     	end
 
+--[[
   -- Clicking on upper button section does not change the current FOCUS, but cancel the arrow
   if y < 40 then 
     arrowMode = false
     return
   end
+--]]
  
-  -- we assume that the mouse was pressed outside PNJ list, this might change below
-  lastFocus = focus
-  focus = nil
-  focusTarget = nil
-  focusAttackers = nil
-
-  -- check which PNJ was selected, depending on position on y-axis
-  for i=1,PNJnum-1 do
-    if (y >= PNJtext[i].y-5 and y < PNJtext[i].y + 42) then
-      PNJTable[i].focus = true
-      lastFocus = focus
-      focus = i
-      focusTarget = PNJTable[i].target
-      focusAttackers = PNJTable[i].attackers
-      -- this starts the arrow mode if PNJ
-      --if not PNJTable[i].PJ then
-        arrowMode = true
-        arrowStartX = x
-        arrowStartY = y
-        arrowStartIndex = i
-      --end
-    else
-      PNJTable[i].focus = false
-    end
-  end
-
 end
 
 
@@ -2345,27 +2374,6 @@ end
 local window = layout:getFocus()
 if not window then
   -- no window selected at the moment, we expect:
-  -- 'up', 'down' within the PNJ list
-  if focus and key == "down" then
-    if focus < PNJnum-1 then 
-      lastFocus = focus
-      focus = focus + 1
-      focusAttackers = PNJTable[ focus ].attackers
-      focusTarget  = PNJTable[ focus ].target
-    end
-    return
-  end
-  
-  if focus and key == "up" then
-    if focus > 1 then 
-      lastFocus = focus
-      focus = focus - 1
-      focusAttackers = PNJTable[ focus ].attackers
-      focusTarget  = PNJTable[ focus ].target
-    end
-    return
-  end
-
   
 else
   -- a window is selected. Keys applicable to any window:
@@ -2407,6 +2415,29 @@ else
 	  if currentSnap == 4 then currentSnap = 1 end
 	  window:setTitle( snapText[currentSnap] ) 
 	  return
+  	end
+
+  elseif window.class == "combat" then
+  
+  	-- 'up', 'down' within the PNJ list
+  	if focus and key == "down" then
+    		if focus < PNJnum-1 then 
+      			lastFocus = focus
+      			focus = focus + 1
+      			focusAttackers = PNJTable[ focus ].attackers
+      			focusTarget  = PNJTable[ focus ].target
+    		end
+    		return
+  	end
+  
+  	if focus and key == "up" then
+    		if focus > 1 then 
+      			lastFocus = focus
+      			focus = focus - 1
+      			focusAttackers = PNJTable[ focus ].attackers
+      			focusTarget  = PNJTable[ focus ].target
+    		end
+    		return
   	end
 
   elseif window.class == "map" and window.kind == "map" then
@@ -2702,7 +2733,7 @@ function love.load( args )
     fontSearch = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",16)
    
     -- adjust number of rows in screen
-    PNJmax = math.floor( viewh / 42 )
+    --PNJmax = math.floor( viewh / 42 )
 
     -- some adjustments on different systems
     if love.system.getOS() == "Windows" then
@@ -2718,19 +2749,20 @@ function love.load( args )
 
     end
 
-    love.window.setMode( 0  , H  , { fullscreen=false, resizable=true, display=1} )
+    love.window.setMode( W  , H  , { fullscreen=false, resizable=true, display=1} )
     W, H = love.window.getMode()
+    io.write("W,H=" .. W .. " " .. H .. "\n")
     love.keyboard.setKeyRepeat(true)
 
     -- create basic windows
-    snapshotWindow = snapshotBar:new{ w=W, h=80, x=W/2,y=45-(H/2-60)}
-    layout:addWindow( snapshotWindow , true )
+    combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(0), y=Window:cy(intW)}
+    layout:addWindow( combatWindow , true )
 
-    pWindow = projectorWindow:new{ w=W1, h=H1, x=-W/2+W1,y=45-(H/2-70)+H1+15}
+    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW),y=Window:cy(intW) }
     layout:addWindow( pWindow , true )
 
-    combatWindow = Combat:new{ w=W, h=H-H1, x=W/2,y=(H-H1)/2-20}
-    layout:addWindow( combatWindow , true )
+    snapshotWindow = snapshotBar:new{ w=W, h=snapshotSize+2, x=Window:cx(0), y=Window:cy(H-snapshotSize-2*20) }
+    layout:addWindow( snapshotWindow , true )
 
     -- some small differences in windows: separator is not the same, and some weird completion
     -- feature in command line may add an unexpected doublequote char at the end of the path (?)
@@ -2756,8 +2788,12 @@ function love.load( args )
     opt = opt or {""}
     local current_class = opt[1]
 
+    -- base images
+    backgroundImage 	= love.graphics.newImage( "background.jpg" )
+    actionImage 	= love.graphics.newImage( "action.jpg" )
+    storyImage 		= love.graphics.newImage( "histoire.jpg" )
+
     -- create view structure
-    backgroundImage = love.graphics.newImage( "background.jpg" )
 
     view = yui.View(0, 0, vieww, viewh, {
         margin_top = 5,
@@ -2783,8 +2819,8 @@ function love.load( args )
                 yui.HorizontalSpacing({w=150}),
                 yui.Button({name="cleanup", text="       Cleanup       ", size=size, 
 			onClick = function(self) return removeDeadPNJ() and sortAndDisplayPNJ() end }),
-                yui.HorizontalSpacing({w=270}),
-                yui.Button({text="    Quit    ", size=size, onClick = function(self) leave(); love.event.quit() end }),
+                --yui.HorizontalSpacing({w=270}),
+                --yui.Button({text="    Quit    ", size=size, onClick = function(self) leave(); love.event.quit() end }),
               }), -- end of Flow
             createPNJGUIFrame(),
            }) -- end of Stack

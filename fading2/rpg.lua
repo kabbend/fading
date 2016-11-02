@@ -529,7 +529,7 @@ function createPNJGUIFrame()
       yui.Text({text="HITS", w=80, bold=1, size=size}),
       yui.HorizontalSpacing({w=30}),
       yui.Text({name="stance", text="STANCE (Agress., Neutre, Def.)", w=220, size=size, center=1}),
-      yui.Text({text="OPPONENTS", w=40, bold=1, size=size}),
+      --yui.Text({text="OPPONENTS", w=40, bold=1, size=size}),
     }) 
 
   for i=1,PNJmax do
