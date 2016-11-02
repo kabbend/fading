@@ -313,7 +313,8 @@ function Window:drawBar()
  local title = string.sub( self.title , 1, numChar ) 
  love.graphics.setColor(224,224,224)
  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
- love.graphics.rectangle( "fill", zx , zy - 20 , self.w / self.mag , 20 )
+ love.graphics.rectangle( "fill", zx , zy - 20 , self.w / self.mag , 20 , 5 , 5 )
+ love.graphics.rectangle( "fill", zx , zy - 5 , self.w / self.mag , 5 )
  love.graphics.setColor(255,0,0)
  love.graphics.setFont(fontRound)
  love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
@@ -325,6 +326,16 @@ function Window:drawBar()
     if maskType == "RECT" then love.graphics.rectangle("line",zx + 5, zy - 16 ,12, 12) end
        if maskType == "CIRC" then love.graphics.circle("line",zx + 10, zy - 10, 5) end
      end
+end
+
+function Window:drawBack()
+  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+  --love.graphics.setColor(255,255,255,200)
+  --love.graphics.setScissor( zx, zy, self.w / self.mag, self.h / self.mag ) 
+  --love.graphics.draw( backgroundImage , zx , zy)
+  --love.graphics.setScissor() 
+  love.graphics.setColor(255,255,255,200)
+  love.graphics.rectangle( "fill", zx , zy , self.w / self.mag, self.h / self.mag )  
 end
 
 -- click in the window. Check some rudimentary behaviour (quit...)
@@ -812,15 +823,17 @@ end
 
 function projectorWindow:draw()
 
+  self:drawBack()
+
   local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
   -- small snapshot
-  love.graphics.setColor(unpack(color.white))
-  love.graphics.rectangle("fill",  zx, zy , W1 , H1 )
+  --love.graphics.setColor(unpack(color.white))
+  --love.graphics.rectangle("fill",  zx, zy , W1 , H1 )
   if currentImage then 
     local w, h = currentImage:getDimensions()
     -- compute magnifying factor f to fit to screen, with max = 2
-    local xfactor = (W1-5) / w
-    local yfactor = (H1-5) / h
+    local xfactor = (W1) / w
+    local yfactor = (H1) / h
     local f = math.min( xfactor, yfactor )
     if f > 2 then f = 2 end
     w , h = f * w , f * h
@@ -830,8 +843,55 @@ function projectorWindow:draw()
   self:drawBar()
   end
 
+--
+-- Combat class
+-- a Combat is a window which displays PNJ list and buttons 
+--
+Combat = Window:new{ class = "combat" , title = "Combat tracker" }
+
+function Combat:new( t ) -- create from w, h, x, y
+  local new = t or {}
+  setmetatable( new , self )
+  self.__index = self
+  return new
+end
+
+function Combat:draw()
+
+  -- draw background
+  self:drawBack()
+
+  view:draw()
+ 
+  -- print bar
+  self:drawBar()
+
+end
+
+function Combat:update(dt)
+	
+  	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+	view:setElementPosition( view.layout[1], zx + 5, zy + 5 )
+  	view:update(dt)
+  	yui.update({view})
+
+	end
+
+function Combat:click(x,y)
+
+  	Window.click(self,x,y)
+
+  	end
+
+--
+-- mainLayout class
+-- store all windows, with their display status (displayed or not) and layer value
+--
+mainLayout = {}
+--
 -- snapshotBarclass
--- a snapshotBar is a window which displays images. it is not zoomable
+-- a snapshotBar is a window which displays images
+--
 snapshotBar = Window:new{ class = "snapshot" , title = "Images" }
 
 function snapshotBar:new( t ) -- create from w, h, x, y
@@ -843,11 +903,10 @@ end
 
 function snapshotBar:draw()
 
-  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+  self:drawBack()
 
-  -- bottom snapshots list
+  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
   love.graphics.setColor(255,255,255)
-  love.graphics.rectangle( "fill", zx , zy , self.w , self.h )  
   for i=snapshots[currentSnap].index, #snapshots[currentSnap].s do
 	local x = zx + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1) - (snapshots[currentSnap].s[i].w * snapshots[currentSnap].s[i].snapmag - snapshotSize) / 2
 	if x > zx + self.w / self.mag  + snapshotSize then break end
@@ -1257,9 +1316,6 @@ function love.filedropped(file)
 -- GUI basic functions
 function love.update(dt)
 
-
-	view.x, view.y = view.x + 1, view.y + 1
-	
 	-- decrease timelength of 1st message if any
 	if messages[1] then 
 	  if messages[1].time < 0 then
@@ -1393,8 +1449,8 @@ function love.update(dt)
 
 	end -- end of client loop
 
-  	view:update(dt)
-  	yui.update({view})
+  	--view:update(dt)
+  	--yui.update({view})
 
 	-- restore pawn color when needed
 	-- move pawns progressively
@@ -1586,7 +1642,7 @@ function love.draw()
 
   local alpha = 80
 
-  love.graphics.setColor(255,255,255,200)
+  love.graphics.setColor(255,255,255)
   love.graphics.draw( backgroundImage , 0 , 0)
 
 
@@ -1632,8 +1688,7 @@ function love.draw()
   end
 
   -- draw view itself
-  view:draw()
-
+  -- view:draw()
    
   -- display global dangerosity
   local danger = computeGlobalDangerosity( )
@@ -2283,6 +2338,7 @@ if key == "r" and love.keyboard.isDown("lctrl") then
 	layout:hideAll()	
 	layout:restoreBase(pWindow)
 	layout:restoreBase(snapshotWindow)
+	layout:restoreBase(combatWindow)
 end
 
 -- other keys applicable 
@@ -2662,14 +2718,19 @@ function love.load( args )
 
     end
 
-    love.window.setMode( W  , H  , { fullscreen=false, resizable=true, display=1} )
+    love.window.setMode( 0  , H  , { fullscreen=false, resizable=true, display=1} )
+    W, H = love.window.getMode()
     love.keyboard.setKeyRepeat(true)
 
     -- create basic windows
     snapshotWindow = snapshotBar:new{ w=W, h=80, x=W/2,y=45-(H/2-60)}
     layout:addWindow( snapshotWindow , true )
+
     pWindow = projectorWindow:new{ w=W1, h=H1, x=-W/2+W1,y=45-(H/2-70)+H1+15}
     layout:addWindow( pWindow , true )
+
+    combatWindow = Combat:new{ w=W, h=H-H1, x=W/2,y=(H-H1)/2-20}
+    layout:addWindow( combatWindow , true )
 
     -- some small differences in windows: separator is not the same, and some weird completion
     -- feature in command line may add an unexpected doublequote char at the end of the path (?)
@@ -2696,7 +2757,6 @@ function love.load( args )
     local current_class = opt[1]
 
     -- create view structure
-    --love.graphics.setBackgroundColor( 255, 205, 205 )
     backgroundImage = love.graphics.newImage( "background.jpg" )
 
     view = yui.View(0, 0, vieww, viewh, {

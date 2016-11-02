@@ -53,7 +53,9 @@ function Base:basePreUpdate(dt, parent)
     if parent and not self.draggable and not self.resizable and self.type ~= 'Scrollarea' then self.x, self.y = parent.x + self.ix, parent.y + self.iy end
 
     -- Check for hot
-    self.hot = self:collision(x, y) and not layout:getWindow(x,y)
+    local w = layout:getWindow(x,y)
+    local masked = w and (w ~= combatWindow) 
+    self.hot = self:collision(x, y) and not masked 
 
     -- Check for enter 
     if self.hot and not self.previous_hot then
