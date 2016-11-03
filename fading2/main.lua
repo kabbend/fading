@@ -53,7 +53,7 @@ snapshots    = {}
 snapshots[1] = { s = {}, index = 1, offset = 0 } 	-- small snapshots at the bottom, for general images
 snapshots[2] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for scenario & maps
 snapshots[3] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for pawns
-snapText = { "IMAGES", "MAPS", "PAWNS" }
+snapText = { "Images", "Tactical Maps", "Pawn images" }
 currentSnap		= 1				-- by default, we display images
 snapshotSize 		= 70 				-- w and h of each snapshot
 snapshotMargin 		= 7 				-- space between images and screen border
@@ -890,7 +890,7 @@ function Combat:draw()
 
   -- draw FOCUS if applicable
   love.graphics.setColor(0,102,0,alpha)
-  if focus then love.graphics.rectangle("fill",PNJtext[focus].x+2,PNJtext[focus].y-5,WC,42) end
+  if focus then love.graphics.rectangle("fill",PNJtext[focus].x+2,PNJtext[focus].y-5,WC - 5,42) end
 
   -- draw ATTACKERS if applicable
   love.graphics.setColor(174,102,0,alpha)
@@ -899,7 +899,7 @@ function Combat:draw()
         if v then
           local index = findPNJ(i)
           if index then 
-		  love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,WC,42) 
+		  love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,WC - 5,42) 
 		  -- emphasize defense value, but only for PNJ
     		  if not PNJTable[index].PJ then
 			  love.graphics.setColor(255,0,0,200)
@@ -915,7 +915,7 @@ function Combat:draw()
     -- draw TARGET if applicable
     love.graphics.setColor(250,60,60,alpha*1.5)
     local index = findPNJ(focusTarget)
-    if index then love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,WC,42) end
+    if index then love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,WC - 5,42) end
 
     -- draw PNJ snapshot if applicable
     for i=1,PNJnum-1 do
@@ -956,6 +956,16 @@ function Combat:click(x,y)
   	Window.click(self,x,y)
 
   	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+
+	-- clicking on button bar does not change focus, but might move window
+	if (y - zy) < 40 then 
+		mouseMove = true
+		arrowMode = false
+		arrowStartX, arrowStartY = x, y
+		arrowModeMap = nil
+		return
+	end
+
   	-- we assume that the mouse was pressed outside PNJ list, this might change below
   	lastFocus = focus
   	focus = nil
@@ -1001,7 +1011,7 @@ mainLayout = {}
 -- snapshotBarclass
 -- a snapshotBar is a window which displays images
 --
-snapshotBar = Window:new{ class = "snapshot" , title = "Images" }
+snapshotBar = Window:new{ class = "snapshot" , title = snapText[1] }
 
 function snapshotBar:new( t ) -- create from w, h, x, y
   local new = t or {}
