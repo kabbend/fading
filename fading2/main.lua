@@ -319,10 +319,13 @@ function Window:drawBar()
  local availableForTitle = self.w / self.mag - reservedForButtons - marginForRect 
  local numChar = math.floor(availableForTitle / 7)
  local title = string.sub( self.title , 1, numChar ) 
- love.graphics.setColor(224,224,224)
+ if self == layout:getFocus() then
+ 	love.graphics.setColor(104,104,124)
+ else
+ 	love.graphics.setColor(224,224,224)
+ end
  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
  love.graphics.rectangle( "fill", zx , zy - 20 , self.w / self.mag , 20 )
- love.graphics.rectangle( "fill", zx , zy - 5 , self.w / self.mag , 5 )
  love.graphics.setColor(255,0,0)
  love.graphics.setFont(fontRound)
  love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
@@ -341,8 +344,9 @@ function Window:drawBack()
   --love.graphics.setColor(255,255,255,200)
   --love.graphics.setScissor( zx, zy, self.w / self.mag, self.h / self.mag ) 
   --love.graphics.draw( backgroundImage , zx , zy)
-  --love.graphics.setScissor() 
-  love.graphics.setColor(255,255,255,200)
+  --love.graphics.setScissor()
+  local alpha = 200
+  love.graphics.setColor(255,255,255,alpha)
   love.graphics.rectangle( "fill", zx , zy , self.w / self.mag, self.h / self.mag )  
 end
 
@@ -757,6 +761,33 @@ function Map:isInsidePawn(x,y)
   end
 end
 
+--
+-- iconWindow class
+-- a Icon is a window which displays a fixed image on the background . it is not zoomable, movable, no window bar
+-- and always at bottom
+-- 
+iconWindow = Window:new{ class = "icon", alwaysBottom = true, alwaysVisible = true, zoomable = false }
+
+function iconWindow:new( t ) -- create from w, h, x, y + text, image
+  local new = t or {}
+  setmetatable( new , self )
+  self.__index = self
+  return new
+end
+
+function iconWindow:draw()
+  local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
+  love.graphics.setColor(255,255,255)
+  love.graphics.setFont(fontTitle)
+  love.graphics.draw( self.image, zx, zy , 0, 1/2.1, 1/2.1)
+  love.graphics.print( self.text, zx +20 , zy + 90  ) 
+end
+
+function iconWindow:click()
+	-- open/close corresponding windows
+end
+
+-- Dialog class
 -- Help class
 -- a Help is a window which displays some fixed text . it is not zoomable
 Help = Window:new{ class = "help" , title = "Help" }
@@ -1156,8 +1187,12 @@ function mainLayout:new()
 end
 
 function mainLayout:addWindow( window, display ) 
-	self.maxWindowLayer = self.maxWindowLayer + 1
-	self.windows[window] = { w=window , l=self.maxWindowLayer , d=display }
+	if window.alwaysBottom then
+		self.windows[window] = { w=window , l=1 , d=display }
+	else
+		self.maxWindowLayer = self.maxWindowLayer + 1
+		self.windows[window] = { w=window , l=self.maxWindowLayer , d=display }
+	end
 	-- sort windows by layer (ascending) value
 	table.insert( self.sorted , self.windows[window] )
 	table.sort( self.sorted , function(a,b) return a.l < b.l end )
@@ -1193,7 +1228,7 @@ function mainLayout:toggleDisplay()
 	end
 
 function mainLayout:hideAll()
-	for i=1,#self.sorted do self.sorted[i].d = false end
+	for i=1,#self.sorted do if not self.sorted[i].w.alwaysVisible then self.sorted[i].d = false end end
 	end
 
 -- return (if there is one) or set the window with focus 
@@ -1204,9 +1239,11 @@ function mainLayout:getFocus() return self.focus end
 function mainLayout:setFocus( window ) 
 	if window then
 		if window == self.focus then return end -- this window was already in focus. nothing happens
-		self.maxWindowLayer = self.maxWindowLayer + 1
-		self.windows[window].l = self.maxWindowLayer
-		table.sort( self.sorted , function(a,b) return a.l < b.l end )
+		if not window.alwaysBottom then
+			self.maxWindowLayer = self.maxWindowLayer + 1
+			self.windows[window].l = self.maxWindowLayer
+			table.sort( self.sorted , function(a,b) return a.l < b.l end )
+		end
 		window:getFocus()
 		if self.focus then self.focus:looseFocus() end
 	end
@@ -1219,7 +1256,7 @@ function mainLayout:nextWindow()
  	local t = {}
 	local index = nil
 	if not self.globalDisplay then return end
-	for i=1,#self.sorted do if self.sorted[i].d then 
+	for i=1,#self.sorted do if self.sorted[i].d and self.sorted[i].w.class ~= "icon" then 
 		table.insert( t , self.sorted[i].w ) 
 		if self.sorted[i].w == self:getFocus() then index = i end
 		end end
@@ -1240,9 +1277,11 @@ function mainLayout:nextWindow()
 function mainLayout:click( x , y )
 	local layer = 0
 	local result = nil
-	if not self.globalDisplay then return nil end -- in ESC mode, no window at all
 	for k,l in pairs( self.windows ) do
-		if l.d and l.w:isInside(x,y) and l.l > layer then result = l.w ; layer = l.l end  
+		-- in ESC mode, no window at all excepts icons
+		if self.globalDisplay or l.w.alwaysVisible then 
+			if l.d and l.w:isInside(x,y) and l.l > layer then result = l.w ; layer = l.l end  
+		end
 	end
 	if result then
 		-- a window was actually clicked. Call corresponding click() function 
@@ -1258,16 +1297,21 @@ function mainLayout:click( x , y )
 function mainLayout:getWindow( x , y )
 	local layer = 0
 	local result = nil
-	if not self.globalDisplay then return nil end -- in ESC mode, no window at all
 	for k,l in pairs( self.windows ) do
-		if l.d and l.w:isInside(x,y) and l.l > layer then result = l.w ; layer = l.l end  
+		-- in ESC mode, no window at all excepts icons
+		if self.globalDisplay or l.w.alwaysVisible then 
+			if l.d and l.w:isInside(x,y) and l.l > layer then result = l.w ; layer = l.l end  
+		end
 	end
 	return result
 	end
 
 function mainLayout:draw() 
-	if not self.globalDisplay then return end -- do nothing if globalDisplay is not set !
-	for k,v in ipairs( self.sorted ) do if self.sorted[k].d then self.sorted[k].w:draw() end end
+	for k,v in ipairs( self.sorted ) do 
+		if self.globalDisplay or v.w.alwaysVisible then
+			if self.sorted[k].d then self.sorted[k].w:draw() end 
+		end
+	end
 	end 
 
 function mainLayout:update(dt)
@@ -1757,15 +1801,9 @@ function love.draw()
   local alpha = 80
 
   love.graphics.setColor(255,255,255)
-
-
-  local x,y = love.mouse.getPosition()
   love.graphics.draw( backgroundImage , 0, 0)
-  love.graphics.draw( actionImage, W - 350, H / 10 )
-  love.graphics.draw( storyImage, 40 , H / 10 )
 
   love.graphics.setLineWidth(3)
-
 
 --[[
   -- display global dangerosity
@@ -2738,10 +2776,16 @@ function love.load( args )
     love.window.setTitle( "Fading Suns Combat Tracker" )
 
     -- load fonts
+    fontTitle = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",20)
     fontDice = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",90)
     fontRound = love.graphics.newFont("yui/yaoui/fonts/OpenSans-Bold.ttf",12)
     fontSearch = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",16)
    
+    -- base images
+    backgroundImage 	= love.graphics.newImage( "background.jpg" )
+    actionImage 	= love.graphics.newImage( "action.jpg" )
+    storyImage 		= love.graphics.newImage( "histoire.jpg" )
+
     -- adjust number of rows in screen
     --PNJmax = math.floor( viewh / 42 )
 
@@ -2768,11 +2812,16 @@ function love.load( args )
     combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(0), y=Window:cy(intW)}
     layout:addWindow( combatWindow , true )
 
-    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW),y=Window:cy(intW) }
+    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW),y=Window:cy(H - 3*20 - snapshotSize - intW - H1) }
     layout:addWindow( pWindow , true )
 
     snapshotWindow = snapshotBar:new{ w=W, h=snapshotSize+2, x=Window:cx(0), y=Window:cy(H-snapshotSize-2*20) }
     layout:addWindow( snapshotWindow , true )
+
+    storyWindow = iconWindow:new{ text = "L'Histoire", image = storyImage, x=Window:cx(W-145), y=Window:cy(10 ), w=storyImage:getWidth(), h=storyImage:getHeight() }
+    actionWindow = iconWindow:new{ text = "L'Action", image = actionImage, x=Window:cx(W-145), y=Window:cy(150), w=actionImage:getWidth(), h=actionImage:getHeight() }
+    layout:addWindow( storyWindow , true )
+    layout:addWindow( actionWindow , true )
 
     -- some small differences in windows: separator is not the same, and some weird completion
     -- feature in command line may add an unexpected doublequote char at the end of the path (?)
@@ -2798,10 +2847,6 @@ function love.load( args )
     opt = opt or {""}
     local current_class = opt[1]
 
-    -- base images
-    backgroundImage 	= love.graphics.newImage( "background.jpg" )
-    actionImage 	= love.graphics.newImage( "action.jpg" )
-    storyImage 		= love.graphics.newImage( "histoire.jpg" )
 
     -- create view structure
 
