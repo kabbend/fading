@@ -319,17 +319,13 @@ function Window:drawBar()
  local availableForTitle = self.w / self.mag - reservedForButtons - marginForRect 
  local numChar = math.floor(availableForTitle / 7)
  local title = string.sub( self.title , 1, numChar ) 
- if self == layout:getFocus() then
- 	love.graphics.setColor(104,104,124)
- else
- 	love.graphics.setColor(224,224,224)
- end
+ if self == layout:getFocus() then love.graphics.setColor(0,0,0) else love.graphics.setColor(224,224,224) end
  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
  love.graphics.rectangle( "fill", zx , zy - 20 , self.w / self.mag , 20 )
  love.graphics.setColor(255,0,0)
  love.graphics.setFont(fontRound)
  love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
- love.graphics.setColor(0,0,0)
+ if self == layout:getFocus() then love.graphics.setColor(255,255,255) else love.graphics.setColor(0,0,0) end
  love.graphics.print( title , zx + 3 + marginForRect , zy - 18 )
   -- draw small circle or rectangle in upper corner, to show which mode we are in
  love.graphics.setColor(255,0,0)
@@ -768,10 +764,11 @@ end
 -- 
 iconWindow = Window:new{ class = "icon", alwaysBottom = true, alwaysVisible = true, zoomable = false }
 
-function iconWindow:new( t ) -- create from w, h, x, y + text, image
+function iconWindow:new( t ) -- create from w, h, x, y + text, image, windows
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
+  self.open = false
   return new
 end
 
@@ -784,7 +781,23 @@ function iconWindow:draw()
 end
 
 function iconWindow:click()
-	-- open/close corresponding windows
+	if self.open then
+		layout:hideAll()
+	elseif self.text == "L'Action" then
+		layout:hideAll()
+		layout:restoreBase( pWindow )			
+		layout:restoreBase( combatWindow )			
+		layout:restoreBase( snapshotWindow )
+	 	currentSnap = 2 -- tactical maps			
+		layout:restoreBase( rollWindow )			
+	elseif self.text == "L'Histoire" then
+		layout:hideAll()
+		layout:restoreBase( pWindow )			
+		layout:restoreBase( snapshotWindow )
+	 	currentSnap = 1 -- images			
+		layout:restoreBase( rollWindow )			
+	end
+	self.open = not self.open
 end
 
 -- Dialog class
@@ -849,6 +862,74 @@ end
 
 function Dialog:getFocus() dialogActive = true end
 function Dialog:looseFocus() dialogActive = false end
+
+-- projectorWindow class
+-- a projectorWindow is a window which displays images. it is not zoomable
+diceWindow = Window:new{ class = "dice" , title = "Gobelet" }
+
+function diceWindow:new( t ) -- create from w, h, x, y
+  local new = t or {}
+  setmetatable( new , self )
+  self.__index = self
+  self.maxDice = 25
+  self.dice = 1
+  self.angle = 0 
+  return new
+end
+
+function diceWindow:update(dt)
+ 
+  local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
+  local cx, cy = zx + self.w/2, zy + self.h/2
+  local x,y = love.mouse.getPosition()
+  local d = distanceFrom( x , y , cx , cy )
+  local radius2 = self.w/2 * 0.7
+  if d >= radius2 - 10 and d <= radius2 + 10 then
+	self.angle = findRotation(cx , cy, x , y )
+	self.dice = math.ceil( self.angle / ( 2 * math.pi ) * self.maxDice )
+	if self.dice == 0 then self.dice = 1 end
+  end
+
+  end
+
+function findRotation(x1,y1,x2,y2)
+  local t = math.atan2(y2-y1,x2-x1)
+  if t<0 then t = t + 2* math.pi end
+  return t;
+  end
+
+function diceWindow:draw()
+
+  self:drawBack()
+
+  local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
+  local cx, cy = zx + self.w/2, zy + self.h/2
+  love.graphics.setColor(0,0,0)
+  love.graphics.setFont(fontTitle)
+  love.graphics.print( self.dice , cx, cy )
+  local radius1 = self.w/2 * 0.5
+  local radius2 = self.w/2 * 0.7
+  love.graphics.circle( "line", cx, cy , radius1 )
+  love.graphics.setColor(0,0,255)
+  love.graphics.arc( "line", cx , cy , radius2, 0 , self.angle ) 
+  -- print bar
+  self:drawBar()
+  end
+
+function diceWindow:click(x,y)
+
+  	Window.click(self,x,y)
+
+	-- want to move window eventually ?
+	mouseMove = true
+	arrowMode = false
+	arrowStartX, arrowStartY = x, y
+	arrowModeMap = nil
+
+	-- roll dices if button pressed
+	launchDices(self.dice)
+
+	end
 
 -- projectorWindow class
 -- a projectorWindow is a window which displays images. it is not zoomable
@@ -2810,16 +2891,17 @@ function love.load( args )
 
     -- create basic windows
     combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(0), y=Window:cy(intW)}
-    layout:addWindow( combatWindow , true )
-
-    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW),y=Window:cy(H - 3*20 - snapshotSize - intW - H1) }
-    layout:addWindow( pWindow , true )
-
+    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*20 - snapshotSize - intW - H1 + 1) }
+    rollWindow = diceWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 4*20 - snapshotSize - 2 * intW - 2 * H1 + 1) }
     snapshotWindow = snapshotBar:new{ w=W, h=snapshotSize+2, x=Window:cx(0), y=Window:cy(H-snapshotSize-2*20) }
-    layout:addWindow( snapshotWindow , true )
-
     storyWindow = iconWindow:new{ text = "L'Histoire", image = storyImage, x=Window:cx(W-145), y=Window:cy(10 ), w=storyImage:getWidth(), h=storyImage:getHeight() }
-    actionWindow = iconWindow:new{ text = "L'Action", image = actionImage, x=Window:cx(W-145), y=Window:cy(150), w=actionImage:getWidth(), h=actionImage:getHeight() }
+    actionWindow = iconWindow:new{ text = "L'Action", image = actionImage, x=Window:cx(W-145), y=Window:cy(150), w=actionImage:getWidth(), h=actionImage:getHeight() } 
+
+    layout:addWindow( combatWindow , false ) -- do not display them yet
+    layout:addWindow( pWindow , false )
+    layout:addWindow( snapshotWindow , false )
+    layout:addWindow( rollWindow , false )
+
     layout:addWindow( storyWindow , true )
     layout:addWindow( actionWindow , true )
 

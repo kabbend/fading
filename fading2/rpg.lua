@@ -90,6 +90,12 @@ function isAttorArm( i )
 
          if num == 0 then return end
 
+	 launchDices(num)
+
+	 end
+
+function launchDices( num )
+
          math.randomseed( os.time() )
 
          -- prepare the dice box simulation
