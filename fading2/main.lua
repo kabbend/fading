@@ -931,7 +931,29 @@ function iconWindow:click()
 		end
 	elseif self.text == "L'Histoire" then
 		if self.open then
+	 		currentSnap = 1 -- images			
+			decideOpenWindow(snapshotWindow,cx,cy,0.3*self.w/self.mag)
+			decideOpenWindow(pWindow,cx,cy,0.3*self.w/self.mag)
+			--decideOpenWindow(scenarioWindow,cx,cy,0.3*self.w/self.mag)
+			-- sink all other windows
+			for i=1,#layout.sorted do
+				if layout.sorted[i].w ~= pWindow and 
+				   layout.sorted[i].w ~= snapshotWindow and
+				   layout.sorted[i].w.class ~= "dialog" and
+				   layout.sorted[i].w.class ~= "help" and
+				   layout.sorted[i].d and 
+				   not layout.sorted[i].w.alwaysVisible then
+
+				  	layout.sorted[i].w:sink(cx,cy,0.3*self.w/self.mag)	
+
+				end
+
+			end
 		else
+			-- sink all windows
+			for i=1,#layout.sorted do
+				decideCloseWindow(layout.sorted[i].w,cx,cy,0.3*self.w/self.mag)
+			end
 		end
 	end
 end
