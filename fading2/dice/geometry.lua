@@ -12,6 +12,48 @@ d4={
   faces={{1,2,3},{4,3,2},{3,4,1},{4,2,1}}
 }
 
+function newD20star(size)
+  if not size then size=1 end
+  local new={
+	{-0.26286500, 0.0000000, 0.42532500},
+        {0.26286500, 0.0000000, 0.42532500},
+        {-0.26286500, 0.0000000, -0.42532500},
+        {0.26286500, 0.0000000, -0.42532500},
+        {0.0000000, 0.42532500, 0.26286500},
+        {0.0000000, 0.42532500, -0.26286500},
+        {0.0000000, -0.42532500, 0.26286500},
+        {0.0000000, -0.42532500, -0.26286500},
+        {0.42532500, 0.26286500, 0.0000000},
+        {-0.42532500, 0.26286500, 0.000000},
+        {0.42532500, -0.26286500, 0.0000000},
+        {-0.42532500, -0.26286500, 0.0000000}
+	} 
+  return clone(star,new):set(nil,nil,nil,size*size*size,size*size*size/2)
+end
+
+d20={
+  faces={{1,2,6},{1,3,2},{1,5,6},{1,5,4},
+  	 {1,4,3},{2,8,6},{2,8,9},{2,9,3},
+  	 {3,9,10},{3,10,4},{4,11,10},{4,5,11},
+  	 {5,7,11},{5,6,7},{12,10,11},{12,11,7},
+  	 {12,10,9},{12,9,8},{12,8,7},{6,7,8},
+	}
+}
+
+--[[ D20
+	vertices[0] = new VertexPositionColor(new Vector3(-0.26286500f, 0.0000000f, 0.42532500f), Color.Red);
+            vertices[1] = new VertexPositionColor(new Vector3(0.26286500f, 0.0000000f, 0.42532500f), Color.Orange);
+            vertices[2] = new VertexPositionColor(new Vector3(-0.26286500f, 0.0000000f, -0.42532500f), Color.Yellow);
+            vertices[3] = new VertexPositionColor(new Vector3(0.26286500f, 0.0000000f, -0.42532500f), Color.Green);
+            vertices[4] = new VertexPositionColor(new Vector3(0.0000000f, 0.42532500f, 0.26286500f), Color.Blue);
+            vertices[5] = new VertexPositionColor(new Vector3(0.0000000f, 0.42532500f, -0.26286500f), Color.Indigo);
+            vertices[6] = new VertexPositionColor(new Vector3(0.0000000f, -0.42532500f, 0.26286500f), Color.Purple);
+            vertices[7] = new VertexPositionColor(new Vector3(0.0000000f, -0.42532500f, -0.26286500f), Color.White);
+            vertices[8] = new VertexPositionColor(new Vector3(0.42532500f, 0.26286500f, 0.0000000f), Color.Cyan);
+            vertices[9] = new VertexPositionColor(new Vector3(-0.42532500f, 0.26286500f, 0.0000000f), Color.Black);
+            vertices[10] = new VertexPositionColor(new Vector3(0.42532500f, -0.26286500f, 0.0000000f), Color.DodgerBlue);
+            vertices[11] = new VertexPositionColor(new Vector3(-0.42532500f, -0.26286500f, 0.0000000f), Color.Crimson);
+--]]
 
 local function corner(n,xofs,yofs,size,x,y,xa,ya,xb,yb)
   local c,a,b=vector{x,y},vector{xa,ya},vector{xb,yb}
@@ -22,7 +64,7 @@ local function corner(n,xofs,yofs,size,x,y,xa,ya,xb,yb)
   o=o+0.5*x-size/2*x+yofs*y+xofs*x
   x,y=size*x,size*y
   x,y=o+x,o+y
-  local img=love.graphics.getImage("textures/"..n..".png")
+  local img=love.graphics.getImage("dice/textures/"..n..".png")
   love.graphics.push()
   love.graphics.transform(o[1],o[2],x[1],x[2],y[1],y[2])
   love.graphics.draw(img,0,0,0,1/img:getWidth(),1/img:getHeight())
@@ -80,6 +122,9 @@ d8={
   }
 }
 function d8.image(n,...)
+  corner(n,0,0.4,0.5,...)
+end
+function d20.image(n,...)
   corner(n,0,0.4,0.5,...)
 end
 function round(p,die,star)

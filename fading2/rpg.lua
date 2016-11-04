@@ -109,6 +109,11 @@ function launchDices( num )
                                            {math.random(10),math.random(10),math.random(10)}), -- angular mvmt
                    die=clone(d6,{material=light.plastic,color={81,0,255,255},text={255,255,255},shadow={20,0,0,190}}) })
          end
+                 table.insert(dice,
+                 { star=newD20star(4):set({math.random(10),math.random(10),math.random(10)}, -- position
+                                           {-math.random(8,40),-math.random(8,40),-10}, -- velocity
+                                           {math.random(10),math.random(10),math.random(10)}), -- angular mvmt
+                   die=clone(d20,{material=light.plastic,color={81,0,255,255},text={255,255,255},shadow={20,0,0,190}}) })
 
          for i=1,#dice do box[i]=dice[i].star end
          for i=#dice+1,40 do box[i]=nil end -- FIXME, hardcoded, ugly...
