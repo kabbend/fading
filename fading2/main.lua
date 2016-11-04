@@ -26,6 +26,11 @@ require 'fading2/dice/default/config'
 
 debug = false
 
+-- sink motion
+sinkTime = 1 		-- in seconds
+sinkTimerLimit = 0.1 	-- timelapse between steps
+sinkSteps = sinkTime / sinkTimerLimit
+
 -- main layout
 layout 			= nil
 currentWindowDraw 	= nil
@@ -292,8 +297,57 @@ function Window:new( t )
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
+  new.markForSink = false
+  new.markForUnsink = false
+  new.markForSinkDeltax = 0 -- absolute delta per step (in pixels)
+  new.markForSinkDeltay = 0
+  new.markForSinkDeltaMag = 0
+  new.markForSinkTimer = 0
+  new.sinkSteps = 0
   return new
 end
+
+
+-- window to screen, screen to window: transform x,y coordinates within the window from point on screen
+function Window:WtoS(x,y) return (x - self.x)/self.mag + W/2, (y - self.y)/self.mag + H/2 end
+-- translate window by dx, dy pixels on screen, with unchanged mag factor 
+function Window:translate(dx,dy) self.x = self.x - dx * self.mag; self.y = self.y - dy * self.mag end
+	
+-- request the window to sink at the given target position tx, ty on the screen, and covering a window
+-- of width w on the screen
+function Window:sink(tx,ty,w) 
+	self.markForSink = true
+	self.sinkFinalDisplay = false
+	self.restoreSinkX, self.restoreSinkY, self.restoreSinkMag = self.x, self.y, self.mag
+	local cx, cy = Window.WtoS(self,self.w/2, self.h/2)
+	self.markForSinkDeltax, self.markForSinkDeltay = (tx - cx)/sinkSteps, (ty - cy)/sinkSteps
+	local wratio = self.w / w
+	self.markForSinkDeltaMag = (wratio - self.mag)/sinkSteps
+	self.sinkSteps = 0
+	self.markForSinkTimer = 0
+io.write("sink: " .. tostring(tx) .. " " .. tostring(ty) .. " " .. tostring(w) .. " " .. tostring(self.restoreSinkMag) .. "\n")
+	end
+ 	
+
+-- request the window to unsink from source position sx, sy at the given target (window) position x,y, with mag factor 
+function Window:unsink(sx, sy, sw, x, y, mag) 
+io.write("unsink: " .. tostring(sx) .. " " .. tostring(sy) .. " " .. tostring(sw) .. " " .. tostring(x) .. " " .. tostring(y) .. " " .. tostring(mag) .. "\n")
+	self.markForSink = true
+	self.sinkFinalDisplay = true
+	local startingmag = self.w / sw
+	self.markForSinkDeltaMag = (mag - startingmag) / sinkSteps
+	-- where would be the window center on screen at the end ?
+	self.mag = mag; self.x = x; self.y = y
+	local cx, cy = Window.WtoS(self,self.w/2, self.h/2)
+	self.markForSinkDeltax, self.markForSinkDeltay = (cx - sx)/sinkSteps, (cy - sy)/sinkSteps
+	-- real starting data
+	self.mag = startingmag; 
+	self.x = self.w/2; self.y = self.h/2
+	Window.translate(self,sx-W/2, sy-H/2) -- we apply the correct translation
+	self.sinkSteps = 0
+	self.markForSinkTimer = 0
+	layout:setDisplay(self,true)
+	end
 
 function Window:cx( zx ) return (-zx + W/2)*self.mag end
 function Window:cy( zy ) return (-zy + H/2)*self.mag - 20 end
@@ -366,7 +420,35 @@ function Window:click(x,y)
 function Window:draw() end 
 function Window:getFocus() end
 function Window:looseFocus() end
-function Window:update(dt) end
+function Window:update(dt) 
+	if self.markForSink then 
+		--self.markForSinkTimer = self.markForSinkTimer + dt
+		--if self.markForSinkTimer > sinkTimerLimit then
+			self.markForSinkTimer = 0
+			self.sinkSteps = self.sinkSteps + 1
+		
+			-- we translate the window
+			Window.translate(self,self.markForSinkDeltax, self.markForSinkDeltay)
+			-- where is the center on screen now ?
+			local cx, cy = Window.WtoS(self,self.w/2,self.h/2)
+			-- we want the scale to change, but keeping the window center unchanged
+			self.mag = self.mag + self.markForSinkDeltaMag
+			local tx,ty = Window.WtoS(self,self.w/2,self.h/2) -- if doing nothing, we would be there
+			Window.translate(self,cx-tx, cy-ty) -- we apply the correct translation
+		
+			if self.sinkSteps >= sinkSteps then 
+				self.markForSink = false -- finish sink movement
+				-- disappear eventually
+				if not self.sinkFinalDisplay then 
+					layout:setDisplay(self, false) 
+					self.minimized = true
+				else
+					self.minimized = false
+				end	
+			end
+		--end
+	end
+	end
 
 --
 --  Pawn object 
@@ -606,6 +688,7 @@ function Map:getFocus() if self.kind == "scenario" then searchActive = true end 
 function Map:looseFocus() if self.kind == "scenario" then searchActive = false end end
 
 function Map:update(dt)	
+
 	-- move pawns progressively, if needed
 	-- restore their color (white) which may have been modified if they are current target of an arrow
 	if self.kind =="map" then
@@ -616,6 +699,9 @@ function Map:update(dt)
 			p.color = color.white
 		end	
 	end
+
+	Window.update(self,dt)
+
 	end
 
 -- remove a pawn from the list (different from killing the pawn)
@@ -764,40 +850,90 @@ end
 -- 
 iconWindow = Window:new{ class = "icon", alwaysBottom = true, alwaysVisible = true, zoomable = false }
 
-function iconWindow:new( t ) -- create from w, h, x, y + text, image, windows
+function iconWindow:new( t ) -- create from w, h, x, y + text, image, windows, mag
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
-  self.open = false
+  new.open = false 
   return new
 end
 
 function iconWindow:draw()
-  local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
+  local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
   love.graphics.setColor(255,255,255)
   love.graphics.setFont(fontTitle)
-  love.graphics.draw( self.image, zx, zy , 0, 1/2.1, 1/2.1)
+  if self.open then 
+  	love.graphics.setColor(255,255,0)
+	love.graphics.rectangle( "fill", zx-3, zy-3 , self.w/self.mag+6, self.h/self.mag+6) 
+  end
+  love.graphics.setColor(255,255,255)
+  love.graphics.draw( self.image, zx, zy , 0, 1/self.mag, 1/self.mag)
   love.graphics.print( self.text, zx +20 , zy + 90  ) 
 end
 
-function iconWindow:click()
-	if self.open then
-		layout:hideAll()
-	elseif self.text == "L'Action" then
-		layout:hideAll()
-		layout:restoreBase( pWindow )			
-		layout:restoreBase( combatWindow )			
-		layout:restoreBase( snapshotWindow )
-	 	currentSnap = 2 -- tactical maps			
-		layout:restoreBase( rollWindow )			
-	elseif self.text == "L'Histoire" then
-		layout:hideAll()
-		layout:restoreBase( pWindow )			
-		layout:restoreBase( snapshotWindow )
-	 	currentSnap = 1 -- images			
-		layout:restoreBase( rollWindow )			
+function decideOpenWindow(window,cx,cy,w)
+	if window.minimized then
+		window:unsink(cx,cy,w,window.restoreSinkX, window.restoreSinkY, window.restoreSinkMag)
+	elseif not layout:getDisplay(window) then
+		window:unsink(cx,cy,w,window.startupX, window.startupY, window.startupMag)
+	else
+		layout:restoreBase(window)
+	end 
 	end
+
+function decideCloseWindow(window,cx,cy,w)
+	if window.minimized or not layout:getDisplay(window) or window.alwaysVisible or 
+		window.class == "dialog" or window.class == "help" then
+	  -- nothing to do 
+	else
+		window:sink(cx,cy,w)
+	end
+	end
+
+function iconWindow:click()
+  	local cx,cy = Window.WtoS(self,self.w/2,self.h/2) 
 	self.open = not self.open
+	if self.open then -- only one opened at a time
+	  if self == storyWindow then
+		actionWindow.open = false
+	  else
+		storyWindow.open = false
+	  end
+	end
+	if self.text == "L'Action" then
+		if self.open then
+			decideOpenWindow(combatWindow,cx,cy,0.3*self.w/self.mag)
+	 		currentSnap = 2 -- tactical maps			
+			decideOpenWindow(snapshotWindow,cx,cy,0.3*self.w/self.mag)
+			decideOpenWindow(pWindow,cx,cy,0.3*self.w/self.mag)
+			-- sink all other windows
+			for i=1,#layout.sorted do
+				if layout.sorted[i].w.class == "map" and layout.sorted[i].w.kind == "map" and layout.sorted[i].w.minimized then
+					decideOpenWindow(layout.sorted[i].w,cx,cy,0.3*self.w/self.mag)
+				elseif layout.sorted[i].w ~= combatWindow and 
+				   layout.sorted[i].w ~= pWindow and 
+				   layout.sorted[i].w ~= snapshotWindow and
+				   layout.sorted[i].w.class ~= "dialog" and
+				   layout.sorted[i].w.class ~= "help" and
+				   layout.sorted[i].d and 
+				   not layout.sorted[i].w.alwaysVisible then
+
+				  	layout.sorted[i].w:sink(cx,cy,0.3*self.w/self.mag)	
+
+				end
+
+			end
+		else
+			-- sink all windows
+			for i=1,#layout.sorted do
+				decideCloseWindow(layout.sorted[i].w,cx,cy,0.3*self.w/self.mag)
+			end
+		end
+	elseif self.text == "L'Histoire" then
+		if self.open then
+		else
+		end
+	end
 end
 
 -- Dialog class
@@ -811,6 +947,15 @@ function Help:new( t ) -- create from w, h, x, y
   self.__index = self
   return new
 end
+
+function Help:click(x,y)
+  	Window.click(self,x,y)
+	-- want to move window 
+	mouseMove = true
+	arrowMode = false
+	arrowStartX, arrowStartY = x, y
+	arrowModeMap = nil
+	end
 
 function Help:draw()
    -- draw window frame
@@ -828,6 +973,8 @@ function Help:draw()
    self:drawBar()
 end
 
+function Help:update(dt) Window.update(self,dt) end
+
 -- Dialog class
 -- a Dialog is a window which displays some text and let some input. it is not zoomable
 Dialog = Window:new{ class = "dialog" , title = "Dialog" }
@@ -838,6 +985,15 @@ function Dialog:new( t ) -- create from w, h, x, y
   self.__index = self
   return new
 end
+
+function Dialog:click(x,y)
+  	Window.click(self,x,y)
+	-- want to move window 
+	mouseMove = true
+	arrowMode = false
+	arrowStartX, arrowStartY = x, y
+	arrowModeMap = nil
+	end
 
 function Dialog:draw()
    -- draw window frame
@@ -862,6 +1018,7 @@ end
 
 function Dialog:getFocus() dialogActive = true end
 function Dialog:looseFocus() dialogActive = false end
+function Dialog:update(dt) Window.update(self,dt) end
 
 -- projectorWindow class
 -- a projectorWindow is a window which displays images. it is not zoomable
@@ -992,13 +1149,14 @@ end
 function Combat:draw()
 
   local alpha = 80
+  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
 
   -- draw background
   self:drawBack()
 
+  love.graphics.setScissor(zx,zy,self.w/self.mag,self.h/self.mag) 
   view:draw()
  
-  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
 
   -- draw FOCUS if applicable
   love.graphics.setColor(0,102,0,alpha)
@@ -1048,6 +1206,7 @@ function Combat:draw()
     end
     love.graphics.rectangle("fill",PNJtext[1].x+1010,PNJtext[1].y-5,400,(PNJnum-1)*43)
   end
+  love.graphics.setScissor() 
 
   -- print bar
   self:drawBar()
@@ -1056,6 +1215,8 @@ end
 
 function Combat:update(dt)
 	
+	Window.update(self,dt)
+
   	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
 	view:setElementPosition( view.layout[1], zx + 5, zy + 5 )
   	view:update(dt)
@@ -1169,6 +1330,9 @@ function snapshotBar:draw()
 end
 
 function snapshotBar:update(dt)
+	
+	Window.update(self,dt)
+
   	local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
 	-- change snapshot offset if mouse  at bottom right or left
 	local snapMax = #snapshots[currentSnap].s * (snapshotSize + snapshotMargin) - W
@@ -1277,12 +1441,12 @@ function mainLayout:addWindow( window, display )
 	-- sort windows by layer (ascending) value
 	table.insert( self.sorted , self.windows[window] )
 	table.sort( self.sorted , function(a,b) return a.l < b.l end )
-	window.startupX, window.startupY, window.startupW, window.startupH = window.x, window.y, window.w, window.h
+	window.startupX, window.startupY, window.startupMag = window.x, window.y, window.mag
 	end
 
 -- restore a window to its default value
 function mainLayout:restoreBase(window)
-	window.x, window.y, window.w, window.h = window.startupX, window.startupY, window.startupW, window.startupH 
+	window.x, window.y, window.mag = window.startupX, window.startupY, window.startupMag
 	self.windows[window].d = true
 	end
 
@@ -2892,15 +3056,15 @@ function love.load( args )
     -- create basic windows
     combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(0), y=Window:cy(intW)}
     pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*20 - snapshotSize - intW - H1 + 1) }
-    rollWindow = diceWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 4*20 - snapshotSize - 2 * intW - 2 * H1 + 1) }
+    --rollWindow = diceWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 4*20 - snapshotSize - 2 * intW - 2 * H1 + 1) }
     snapshotWindow = snapshotBar:new{ w=W, h=snapshotSize+2, x=Window:cx(0), y=Window:cy(H-snapshotSize-2*20) }
-    storyWindow = iconWindow:new{ text = "L'Histoire", image = storyImage, x=Window:cx(W-145), y=Window:cy(10 ), w=storyImage:getWidth(), h=storyImage:getHeight() }
-    actionWindow = iconWindow:new{ text = "L'Action", image = actionImage, x=Window:cx(W-145), y=Window:cy(150), w=actionImage:getWidth(), h=actionImage:getHeight() } 
+    storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = storyImage, w=storyImage:getWidth(), h=storyImage:getHeight() , x=-1200, y=400}
+    actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1200,y=700} 
 
     layout:addWindow( combatWindow , false ) -- do not display them yet
     layout:addWindow( pWindow , false )
     layout:addWindow( snapshotWindow , false )
-    layout:addWindow( rollWindow , false )
+    --layout:addWindow( rollWindow , false )
 
     layout:addWindow( storyWindow , true )
     layout:addWindow( actionWindow , true )
