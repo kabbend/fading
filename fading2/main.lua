@@ -100,6 +100,9 @@ searchIndex		= 0			-- will be set by using the iterator, and used during draw
 searchSize		= 0 			-- idem
 keyZoomIn		= ':'			-- default on macbookpro keyboard. Changed at runtime for windows
 keyZoomOut 		= '=' 			-- default on macbookpro keyboard. Changed at runtime for windows
+mapOpeningSize		= 400			-- approximate width size at opening
+mapOpeningXY		= 250			-- position to open next map, will increase with maps opened
+mapOpeningStep		= 100			-- increase x,y at each map opening
 
 -- dialog stuff
 dialogBase		= "Message: "
@@ -373,7 +376,7 @@ function Window:drawBar()
  local availableForTitle = self.w / self.mag - reservedForButtons - marginForRect 
  local numChar = math.floor(availableForTitle / 7)
  local title = string.sub( self.title , 1, numChar ) 
- if self == layout:getFocus() then love.graphics.setColor(0,0,0) else love.graphics.setColor(224,224,224) end
+ if self == layout:getFocus() then love.graphics.setColor(96,96,96) else love.graphics.setColor(224,224,224) end
  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
  love.graphics.rectangle( "fill", zx , zy - 20 , self.w / self.mag , 20 )
  love.graphics.setColor(255,0,0)
@@ -495,9 +498,6 @@ Map = createClass( Window , Snapshot )
 function Map:load( t ) -- create from filename or file object (one mandatory). kind is optional
   local t = t or {}
   if not t.kind then self.kind = "map" else self.kind = t.kind end 
-     -- a map by default. A scenario should be declared by the caller
-  --setmetatable( new , self )
-  --self.__index = self
   self.class = "map"
   
   -- snapshot part of the object
@@ -535,17 +535,24 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   
   -- window part of the object
   self.zoomable = true
+  --[[
   self.x = self.w / 2
   self.y = self.h / 2
   self.mag = 1.0
-  
+  --]]
+  self.mag = self.w / mapOpeningSize	-- we set ratio so we stick to the required opening size	
+  self.x, self.y = self.w/2, self.h/2
+  Window.translate(self,mapOpeningXY-W/2,mapOpeningXY-H/2) -- set correct position
+ 
+  mapOpeningXY = mapOpeningXY + mapOpeningStep
+ 
   -- specific to the map itself
   if self.kind == "map" then self.mask = {} else self.mask = nil end
   self.step = 50
   self.pawns = {}
   self.basePawnSize = nil -- base size for pawns on this map (in pixels, for map at scale 1)
-  self.zoomtable = { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5, 2, 3, 4, 5, 6, 7, 8 , 9, 10}
-  self.magindex = 10 -- correspond to mag = 1.0
+
+  -- outmost limits of the current mask
   self.maskMinX, self.maskMaxX, self.maskMinY, self.maskMaxY = 100 * self.w , -100 * self.w, 100 * self.h, - 100 * self.h 
 end
 
@@ -559,34 +566,39 @@ function Map:move( x, y )
 	end
 
 function Map:zoom( mag )
-		self.magindex = self.magindex + mag
-		if self.magindex < 1 then self.magindex = 1 end
-		if self.magindex > #self.zoomtable then self.magindex = #self.zoomtable end
-		self.mag = self.zoomtable[self.magindex]
-		if atlas:isVisible(self) and not self.sticky then tcpsend( projector, "MAGN " .. 1/self.mag ) end	
+	if mag == 1 then
+		-- +1, reduce size
+		if self.mag < 1 then self.mag = self.mag + 0.1
+		elseif self.mag >= 1 then self.mag = self.mag + 0.5 end
+		if self.mag >= 20 then self.mag = 20 end
+	elseif mag == -1 then
+		-- -1, augment size
+		if self.mag > 1 then self.mag = self.mag - 0.5 
+		elseif self.mag <= 1 then self.mag = self.mag - 0.1 end
+		if self.mag <= 0.1 then self.mag = 0.1 end
+	end
+	if atlas:isVisible(self) and not self.sticky then tcpsend( projector, "MAGN " .. 1/self.mag ) end	
 	end
 
 function Map:maximize()
 
 	-- if values are stored for restoration, we restore
 	if self.restoreX then
-		self.x, self.y, self.magindex, self.mag = self.restoreX, self.restoreY, self.restoreMagindex, self.restoreMag
+		self.x, self.y, self.mag = self.restoreX, self.restoreY, self.restoreMagindex, self.restoreMag
 		self.restoreX, self.restoreY, self.restoreMagindex, self.restoreMag = nil,nil,nil,nil 
 		return
 	end
 
 	-- store values for restoration
-	self.restoreX, self.restoreY, self.restoreMagindex, self.restoreMag = self.x, self.y, self.magindex, self.mag
+	self.restoreX, self.restoreY, self.restoreMagindex, self.restoreMag = self.x, self.y, self.mag
 
 	if not self.mask or (self.mask and #self.mask == 0) then
 		-- no mask, just center the window with scale 1:0
 		self.x, self.y = self.w / 2, self.h / 2
-		self.magindex = 10 -- scale 1
 		self.mag = 1.0
 	else
 		-- there are masks. We take the center of the combined masks
 		self.x, self.y = (self.maskMinX + self.maskMaxX) / 2, (self.maskMinY + self.maskMaxY) / 2 
-		self.magindex = 10 -- scale 1
 		self.mag = 1.0
 	end
 	end
@@ -598,6 +610,7 @@ function Map:draw()
 
      local SX,SY,MAG = map.x, map.y, map.mag
      local x,y = -( SX * 1/MAG - W / 2), -( SY * 1/MAG - H / 2)
+  
 
      if map.mask then	
        --love.graphics.setColor(100,100,50,200)
@@ -613,6 +626,7 @@ function Map:draw()
        love.graphics.setColor(255,255,255)
      end
 
+     love.graphics.setScissor(x,y,self.w/MAG,self.h/MAG) 
      love.graphics.draw( map.im, x, y, 0, 1/MAG, 1/MAG )
 
      if map.mask then
@@ -678,6 +692,8 @@ function Map:draw()
       	if searchIterator then love.graphics.printf( "( " .. searchIndex .. " [" .. string.format("%.2f", searchPertinence) .. "] out of " .. 
 						           searchSize .. " )", 800, H - 40, 400) end
     end
+
+    love.graphics.setScissor() 
 
     -- print window button bar
     self:drawBar()
@@ -863,7 +879,7 @@ function iconWindow:draw()
   love.graphics.setColor(255,255,255)
   love.graphics.setFont(fontTitle)
   if self.open then 
-  	love.graphics.setColor(255,255,0)
+  	love.graphics.setColor(76,0,153)
 	love.graphics.rectangle( "fill", zx-3, zy-3 , self.w/self.mag+6, self.h/self.mag+6) 
   end
   love.graphics.setColor(255,255,255)
@@ -2773,12 +2789,12 @@ else
 		if not map.sticky then
 			-- we enter sticky mode. Normally, the projector is fully aligned already, so
 			-- we just save the current status for future restoration
-			map.stickX, map.stickY, map.stickmag = map.x, map.y, map.magindex
+			map.stickX, map.stickY, map.stickmag = map.x, map.y, map.mag
 			map.sticky = true
 		else
 			-- we were already sticky, with a different status probably. So we store this
 			-- new one, but we need to align the projector as well
-			map.stickX, map.stickY, map.stickmag = map.x, map.y, map.magindex
+			map.stickX, map.stickY, map.stickmag = map.x, map.y, map.mag
 			tcpsend( projector, "CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) ) 
 			tcpsend( projector, "MAGN " .. 1/map.mag ) 
 		end
@@ -2788,8 +2804,7 @@ else
   	if key == "u" and love.keyboard.isDown("lctrl") then
 		if not map.sticky then return end
 		window:move( window.stickX , window.stickY )
-		window.magindex = window.stickmag
-		window:zoom(0)
+		window.mag = window.stickmag
 		window.sticky = false
 		return
 	end
