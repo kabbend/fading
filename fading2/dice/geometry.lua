@@ -28,7 +28,7 @@ function newD20star(size)
         {0.42532500*size, -0.26286500*size, 0.0000000}, 	-- K11
         {-0.42532500*size, -0.26286500*size, 0.0000000} 	-- L12
 	} 
-  return clone(star,new):set(nil,nil,nil,size*size*size,size*size*size/2)
+  return clone(star,new):set(nil,nil,nil,size*size*size/2,size*size*size/5)
 end
 
 -- ABE, ABG, AGK, AIK, AIE

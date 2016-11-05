@@ -1975,11 +1975,10 @@ function love.update(dt)
 		if drawDicesKind == "d20" then
 			if drawDicesTimer > 4 then
 				--box[1].velocity = vector{0,0,0}  
-				--box[1].angular = vector{0,0,0}
-				box[1].velocity[1] = 0.5 * box[1].velocity[1] 
-				box[1].velocity[2] = 0.5 * box[1].velocity[2]
-				box[1].velocity[3] = - 0.5 
-				--box[1].angular = 0.5 * box[1].angular
+				box[1].angular = vector{0,0,0}
+				box[1].velocity[1] = 0.3 * box[1].velocity[1] 
+				box[1].velocity[2] = 0.3 * box[1].velocity[2]
+				box[1].velocity[3] = -1 
 			end
 		else
 		 local immobile = false   

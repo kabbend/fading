@@ -102,7 +102,7 @@ function launchDices( kind, num )
 	if kind == "d6" then
 		box:set(10,10,5,20,0.8,2,0.01)
 	elseif kind == "d20" then
-		box:set(10,10,5,100,0.8,0.6,0.01)
+		box:set(10,10,4,100,0.8,2,0.01)
 	end
 
          dice = {}
@@ -115,7 +115,7 @@ function launchDices( kind, num )
                    	die=clone(d6,{material=light.plastic,color={81,0,255,255},text={255,255,255},shadow={20,0,0,190}}) })
 		elseif kind == "d20" then
                  	table.insert(dice,
-                 		{ star=newD20star(5):set({math.random(10),math.random(10),math.random(10)}, -- position
+                 		{ star=newD20star(4):set({math.random(10),math.random(10),math.random(1)}, -- position
                                            {-math.random(8,40),-math.random(8,40),-10}, -- velocity
                                            {math.random(10),math.random(10),math.random(10)}), -- angular mvmt
                    	die=clone(d20,{material=light.plastic,color={81,0,255,255},text={255,255,255},shadow={20,0,0,190}}) })
