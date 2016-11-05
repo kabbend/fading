@@ -369,7 +369,7 @@ function Window:move( x, y ) self.x = x; self.y = y end
 function Window:setTitle( title ) self.title = title end
 
 -- drawn upper button bar
-function Window:drawBar()
+function Window:drawBar( )
  local reservedForButtons = 20*3
  local marginForRect = 0
  if self.class == "map" and self.kind == "map" then marginForRect = 20 end
@@ -380,8 +380,10 @@ function Window:drawBar()
  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
  love.graphics.rectangle( "fill", zx , zy - 20 , self.w / self.mag , 20 )
  love.graphics.setColor(255,0,0)
- love.graphics.setFont(fontRound)
- love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
+ if not self.alwaysOnTop then
+   love.graphics.setFont(fontRound)
+   love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
+ end
  if self == layout:getFocus() then love.graphics.setColor(255,255,255) else love.graphics.setColor(0,0,0) end
  love.graphics.print( title , zx + 3 + marginForRect , zy - 18 )
   -- draw small circle or rectangle in upper corner, to show which mode we are in
@@ -862,7 +864,7 @@ end
 --
 -- iconRollWindow class
 -- 
-iconRollWindow = Window:new{ class = "roll", alwaysBottom = true, alwaysVisible = true, zoomable = false }
+iconRollWindow = Window:new{ class = "roll", alwaysOnTop = true, alwaysVisible = true, zoomable = false }
 
 function iconRollWindow:new( t ) -- create from w, h, x, y, image, mag
   local new = t or {}
@@ -877,8 +879,21 @@ function iconRollWindow:draw()
   	love.graphics.draw( self.image, zx, zy , 0, 1/self.mag, 1/self.mag)
 	end
 
-function iconRollWindow:click()
-	if focus then drawDicesKind = "d6"; rollAttack("attack") else drawDicesKind = "d20" ; launchDices("d20",1) end	
+function iconRollWindow:click(x,y)
+
+  	local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
+	if y < zy then 
+		-- we click on (invisible) button bar. This moves the window as well
+		mouseMove = true
+		arrowMode = false
+		arrowStartX, arrowStartY = x, y
+		arrowModeMap = nil
+		-- ask for bar drawing explicitely
+		drawMyBar = true
+	else 
+	  	if focus then drawDicesKind = "d6"; rollAttack("attack") else drawDicesKind = "d20" ; launchDices("d20",1) end	
+	end
+
 	end
 
 --
@@ -1494,6 +1509,8 @@ end
 function mainLayout:addWindow( window, display ) 
 	if window.alwaysBottom then
 		self.windows[window] = { w=window , l=1 , d=display }
+	elseif window.alwaysOnTop then
+		self.windows[window] = { w=window , l=10e10 , d=display }
 	else
 		self.maxWindowLayer = self.maxWindowLayer + 1
 		self.windows[window] = { w=window , l=self.maxWindowLayer , d=display }
@@ -1544,7 +1561,7 @@ function mainLayout:getFocus() return self.focus end
 function mainLayout:setFocus( window ) 
 	if window then
 		if window == self.focus then return end -- this window was already in focus. nothing happens
-		if not window.alwaysBottom then
+		if not window.alwaysBottom and not window.alwaysOnTop then
 			self.maxWindowLayer = self.maxWindowLayer + 1
 			self.windows[window].l = self.maxWindowLayer
 			table.sort( self.sorted , function(a,b) return a.l < b.l end )
