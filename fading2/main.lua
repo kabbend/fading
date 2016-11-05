@@ -860,6 +860,28 @@ function Map:isInsidePawn(x,y)
 end
 
 --
+-- iconRollWindow class
+-- 
+iconRollWindow = Window:new{ class = "roll", alwaysBottom = true, alwaysVisible = true, zoomable = false }
+
+function iconRollWindow:new( t ) -- create from w, h, x, y, image, mag
+  local new = t or {}
+  setmetatable( new , self )
+  self.__index = self
+  return new
+end
+
+function iconRollWindow:draw()
+  	local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
+  	love.graphics.setColor(255, 255, 255, 255);
+  	love.graphics.draw( self.image, zx, zy , 0, 1/self.mag, 1/self.mag)
+	end
+
+function iconRollWindow:click()
+	if focus then drawDicesKind = "d6"; rollAttack("attack") else drawDicesKind = "d20" ; launchDices("d20",1) end	
+	end
+
+--
 -- iconWindow class
 -- a Icon is a window which displays a fixed image on the background . it is not zoomable, movable, no window bar
 -- and always at bottom
@@ -1950,15 +1972,24 @@ function love.update(dt)
   	if drawDices then
 
   		box:update(dt)
-
-		local immobile = false   
-		for i=1,#box do
+		if drawDicesKind == "d20" then
+			if drawDicesTimer > 4 then
+				--box[1].velocity = vector{0,0,0}  
+				--box[1].angular = vector{0,0,0}
+				box[1].velocity[1] = 0.5 * box[1].velocity[1] 
+				box[1].velocity[2] = 0.5 * box[1].velocity[2]
+				box[1].velocity[3] = - 0.5 
+				--box[1].angular = 0.5 * box[1].angular
+			end
+		else
+		 local immobile = false   
+		 for i=1,#box do
   		  	if box[i].velocity:abs() > 0.8 then break end -- at least one alive !
   			immobile = true
 			drawDicesResult = true
-		end
+		 end
 
-		if immobile then
+		 if immobile then
   			-- for each die, retrieve the 4 points with positive z coordinate
   			-- there should always be 4 (and exactly 4) such points, unless 
   			-- very unlikely situations for the die (not horizontal...). 
@@ -1978,8 +2009,9 @@ function love.update(dt)
   			end 
 
 			if lastDiceSum ~= diceSum then diceStableTimer = 0 end
-		end
-  
+		 end
+ 		end 
+
 		-- dice are removed after a fixed timelength (30 sec.) or after the result is stable for long enough (6 sec.)
     		drawDicesTimer = drawDicesTimer + dt
 		diceStableTimer = diceStableTimer + dt
@@ -3067,6 +3099,7 @@ function love.load( args )
     backgroundImage 	= love.graphics.newImage( "background.jpg" )
     actionImage 	= love.graphics.newImage( "action.jpg" )
     storyImage 		= love.graphics.newImage( "histoire.jpg" )
+    dicesImage 		= love.graphics.newImage( "dices.png" )
 
     -- adjust number of rows in screen
     --PNJmax = math.floor( viewh / 42 )
@@ -3092,19 +3125,19 @@ function love.load( args )
 
     -- create basic windows
     combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(0), y=Window:cy(intW)}
-    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*20 - snapshotSize - intW - H1 + 1) }
-    --rollWindow = diceWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 4*20 - snapshotSize - 2 * intW - 2 * H1 + 1) }
+    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*20 - snapshotSize - 2*intW - H1 - 1) }
     snapshotWindow = snapshotBar:new{ w=W, h=snapshotSize+2, x=Window:cx(0), y=Window:cy(H-snapshotSize-2*20) }
-    storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = storyImage, w=storyImage:getWidth(), h=storyImage:getHeight() , x=-1200, y=400}
-    actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1200,y=700} 
-
+    storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = storyImage, w=storyImage:getWidth(), h=storyImage:getHeight() , x=-1220, y=400}
+    actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1220,y=700} 
+    rollWindow = iconRollWindow:new{ mag=3.5, image = dicesImage, w=dicesImage:getWidth(), h=dicesImage:getHeight(), x=-2074,y=133} 
+  
     layout:addWindow( combatWindow , false ) -- do not display them yet
     layout:addWindow( pWindow , false )
     layout:addWindow( snapshotWindow , false )
-    --layout:addWindow( rollWindow , false )
 
     layout:addWindow( storyWindow , true )
     layout:addWindow( actionWindow , true )
+    layout:addWindow( rollWindow , true )
 
     -- some small differences in windows: separator is not the same, and some weird completion
     -- feature in command line may add an unexpected doublequote char at the end of the path (?)

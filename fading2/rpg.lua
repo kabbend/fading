@@ -90,30 +90,37 @@ function isAttorArm( i )
 
          if num == 0 then return end
 
-	 launchDices(num)
+	 launchDices("d6",num)
 
 	 end
 
-function launchDices( num )
+function launchDices( kind, num )
 
          math.randomseed( os.time() )
 
          -- prepare the dice box simulation
-         box:set(10,10,5,20,0.8,2,0.01)
+	if kind == "d6" then
+		box:set(10,10,5,20,0.8,2,0.01)
+	elseif kind == "d20" then
+		box:set(10,10,5,100,0.8,0.6,0.01)
+	end
 
          dice = {}
          for i=1,num do
-                 table.insert(dice,
-                 { star=newD6star(1.5):set({math.random(10),math.random(10),math.random(10)}, -- position
+		if kind == "d6" then
+                 	table.insert(dice,
+                 		{ star=newD6star(1.5):set({math.random(10),math.random(10),math.random(10)}, -- position
                                            {-math.random(8,40),-math.random(8,40),-10}, -- velocity
                                            {math.random(10),math.random(10),math.random(10)}), -- angular mvmt
-                   die=clone(d6,{material=light.plastic,color={81,0,255,255},text={255,255,255},shadow={20,0,0,190}}) })
-         end
-                 table.insert(dice,
-                 { star=newD20star(4):set({math.random(10),math.random(10),math.random(10)}, -- position
+                   	die=clone(d6,{material=light.plastic,color={81,0,255,255},text={255,255,255},shadow={20,0,0,190}}) })
+		elseif kind == "d20" then
+                 	table.insert(dice,
+                 		{ star=newD20star(5):set({math.random(10),math.random(10),math.random(10)}, -- position
                                            {-math.random(8,40),-math.random(8,40),-10}, -- velocity
                                            {math.random(10),math.random(10),math.random(10)}), -- angular mvmt
-                   die=clone(d20,{material=light.plastic,color={81,0,255,255},text={255,255,255},shadow={20,0,0,190}}) })
+                   	die=clone(d20,{material=light.plastic,color={81,0,255,255},text={255,255,255},shadow={20,0,0,190}}) })
+		end
+	 end
 
          for i=1,#dice do box[i]=dice[i].star end
          for i=#dice+1,40 do box[i]=nil end -- FIXME, hardcoded, ugly...
