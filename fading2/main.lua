@@ -916,7 +916,7 @@ function iconWindow:draw()
   love.graphics.setColor(255,255,255)
   love.graphics.setFont(fontTitle)
   if self.open then 
-  	love.graphics.setColor(76,0,153)
+  	love.graphics.setColor(255,255,102)
 	love.graphics.rectangle( "fill", zx-3, zy-3 , self.w/self.mag+6, self.h/self.mag+6) 
   end
   love.graphics.setColor(255,255,255)
