@@ -1972,9 +1972,10 @@ function love.update(dt)
   	if drawDices then
 
   		box:update(dt)
+
 		if drawDicesKind == "d20" then
 			if drawDicesTimer > 4 then
-				--box[1].velocity = vector{0,0,0}  
+				-- reduce dice velocity, to stabilize it
 				box[1].angular = vector{0,0,0}
 				box[1].velocity[1] = 0.3 * box[1].velocity[1] 
 				box[1].velocity[2] = 0.3 * box[1].velocity[2]
@@ -1995,7 +1996,7 @@ function love.update(dt)
   			-- in that case, there is no simple way to retrieve the face anyway
   			-- so forget it...
 
-			lastDiceSum = diceSum
+			local lastDiceSum = diceSum
 
 			diceSum = 0
   			for n=1,#box do
@@ -2013,8 +2014,12 @@ function love.update(dt)
 
 		-- dice are removed after a fixed timelength (30 sec.) or after the result is stable for long enough (6 sec.)
     		drawDicesTimer = drawDicesTimer + dt
-		diceStableTimer = diceStableTimer + dt
-    		if drawDicesTimer >= 30 or diceStableTimer >= 6 then drawDicesTimer = 0; drawDices = false; drawDicesResult = false; end
+		if drawDicesKind == "d20" then 
+    			if drawDicesTimer >= 10 then drawDicesTimer = 0; drawDices = false; drawDicesResult = false; end
+		else
+			diceStableTimer = diceStableTimer + dt
+    			if drawDicesTimer >= 30 or diceStableTimer >= 6 then drawDicesTimer = 0; drawDices = false; drawDicesResult = false; end
+		end
 
   	end
 

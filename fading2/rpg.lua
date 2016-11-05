@@ -90,6 +90,7 @@ function isAttorArm( i )
 
          if num == 0 then return end
 
+	 drawDicesKind = "d6"
 	 launchDices("d6",num)
 
 	 end

@@ -70,6 +70,11 @@ function render.die(action, die, star)
     table.insert(projected, {diceview.project(unpack(star[i]+star.position))})
   end
 
+  local front = {}
+  local frontd = {}
+  local upfront = 10e10 
+  local upfrontIndex = 1
+
   for i=1,#die.faces do
     --prepare face data
     local face=die.faces[i]
@@ -88,14 +93,39 @@ function render.die(action, die, star)
     local strength=die.material(c+star.position, c:norm())*1.3
     local color={ die.color[1]*strength, die.color[2]*strength, die.color[3]*strength, die.color[4] }
     local text={die.text[1]*strength,die.text[2]*strength,die.text[3]*strength}
-    local front=c..(1*c+star.position-cam)<=0
+    frontd[i]=c..(1*c+star.position-cam)
+    front[i]=frontd[i]<=0
 
+    if frontd[i] < upfront then upfrontIndex = i ; upfront = frontd[i] end
+  end
+
+  for i=1,#die.faces do
+    --prepare face data
+    local face=die.faces[i]
+    local xy,z,c={},0,vector()
+    for j=1,#face do
+      c=c+star[face[j]]
+      local p = projected[face[j]]
+      table.insert(xy,p[1])
+      table.insert(xy,p[2])
+      z=z+p[3]
+    end
+    local strength=die.material(c+star.position, c:norm())*1.3
+    local color={ die.color[1]*strength, die.color[2]*strength, die.color[3]*strength, die.color[4] }
+    local text={die.text[1]*strength,die.text[2]*strength,die.text[3]*strength}
+    z=z/#face
+    c=c/#face
+    
     --if it is visible then render
+    local front = front[i]
     action(z, function()
       if front then 
-        love.graphics.setColor(unpack(color))
+        if i == upfrontIndex then 
+		love.graphics.setColor(255,0,0) else
+        	love.graphics.setColor(unpack(color))
+	end
         love.graphics.polygon("fill",unpack(xy))
-        love.graphics.setColor(unpack(text))
+	love.graphics.setColor(unpack(text)) 
         die.image(i,unpack(xy))
       elseif color[4] and color[4]<255 then
         love.graphics.setColor(unpack(text))
