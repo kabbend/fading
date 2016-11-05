@@ -925,6 +925,7 @@ function iconWindow:draw()
 end
 
 function decideOpenWindow(window,cx,cy,w)
+	if not window then return end
 	if window.minimized then
 		window:unsink(cx,cy,w,window.restoreSinkX, window.restoreSinkY, window.restoreSinkMag)
 	elseif not layout:getDisplay(window) then
@@ -987,11 +988,12 @@ function iconWindow:click()
 	 		currentSnap = 1 -- images			
 			decideOpenWindow(snapshotWindow,cx,cy,0.3*self.w/self.mag)
 			decideOpenWindow(pWindow,cx,cy,0.3*self.w/self.mag)
-			--decideOpenWindow(scenarioWindow,cx,cy,0.3*self.w/self.mag)
+			decideOpenWindow(scenarioWindow,cx,cy,0.3*self.w/self.mag)
 			-- sink all other windows
 			for i=1,#layout.sorted do
 				if layout.sorted[i].w ~= pWindow and 
 				   layout.sorted[i].w ~= snapshotWindow and
+				   layout.sorted[i].w ~= scenarioWindow and
 				   layout.sorted[i].w.class ~= "dialog" and
 				   layout.sorted[i].w.class ~= "help" and
 				   layout.sorted[i].d and 
@@ -1388,12 +1390,12 @@ function snapshotBar:draw()
 				snapshotSize)
 		end
 		if currentSnap == 2 and snapshots[currentSnap].s[i].kind == "scenario" then
-			-- do not draw scenario, ...
+			-- do not draw scenario, ... FIXME: the frame should not appear neither
 		else
   			love.graphics.setColor(255,255,255)
 			love.graphics.draw( 	snapshots[currentSnap].s[i].im , 
 				x ,
-				zy - ( snapshots[currentSnap].s[i].h * snapshots[currentSnap].s[i].snapmag - snapshotSize ) / 2 + 5, 
+				zy - ( snapshots[currentSnap].s[i].h * snapshots[currentSnap].s[i].snapmag - snapshotSize ) / 2 + 2, 
 			    	0 , snapshots[currentSnap].s[i].snapmag, snapshots[currentSnap].s[i].snapmag )
 		end
   		love.graphics.setScissor() 
@@ -2574,6 +2576,7 @@ end
 Atlas = {}
 Atlas.__index = Atlas
 
+function Atlas:getScenario() return self.scenario end
 function Atlas:removeVisible() self.visible = nil end
 function Atlas:isVisible(map) return self.visible == map end
 function Atlas:getVisible() return self.visible end 
@@ -2648,6 +2651,7 @@ function Atlas.new()
   setmetatable(new,Atlas)
   --new.maps = {}
   new.visible = nil -- map currently visible (or nil if none)
+  new.scenario = nil -- reference the scenario window if any
   return new
   end
 
@@ -2748,10 +2752,17 @@ if key == "tab" and love.keyboard.isDown("lctrl") then
 	return
 end
 if key == "r" and love.keyboard.isDown("lctrl") then
-	layout:hideAll()	
-	layout:restoreBase(pWindow)
-	layout:restoreBase(snapshotWindow)
-	layout:restoreBase(combatWindow)
+	if actionWindow.open then
+		layout:hideAll()	
+		layout:restoreBase(pWindow)
+		layout:restoreBase(snapshotWindow)
+		layout:restoreBase(combatWindow)
+	elseif storyWindow.open then
+		layout:hideAll()	
+		layout:restoreBase(pWindow)
+		layout:restoreBase(snapshotWindow)
+		layout:restoreBase(scenarioWindow)
+	end
 end
 
 -- other keys applicable 
@@ -3025,6 +3036,7 @@ function loadStartup( t )
 	local s = Map:new()
 	s:load{ kind="scenario", filename=path .. sep .. f }
 	layout:addWindow( s , false )
+	atlas.scenario = s
 	io.write("Loaded scenario image file at " .. path .. sep .. f .. "\n")
 	table.insert( snapshots[2].s, s ) 
 
@@ -3144,22 +3156,6 @@ function love.load( args )
     io.write("W,H=" .. W .. " " .. H .. "\n")
     love.keyboard.setKeyRepeat(true)
 
-    -- create basic windows
-    combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(0), y=Window:cy(intW)}
-    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*20 - snapshotSize - 2*intW - H1 - 1) }
-    snapshotWindow = snapshotBar:new{ w=W, h=snapshotSize+2, x=Window:cx(0), y=Window:cy(H-snapshotSize-2*20) }
-    storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = storyImage, w=storyImage:getWidth(), h=storyImage:getHeight() , x=-1220, y=400}
-    actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1220,y=700} 
-    rollWindow = iconRollWindow:new{ mag=3.5, image = dicesImage, w=dicesImage:getWidth(), h=dicesImage:getHeight(), x=-2074,y=133} 
-  
-    layout:addWindow( combatWindow , false ) -- do not display them yet
-    layout:addWindow( pWindow , false )
-    layout:addWindow( snapshotWindow , false )
-
-    layout:addWindow( storyWindow , true )
-    layout:addWindow( actionWindow , true )
-    layout:addWindow( rollWindow , true )
-
     -- some small differences in windows: separator is not the same, and some weird completion
     -- feature in command line may add an unexpected doublequote char at the end of the path (?)
     -- that we want to remove
@@ -3252,11 +3248,36 @@ function love.load( args )
     -- create a new empty atlas (an array of maps)
     atlas = Atlas.new()
 
-    -- load various data files 
+    -- load various data files
     loadStartup{ path = baseDirectory .. sep .. fadingDirectory }
     loadStartup{ path = baseDirectory .. sep .. "pawns" , kind = "pawns" }
 
+    -- create basic windows
+    combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(0), y=Window:cy(intW)}
+    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*20 - snapshotSize - 2*intW - H1 - 1) }
+    snapshotWindow = snapshotBar:new{ w=W, h=snapshotSize+2, x=Window:cx(0), y=Window:cy(H-snapshotSize-2*20) }
+    storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = storyImage, w=storyImage:getWidth(), h=storyImage:getHeight() , x=-1220, y=400}
+    actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1220,y=700} 
+    rollWindow = iconRollWindow:new{ mag=3.5, image = dicesImage, w=dicesImage:getWidth(), h=dicesImage:getHeight(), x=-2074,y=133} 
+  
+    layout:addWindow( combatWindow , false ) -- do not display them yet
+    layout:addWindow( pWindow , false )
+    layout:addWindow( snapshotWindow , false )
 
+    layout:addWindow( storyWindow , true )
+    layout:addWindow( actionWindow , true )
+    layout:addWindow( rollWindow , true )
+
+    -- check if we have a scenario loaded. Reference it for direct access. Update size and mag factor to fit screen
+    scenarioWindow = atlas:getScenario()
+    local w,h = scenarioWindow.w, scenarioWindow.h
+    local f1,f2 = w/WC, h/HC
+    scenarioWindow.mag = math.max(f1,f2)
+    scenarioWindow.x, scenarioWindow.y = scenarioWindow.w/2, scenarioWindow.h/2
+    local zx,zy = scenarioWindow:WtoS(0,0)
+    scenarioWindow:translate(0-zx,intW+20-zy)
+    scenarioWindow.startupX, scenarioWindow.startupY, scenarioWindow.startupMag = scenarioWindow.x, scenarioWindow.y, scenarioWindow.mag
+ 
 end
 
 
