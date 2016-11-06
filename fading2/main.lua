@@ -416,13 +416,13 @@ function Window:drawBar( )
  love.graphics.setFont(fontRound)
  if not self.alwaysVisible then
    --love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
-   love.graphics.draw( iconClose, zx + self.w / self.mag - iconSize + 1, zy - iconSize + 1, 0, 22/iconSize , 22/iconSize)
+   love.graphics.draw( iconClose, zx + self.w / self.mag - iconSize + 3, zy - iconSize + 3, 0, 18/iconSize , 18/iconSize)
  end
  if self.alwaysOnTop then 
  	--love.graphics.print( "T" , zx + self.w / self.mag - 24 , zy - 18 )
- 	love.graphics.draw( iconOnTopActive, zx + self.w / self.mag - 2*iconSize+1 , zy - iconSize+1, 0, 22/iconSize, 22/iconSize)
+ 	love.graphics.draw( iconOnTopActive, zx + self.w / self.mag - 2*iconSize+3 , zy - iconSize+3, 0, 18/iconSize, 18/iconSize)
  else
- 	love.graphics.draw( iconOnTopInactive, zx + self.w / self.mag - 2*iconSize+1 , zy - iconSize+1, 0, 22/iconSize, 22/iconSize)
+ 	love.graphics.draw( iconOnTopInactive, zx + self.w / self.mag - 2*iconSize+3 , zy - iconSize+3, 0, 18/iconSize, 18/iconSize)
  end
 
  -- print title
