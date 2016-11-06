@@ -38,6 +38,7 @@ intW			= 2
 
 -- main screen size
 W, H = 1440, 800 	-- main window size default values (may be changed dynamically on some systems)
+iconSize = 24
 
 -- tcp information for network
 address, serverport	= "*", "12345"		-- server information
@@ -64,7 +65,7 @@ snapshotSize 		= 70 				-- w and h of each snapshot
 snapshotMargin 		= 7 				-- space between images and screen border
 snapshotH 		= messagesH - snapshotSize - snapshotMargin
 
-HC = H - 4 * intW - 3 * 20 - snapshotSize
+HC = H - 4 * intW - 3 * iconSize - snapshotSize
 WC = 1290
 viewh = HC 		-- view height
 vieww = W - 260		-- view width
@@ -376,7 +377,7 @@ function Window:unsink(sx, sy, sw, x, y, mag)
 	end
 
 function Window:cx( zx ) return (-zx + W/2)*self.mag end
-function Window:cy( zy ) return (-zy + H/2)*self.mag - 20 end
+function Window:cy( zy ) return (-zy + H/2)*self.mag - iconSize end
 
 -- return true if the point (x,y) (expressed in layout coordinates system,
 -- typically the mouse), is inside the window frame (whatever the display or
@@ -384,7 +385,7 @@ function Window:cy( zy ) return (-zy + H/2)*self.mag - 20 end
 function Window:isInside(x,y)
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
   return x >= zx and x <= zx + self.w / self.mag and 
-  	 y >= zy - 20 and y <= zy + self.h / self.mag -- 20 needed to take window bar into account
+  	 y >= zy - iconSize and y <= zy + self.h / self.mag -- iconSize needed to take window bar into account
 end
 
 function Window:zoom( mag ) if self.zoomable then self.mag = mag end end
@@ -393,30 +394,48 @@ function Window:setTitle( title ) self.title = title end
 
 -- drawn upper button bar
 function Window:drawBar( )
- local reservedForButtons = 20*3
+ 
+ -- reserve space for 3 buttons (today 2 used)
+ local reservedForButtons = iconSize*3
+ -- reserve space on maps for mask symbol (circle or rect)
  local marginForRect = 0
  if self.class == "map" and self.kind == "map" then marginForRect = 20 end
+
+ -- max space for title
  local availableForTitle = self.w / self.mag - reservedForButtons - marginForRect 
  local numChar = math.floor(availableForTitle / 7)
  local title = string.sub( self.title , 1, numChar ) 
+
+ -- draw bar
  if self == layout:getFocus() then love.graphics.setColor(160,160,160) else love.graphics.setColor(224,224,224) end
  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
- love.graphics.rectangle( "fill", zx , zy - 20 , self.w / self.mag , 20 )
- love.graphics.setColor(255,0,0)
+ love.graphics.rectangle( "fill", zx , zy - iconSize , self.w / self.mag , iconSize )
+
+ -- draw icons
+ --love.graphics.setColor(255,0,0)
  love.graphics.setFont(fontRound)
  if not self.alwaysVisible then
-   love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
+   --love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
+   love.graphics.draw( iconClose, zx + self.w / self.mag - iconSize + 1, zy - iconSize + 1, 0, 22/iconSize , 22/iconSize)
  end
- if self.alwaysOnTop then love.graphics.setColor(0,0,0) end
- love.graphics.print( "T" , zx + self.w / self.mag - 24 , zy - 18 )
+ if self.alwaysOnTop then 
+ 	--love.graphics.print( "T" , zx + self.w / self.mag - 24 , zy - 18 )
+ 	love.graphics.draw( iconOnTopActive, zx + self.w / self.mag - 2*iconSize+1 , zy - iconSize+1, 0, 22/iconSize, 22/iconSize)
+ else
+ 	love.graphics.draw( iconOnTopInactive, zx + self.w / self.mag - 2*iconSize+1 , zy - iconSize+1, 0, 22/iconSize, 22/iconSize)
+ end
+
+ -- print title
  if self == layout:getFocus() then love.graphics.setColor(255,255,255) else love.graphics.setColor(0,0,0) end
- love.graphics.print( title , zx + 3 + marginForRect , zy - 18 )
+ love.graphics.print( title , zx + 3 + marginForRect , zy - iconSize + 3 )
+
   -- draw small circle or rectangle in upper corner, to show which mode we are in
  love.graphics.setColor(255,0,0)
  if self.class == "map" and self.kind == "map" then
     if maskType == "RECT" then love.graphics.rectangle("line",zx + 5, zy - 16 ,12, 12) end
        if maskType == "CIRC" then love.graphics.circle("line",zx + 10, zy - 10, 5) end
-     end
+ end
+
 end
 
 function Window:drawBack()
@@ -431,8 +450,8 @@ function Window:click(x,y)
  	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
  	local mx,my = self:WtoS(self.w, self.h) 
 	-- click on X symbol
-	if x >= zx + self.w / self.mag - 12 and x <= zx + self.w / self.mag and
-		y >= zy - 20 and y <= zy then
+	if x >= zx + self.w / self.mag - iconSize and x <= zx + self.w / self.mag and
+		y >= zy - iconSize and y <= zy then
 		self.markForClosure = true
 		-- mark the window for a future closure. We don't close it right now, because
 		-- there might be another object clickable just below that would be wrongly
@@ -440,12 +459,12 @@ function Window:click(x,y)
 		-- the actual closure
 		return self
 	end
-	if x >= zx + self.w / self.mag - 24 and x <= zx + self.w / self.mag - 12 and
-		y >= zy - 20 and y <= zy then
+	if x >= zx + self.w / self.mag - 2 * iconSize and x <= zx + self.w / self.mag - iconSize and
+		y >= zy - iconSize and y <= zy then
 		self.alwaysOnTop = not self.alwaysOnTop 
 		layout:setOnTop(self, self.alwaysOnTop)
 	end
-	if x >= mx - 20 and y >= my - 20 then
+	if x >= mx - iconSize and y >= my - iconSize then
 		-- clicking on the bottom corner, wants to resize
 		if self.wResizable or self.hResizable then mouseResize = true end
 	elseif self.movable then
@@ -3202,6 +3221,10 @@ function love.load( args )
     storyImage 		= love.graphics.newImage( "histoire.jpg" )
     dicesImage 		= love.graphics.newImage( "dices.png" )
 
+    iconClose 		= love.graphics.newImage( "cancel.png" )
+    iconOnTopInactive 	= love.graphics.newImage( "up-arrow.png" )
+    iconOnTopActive 	= love.graphics.newImage( "up-arrow-red.png" )
+
     -- adjust number of rows in screen
     --PNJmax = math.floor( viewh / 42 )
 
@@ -3322,8 +3345,8 @@ function love.load( args )
 
     -- create basic windows
     combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(0), y=Window:cy(intW)}
-    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*20 - snapshotSize - 2*intW - H1 - 1) }
-    snapshotWindow = snapshotBar:new{ w=W, h=snapshotSize+2, x=Window:cx(0), y=Window:cy(H-snapshotSize-2*20) }
+    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*iconSize - snapshotSize - 2*intW - H1 - 1) }
+    snapshotWindow = snapshotBar:new{ w=W, h=snapshotSize+2, x=Window:cx(0), y=Window:cy(H-snapshotSize-2*iconSize) }
     storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = storyImage, w=storyImage:getWidth(), h=storyImage:getHeight() , x=-1220, y=400}
     actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1220,y=700} 
     rollWindow = iconRollWindow:new{ mag=3.5, image = dicesImage, w=dicesImage:getWidth(), h=dicesImage:getHeight(), x=-2074,y=133} 
@@ -3343,7 +3366,7 @@ function love.load( args )
     scenarioWindow.mag = math.max(f1,f2)
     scenarioWindow.x, scenarioWindow.y = scenarioWindow.w/2, scenarioWindow.h/2
     local zx,zy = scenarioWindow:WtoS(0,0)
-    scenarioWindow:translate(0-zx,intW+20-zy)
+    scenarioWindow:translate(0,intW+iconSize-zy)
     scenarioWindow.startupX, scenarioWindow.startupY, scenarioWindow.startupMag = scenarioWindow.x, scenarioWindow.y, scenarioWindow.mag
  
 end
