@@ -285,17 +285,18 @@ end
 --   are absolute and will not change during the lifetime of the window object,
 --   only the scaling factor will change to reflect a bigger (or smaller) object
 --   actually drawn on the screen 
--- Notes:
--- Each object derived from Window class should redefine its own draw(), getFocus()
--- and looseFocus() methods.
--- Windows are gathered and manipulated thru the mainLayout object.
--- The main screen of the application (with yui view, etc.) is not considered as
---   a window object. For the moment, only scenario, maps and logs are windows,
---   and are displayed "on top" of this main screen.
+-- Notes: Windows are gathered and manipulated thru the mainLayout class 
 --
-Window = { class = "window", w = 0, h = 0, mag = 1.0, x = 0, y = 0 , zoomable = false ,
-	   sticky = false, stickX = 0, stickY = 0, stickmag = 0 , markForClosure = false,
-	   title = "" }
+Window = { 	class = "window", w = 0, h = 0, mag = 1.0, x = 0, y = 0 , title = "", 	-- base window information and shape
+		zoomable = false ,							-- can we change the zoom ?
+		movable = true ,							-- can we move the window ?
+	   	sticky = false, stickX = 0, stickY = 0, stickmag = 0 , 			-- FIXME: should be in map ?
+		markForClosure = false,							-- event to close the window
+		markForSink = false,							-- event to sink (gradually disappear)
+	        alwaysOnTop = false, alwaysBottom = false , 				-- force layering
+		wResizable = false, hResizable = false 					-- separate resizable for w and h
+	  }
+
 function Window:new( t ) 
   local new = t or {}
   setmetatable( new , self )
@@ -310,9 +311,9 @@ function Window:new( t )
   return new
 end
 
-
 -- window to screen, screen to window: transform x,y coordinates within the window from point on screen
 function Window:WtoS(x,y) return (x - self.x)/self.mag + W/2, (y - self.y)/self.mag + H/2 end
+
 -- translate window by dx, dy pixels on screen, with unchanged mag factor 
 function Window:translate(dx,dy) self.x = self.x - dx * self.mag; self.y = self.y - dy * self.mag end
 	
@@ -328,13 +329,11 @@ function Window:sink(tx,ty,w)
 	self.markForSinkDeltaMag = (wratio - self.mag)/sinkSteps
 	self.sinkSteps = 0
 	self.markForSinkTimer = 0
-io.write("sink: " .. tostring(tx) .. " " .. tostring(ty) .. " " .. tostring(w) .. " " .. tostring(self.restoreSinkMag) .. "\n")
 	end
  	
 
 -- request the window to unsink from source position sx, sy at the given target (window) position x,y, with mag factor 
 function Window:unsink(sx, sy, sw, x, y, mag) 
-io.write("unsink: " .. tostring(sx) .. " " .. tostring(sy) .. " " .. tostring(sw) .. " " .. tostring(x) .. " " .. tostring(y) .. " " .. tostring(mag) .. "\n")
 	self.markForSink = true
 	self.sinkFinalDisplay = true
 	local startingmag = self.w / sw
@@ -365,7 +364,7 @@ function Window:isInside(x,y)
 end
 
 function Window:zoom( mag ) if self.zoomable then self.mag = mag end end
-function Window:move( x, y ) self.x = x; self.y = y end
+function Window:move( x, y ) if self.movable then self.x = x; self.y = y end end
 function Window:setTitle( title ) self.title = title end
 
 -- drawn upper button bar
@@ -396,10 +395,6 @@ end
 
 function Window:drawBack()
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-  --love.graphics.setColor(255,255,255,200)
-  --love.graphics.setScissor( zx, zy, self.w / self.mag, self.h / self.mag ) 
-  --love.graphics.draw( backgroundImage , zx , zy)
-  --love.graphics.setScissor()
   local alpha = 200
   love.graphics.setColor(255,255,255,alpha)
   love.graphics.rectangle( "fill", zx , zy , self.w / self.mag, self.h / self.mag )  
@@ -418,17 +413,23 @@ function Window:click(x,y)
 		-- the actual closure
 		return self
 	end
+	if self.wResizable then
+
+	end
+	if self.hResizable then
+	end
+	if self.movable then
+		-- want to move window 
+		mouseMove = true
+		arrowMode = false
+		arrowStartX, arrowStartY = x, y
+		arrowModeMap = nil
+	end
 	return nil
 	end
 
--- to be redefined in inherited classes
-function Window:draw() end 
-function Window:getFocus() end
-function Window:looseFocus() end
 function Window:update(dt) 
 	if self.markForSink then 
-		--self.markForSinkTimer = self.markForSinkTimer + dt
-		--if self.markForSinkTimer > sinkTimerLimit then
 			self.markForSinkTimer = 0
 			self.sinkSteps = self.sinkSteps + 1
 		
@@ -451,9 +452,13 @@ function Window:update(dt)
 					self.minimized = false
 				end	
 			end
-		--end
 	end
 	end
+
+-- to be redefined in inherited classes
+function Window:draw() end 
+function Window:getFocus() end
+function Window:looseFocus() end
 
 --
 --  Pawn object 
@@ -901,7 +906,7 @@ function iconRollWindow:click(x,y)
 -- a Icon is a window which displays a fixed image on the background . it is not zoomable, movable, no window bar
 -- and always at bottom
 -- 
-iconWindow = Window:new{ class = "icon", alwaysBottom = true, alwaysVisible = true, zoomable = false }
+iconWindow = Window:new{ class = "icon", alwaysBottom = true, alwaysVisible = true, zoomable = false , movable = false }
 
 function iconWindow:new( t ) -- create from w, h, x, y + text, image, windows, mag
   local new = t or {}
@@ -913,15 +918,15 @@ end
 
 function iconWindow:draw()
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
-  love.graphics.setColor(255,255,255)
-  love.graphics.setFont(fontTitle)
   if self.open then 
-  	love.graphics.setColor(255,255,102)
+  	love.graphics.setColor(255,5,10)
 	love.graphics.rectangle( "fill", zx-3, zy-3 , self.w/self.mag+6, self.h/self.mag+6) 
   end
   love.graphics.setColor(255,255,255)
   love.graphics.draw( self.image, zx, zy , 0, 1/self.mag, 1/self.mag)
-  love.graphics.print( self.text, zx +20 , zy + 90  ) 
+  love.graphics.setFont(fontTitle)
+  local size = fontTitle:getWidth(self.text)
+  love.graphics.print( self.text, zx + (self.w/self.mag - size)/2, zy + 90  ) 
 end
 
 function decideOpenWindow(window,cx,cy,w)
@@ -944,7 +949,7 @@ function decideCloseWindow(window,cx,cy,w)
 	end
 	end
 
-function iconWindow:click()
+function iconWindow:click(x,y)
   	local cx,cy = Window.WtoS(self,self.w/2,self.h/2) 
 	self.open = not self.open
 	if self.open then -- only one opened at a time
@@ -1027,11 +1032,6 @@ end
 
 function Help:click(x,y)
   	Window.click(self,x,y)
-	-- want to move window 
-	mouseMove = true
-	arrowMode = false
-	arrowStartX, arrowStartY = x, y
-	arrowModeMap = nil
 	end
 
 function Help:draw()
@@ -1065,11 +1065,6 @@ end
 
 function Dialog:click(x,y)
   	Window.click(self,x,y)
-	-- want to move window 
-	mouseMove = true
-	arrowMode = false
-	arrowStartX, arrowStartY = x, y
-	arrowModeMap = nil
 	end
 
 function Dialog:draw()
@@ -1099,6 +1094,7 @@ function Dialog:update(dt) Window.update(self,dt) end
 
 -- projectorWindow class
 -- a projectorWindow is a window which displays images. it is not zoomable
+--[[
 diceWindow = Window:new{ class = "dice" , title = "Gobelet" }
 
 function diceWindow:new( t ) -- create from w, h, x, y
@@ -1164,6 +1160,7 @@ function diceWindow:click(x,y)
 	launchDices(self.dice)
 
 	end
+--]]
 
 -- projectorWindow class
 -- a projectorWindow is a window which displays images. it is not zoomable
@@ -1199,15 +1196,7 @@ function projectorWindow:draw()
   end
 
 function projectorWindow:click(x,y)
-
   	Window.click(self,x,y)
-
-	-- want to move window 
-	mouseMove = true
-	arrowMode = false
-	arrowStartX, arrowStartY = x, y
-	arrowModeMap = nil
-
 	end
 
 --
@@ -1304,6 +1293,7 @@ function Combat:update(dt)
 function Combat:click(x,y)
 
   	Window.click(self,x,y)
+	mouseMove = false -- we will check this below
 
   	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
 
@@ -1486,12 +1476,6 @@ function snapshotBar:click(x,y)
 	    if currentSnap == 3 then return end
       end
   end
-
-  -- want to move window 
-  mouseMove = true
-  arrowMode = false
-  arrowStartX, arrowStartY = x, y
-  arrowModeMap = nil
 
   end
 
