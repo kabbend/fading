@@ -192,6 +192,30 @@ arrowStopIndex 		 = nil		-- index of the PNJ at the ending point
 arrowModeMap		 = nil		-- either nil (not in map mode), "RECT" or "CIRC" shape used to draw map maskt
 maskType		 = "RECT"	-- shape to use, rectangle by default
 
+local glowCode = [[
+extern vec2 size;
+extern int samples = 5; // pixels per axis; higher = bigger glow, worse performance
+extern float quality = 2.5; // lower = smaller glow, better quality
+ 
+vec4 effect(vec4 colour, Image tex, vec2 tc, vec2 sc)
+{
+  vec4 source = Texel(tex, tc);
+  vec4 sum = vec4(0);
+  int diff = (samples - 1) / 2;
+  vec2 sizeFactor = vec2(1) / size * quality;
+  
+  for (int x = -diff; x <= diff; x++)
+  {
+    for (int y = -diff; y <= diff; y++)
+    {
+      vec2 offset = vec2(x, y) * sizeFactor;
+      sum += Texel(tex, tc + offset);
+    }
+  }
+  
+  return ((sum / (samples * samples)) + source) * colour;
+} ]]
+ 
 -- we write only in debug mode
 local oldiowrite = io.write
 function io.write( data ) if debug then oldiowrite( data ) end end
@@ -557,6 +581,7 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   self.step = 50
   self.pawns = {}
   self.basePawnSize = nil -- base size for pawns on this map (in pixels, for map at scale 1)
+  self.shader = love.graphics.newShader( glowCode ) 
 
   -- outmost limits of the current mask
   self.maskMinX, self.maskMaxX, self.maskMinY, self.maskMaxY = 100 * self.w , -100 * self.w, 100 * self.h, - 100 * self.h 
@@ -660,14 +685,17 @@ function Map:draw()
 		       		love.graphics.rectangle( "fill", zx, zy, (map.pawns[i].sizex+6) / map.mag, (map.pawns[i].sizey+6) / map.mag)
 		       		if dead then 
 					love.graphics.setColor(50,50,50,200) -- dead are grey
-				elseif index == focus then 	
-					love.graphics.setColor( unpack(color.orange) )  -- focus is orange
 				else
 					love.graphics.setColor( unpack(map.pawns[i].color) )  
 				end
 		       		nzx = zx + map.pawns[i].offsetx / map.mag
 		       		nzy = zy + map.pawns[i].offsety / map.mag
+				if index == focus then 	
+  					love.graphics.setShader(self.shader)
+  					self.shader:send("size",{100,100})
+  				end
 		       		love.graphics.draw( map.pawns[i].snapshot.im , nzx, nzy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
+				if index == focus then 	love.graphics.setShader() end
 				-- display hits number and ID
 		       		love.graphics.setColor(0,0,0)  
 				local f = map.basePawnSize / 5
@@ -918,30 +946,6 @@ function iconRollWindow:click(x,y)
 -- and always at bottom
 --
 
-local glowCode = [[
-extern vec2 size;
-extern int samples = 5; // pixels per axis; higher = bigger glow, worse performance
-extern float quality = 2.5; // lower = smaller glow, better quality
- 
-vec4 effect(vec4 colour, Image tex, vec2 tc, vec2 sc)
-{
-  vec4 source = Texel(tex, tc);
-  vec4 sum = vec4(0);
-  int diff = (samples - 1) / 2;
-  vec2 sizeFactor = vec2(1) / size * quality;
-  
-  for (int x = -diff; x <= diff; x++)
-  {
-    for (int y = -diff; y <= diff; y++)
-    {
-      vec2 offset = vec2(x, y) * sizeFactor;
-      sum += Texel(tex, tc + offset);
-    }
-  }
-  
-  return ((sum / (samples * samples)) + source) * colour;
-} ]]
- 
 iconWindow = Window:new{ class = "icon", alwaysBottom = true, alwaysVisible = true, zoomable = false , movable = false }
 
 function iconWindow:new( t ) -- create from w, h, x, y + text, image, windows, mag
