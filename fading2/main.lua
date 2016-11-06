@@ -438,6 +438,11 @@ function Window:drawBar( )
 
 end
 
+function Window:drawResize()
+   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+   love.graphics.draw( iconResize, zx + self.w / self.mag - iconSize + 3, zy + self.h/self.mag - iconSize + 3, 0, 18/iconSize , 18/iconSize)
+end
+
 function Window:drawBack()
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
   local alpha = 200
@@ -759,7 +764,7 @@ function Map:draw()
 
     -- print window button bar
     self:drawBar()
-
+    self:drawResize()
 end
 
 function Map:getFocus() if self.kind == "scenario" then searchActive = true end end
@@ -1346,6 +1351,7 @@ function Combat:draw()
 
   -- print bar
   self:drawBar()
+  self:drawResize()
 
 end
 
@@ -1475,6 +1481,8 @@ function snapshotBar:draw()
   
    -- print bar
    self:drawBar()
+   self:drawResize()
+
 end
 
 function snapshotBar:update(dt)
@@ -3221,7 +3229,9 @@ function love.load( args )
     storyImage 		= love.graphics.newImage( "histoire.jpg" )
     dicesImage 		= love.graphics.newImage( "dices.png" )
 
+    -- base icons. We expect 24x24 icons
     iconClose 		= love.graphics.newImage( "cancel.png" )
+    iconResize 		= love.graphics.newImage( "resize.png" )
     iconOnTopInactive 	= love.graphics.newImage( "up-arrow.png" )
     iconOnTopActive 	= love.graphics.newImage( "up-arrow-red.png" )
 
