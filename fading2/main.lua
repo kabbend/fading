@@ -916,7 +916,32 @@ function iconRollWindow:click(x,y)
 -- iconWindow class
 -- a Icon is a window which displays a fixed image on the background . it is not zoomable, movable, no window bar
 -- and always at bottom
--- 
+--
+
+local glowCode = [[
+extern vec2 size;
+extern int samples = 5; // pixels per axis; higher = bigger glow, worse performance
+extern float quality = 2.5; // lower = smaller glow, better quality
+ 
+vec4 effect(vec4 colour, Image tex, vec2 tc, vec2 sc)
+{
+  vec4 source = Texel(tex, tc);
+  vec4 sum = vec4(0);
+  int diff = (samples - 1) / 2;
+  vec2 sizeFactor = vec2(1) / size * quality;
+  
+  for (int x = -diff; x <= diff; x++)
+  {
+    for (int y = -diff; y <= diff; y++)
+    {
+      vec2 offset = vec2(x, y) * sizeFactor;
+      sum += Texel(tex, tc + offset);
+    }
+  }
+  
+  return ((sum / (samples * samples)) + source) * colour;
+} ]]
+ 
 iconWindow = Window:new{ class = "icon", alwaysBottom = true, alwaysVisible = true, zoomable = false , movable = false }
 
 function iconWindow:new( t ) -- create from w, h, x, y + text, image, windows, mag
@@ -924,17 +949,21 @@ function iconWindow:new( t ) -- create from w, h, x, y + text, image, windows, m
   setmetatable( new , self )
   self.__index = self
   new.open = false 
+  new.shader = love.graphics.newShader( glowCode ) 
   return new
 end
 
 function iconWindow:draw()
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
-  if self.open then 
-  	love.graphics.setColor(255,5,10)
-	love.graphics.rectangle( "fill", zx-3, zy-3 , self.w/self.mag+6, self.h/self.mag+6) 
-  end
   love.graphics.setColor(255,255,255)
+  if self.open then
+  	love.graphics.setShader(self.shader)
+  	self.shader:send("size",{100,100})
+  end
   love.graphics.draw( self.image, zx, zy , 0, 1/self.mag, 1/self.mag)
+  if self.open then
+  	love.graphics.setShader()
+  end
   love.graphics.setFont(fontTitle)
   local size = fontTitle:getWidth(self.text)
   love.graphics.print( self.text, zx + (self.w/self.mag - size)/2, zy + 90  ) 
