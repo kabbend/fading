@@ -53,15 +53,17 @@ function isAttorArm( i )
          return true
  end
 
-  -- Compute dices to roll when "roll attack" or "roll armor" is pressed
+ -- Compute dices to roll when "roll attack" or "roll armor" is pressed
  -- Roll is made for the character with current focus, provided it is a PNJ and not a PJ
  -- If it is a PJ, the roll is made not for him, but for it's opponent, provided there is
  -- one and only one (otherwise, do nothing)
  -- Return nothing, but activate the corresponding draw flag and timer so it is used in
  -- draw()
+ -- return the number of dices actually sent (may be zero)
+ -- 
  function rollAttack( rollType )
 
-         if not focus then return end -- no one with focus, cannot roll
+         if not focus then return 0 end -- no one with focus, cannot roll
 
          local index = focus
 
@@ -72,7 +74,7 @@ function isAttorArm( i )
                  for k,v in pairs(PNJTable[index].attackers) do
                          if v then oneid = k; count = count + 1 end
                  end
-                 if (count ~= 1) or (not oneid) then return end
+                 if (count ~= 1) or (not oneid) then return 0 end
                  index = findPNJ(oneid)
                  -- index now points to the line we want
          end
@@ -88,10 +90,12 @@ function isAttorArm( i )
                  num = PNJTable[ index ].armor
          end
 
-         if num == 0 then return end
+         if num == 0 then return 0 end
 
 	 drawDicesKind = "d6"
 	 launchDices("d6",num)
+
+	 return num
 
 	 end
 

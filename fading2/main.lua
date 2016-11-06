@@ -403,6 +403,7 @@ end
 -- click in the window. Check some rudimentary behaviour (quit...)
 function Window:click(x,y)
  	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+ 	local mx,my = self:WtoS(self.w, self.h) 
 	-- click on X symbol
 	if x >= zx + self.w / self.mag - 12 and x <= zx + self.w / self.mag and
 		y >= zy - 20 and y <= zy then
@@ -413,13 +414,11 @@ function Window:click(x,y)
 		-- the actual closure
 		return self
 	end
-	if self.wResizable then
-
-	end
-	if self.hResizable then
-	end
-	if self.movable then
-		-- want to move window 
+	if x >= mx - 20 and y >= my - 20 then
+		-- clicking on the bottom corner, wants to resize
+		if self.wResizable or self.hResizable then mouseResize = true end
+	elseif self.movable then
+		-- clicking elsewhere, wants to move
 		mouseMove = true
 		arrowMode = false
 		arrowStartX, arrowStartY = x, y
@@ -506,7 +505,7 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   local t = t or {}
   if not t.kind then self.kind = "map" else self.kind = t.kind end 
   self.class = "map"
-  
+ 
   -- snapshot part of the object
   assert( t.filename or t.file )
   local image
@@ -896,7 +895,17 @@ function iconRollWindow:click(x,y)
 		-- ask for bar drawing explicitely
 		drawMyBar = true
 	else 
-	  	if focus then drawDicesKind = "d6"; rollAttack("attack") else drawDicesKind = "d20" ; launchDices("d20",1) end	
+	  	if focus then 
+			drawDicesKind = "d6" 
+			local n = rollAttack("attack") 
+			if n == 0 then -- no attack to roll, so we roll a d20 instead...
+				drawDicesKind = "d20" 
+				launchDices("d20",1) 
+			end	
+		else 
+			drawDicesKind = "d20" 
+			launchDices("d20",1) 
+		end	
 	end
 
 	end
@@ -1203,7 +1212,7 @@ function projectorWindow:click(x,y)
 -- Combat class
 -- a Combat is a window which displays PNJ list and buttons 
 --
-Combat = Window:new{ class = "combat" , title = "Combat tracker" }
+Combat = Window:new{ class = "combat" , title = "Combat tracker" , wResizable = true, hResizable = true }
 
 function Combat:new( t ) -- create from w, h, x, y
   local new = t or {}
@@ -1292,9 +1301,6 @@ function Combat:update(dt)
 
 function Combat:click(x,y)
 
-  	Window.click(self,x,y)
-	mouseMove = false -- we will check this below
-
   	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
 
 	-- clicking on button bar does not change focus, but might move window
@@ -1320,8 +1326,7 @@ function Combat:click(x,y)
       		focus = i
       		focusTarget = PNJTable[i].target
       		focusAttackers = PNJTable[i].attackers
-      		-- this starts the arrow mode if PNJ
-      		--if not PNJTable[i].PJ then
+      		-- this starts the arrow mode 
         	arrowMode = true
         	arrowStartX = x
         	arrowStartY = y
@@ -1332,12 +1337,28 @@ function Combat:click(x,y)
 
   	end
 
-	if not focus then
+  	Window.click(self,x,y)		-- the general click function may set mouseMove, but we want
+					-- to move only in certain circumstances, so we override this below
+
+	-- resize supersedes focus
+	if mouseResize then 
+		focus = nil 
+  		focusTarget = nil
+  		focusAttackers = nil
+	end
+
+	if not focus and not mouseResize then
 		-- want to move window 
 		mouseMove = true
 		arrowMode = false
 		arrowStartX, arrowStartY = x, y
 		arrowModeMap = nil
+	elseif focus then
+		mouseMove = false
+        	arrowMode = true
+	else
+		mouseMove = false
+        	arrowMode = false
 	end
 
   	end
@@ -1351,7 +1372,7 @@ mainLayout = {}
 -- snapshotBarclass
 -- a snapshotBar is a window which displays images
 --
-snapshotBar = Window:new{ class = "snapshot" , title = snapText[1] }
+snapshotBar = Window:new{ class = "snapshot" , title = snapText[1] , wResizable = true }
 
 function snapshotBar:new( t ) -- create from w, h, x, y
   local new = t or {}
@@ -2285,7 +2306,8 @@ function love.mousereleased( x, y )
 		layout:setDisplay(w,false) 
 	end
 
-	-- we were moving the map. We stop now
+	-- we were moving or resizing the window. We stop now
+	if mouseResize then mouseResize = false; return end
 	if mouseMove then mouseMove = false; return end
 
 	-- we were moving a pawn. we stop now
@@ -2668,31 +2690,42 @@ function findPNJ( id )
 
 function love.mousemoved(x,y,dx,dy)
 
-if mouseMove then
+local w = layout:getFocus()
+if not w then return end
 
-   local map = layout:getFocus()
+if mouseResize then
 
-   if map then
+	local zx,zy = w:WtoS(0,0)
+	local mx,my = w:WtoS(w.w, w.h)
+
+	-- check we are still within the window limits
+	if x >= zx + 40 and y >= zy +40 then
+		if not w.wResizable then dx = 0 end
+		if not w.hResizable then dy = 0 end
+		w.w = w.w + dx * w.mag
+		w.h = w.h + dy * w.mag
+	end
+ 
+elseif mouseMove then
 
 	-- store old values, in case we need to rollback because we get outside limits
-	local oldx, oldy = map.x, map.y
+	local oldx, oldy = w.x, w.y
 
 	-- check changes
-	local newx = map.x - dx * map.mag 
-	local newy = map.y - dy * map.mag 
+	local newx = w.x - dx * w.mag 
+	local newy = w.y - dy * w.mag 
 
 	-- check we are still within margins of the screen
-  	local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
+  	local zx,zy = -( w.x * 1/w.mag - W / 2), -( w.y * 1/w.mag - H / 2)
 	
-	if zx > W - margin or zx + map.w / map.mag < margin then newx = oldx end	
-	if zy > H - margin or zy + map.h / map.mag < margin then newy = oldy end	
+	if zx > W - margin or zx + w.w / w.mag < margin then newx = oldx end	-- FIXME: what margin ?
+	if zy > H - margin or zy + w.h / w.mag < margin then newy = oldy end	
 
 	-- move the map 
 	if (newx ~= oldx or newy ~= oldy) then
-		map:move( newx, newy )
+		w:move( newx, newy )
 	end
 
-    end
 end
 
 end
