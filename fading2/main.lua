@@ -3216,6 +3216,7 @@ function love.load( args )
     -- GUI initializations...
     yui.UI.registerEvents()
     love.window.setTitle( "Fading Suns Tabletop" )
+    love.keyboard.setKeyRepeat(true)
 
     -- load fonts
     fontTitle = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",20)
@@ -3245,19 +3246,26 @@ function love.load( args )
 --[[
     	W, H = love.window.getDesktopDimensions()
     	W, H = W*0.98, H*0.92 
-
 	messagesH		= H - 22
 	snapshotH 		= messagesH - snapshotSize - snapshotMargin
-
         PNJmax = 14 
 --]]
 
     end
+
+    -- get actual screen size
     love.window.setMode( 0  , 0  , { fullscreen=false, resizable=true, display=1} )
     love.window.maximize()
     W, H = love.window.getMode()
     io.write("W,H=" .. W .. " " .. H .. "\n")
-    love.keyboard.setKeyRepeat(true)
+
+    -- adjust some windows accordingly
+    messagesH	= H - 22
+    snapshotH = messagesH - snapshotSize - snapshotMargin
+    HC = H - 4 * intW - 3 * iconSize - snapshotSize
+    WC = 1290
+    viewh = HC 		-- view height
+    vieww = W - 260	-- view width
 
     -- some small differences in windows: separator is not the same, and some weird completion
     -- feature in command line may add an unexpected doublequote char at the end of the path (?)
@@ -3358,7 +3366,7 @@ function love.load( args )
 
     -- create basic windows
     combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(0), y=Window:cy(intW)}
-    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*iconSize - snapshotSize - 2*intW - H1 - 3 ) }
+    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*iconSize - snapshotSize - 2*intW - H1 - 2 ) }
     snapshotWindow = snapshotBar:new{ w=W, h=snapshotSize+2, x=Window:cx(0), y=Window:cy(H-snapshotSize-2*iconSize) }
     storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = storyImage, w=storyImage:getWidth(), h=storyImage:getHeight() , x=-1220, y=400}
     actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1220,y=700} 
