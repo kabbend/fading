@@ -403,10 +403,12 @@ function Window:drawBar( )
  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
  love.graphics.rectangle( "fill", zx , zy - 20 , self.w / self.mag , 20 )
  love.graphics.setColor(255,0,0)
- if not self.alwaysOnTop then
-   love.graphics.setFont(fontRound)
+ love.graphics.setFont(fontRound)
+ if not self.alwaysVisible then
    love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
  end
+ if self.alwaysOnTop then love.graphics.setColor(0,0,0) end
+ love.graphics.print( "T" , zx + self.w / self.mag - 24 , zy - 18 )
  if self == layout:getFocus() then love.graphics.setColor(255,255,255) else love.graphics.setColor(0,0,0) end
  love.graphics.print( title , zx + 3 + marginForRect , zy - 18 )
   -- draw small circle or rectangle in upper corner, to show which mode we are in
@@ -437,6 +439,11 @@ function Window:click(x,y)
 		-- activated ( a yui button ). So we wait for the mouse release to perform
 		-- the actual closure
 		return self
+	end
+	if x >= zx + self.w / self.mag - 24 and x <= zx + self.w / self.mag - 12 and
+		y >= zy - 20 and y <= zy then
+		self.alwaysOnTop = not self.alwaysOnTop 
+		layout:setOnTop(self, self.alwaysOnTop)
 	end
 	if x >= mx - 20 and y >= my - 20 then
 		-- clicking on the bottom corner, wants to resize
@@ -1572,6 +1579,16 @@ function mainLayout:removeWindow( window )
 	if self.focus == window then self:setFocus( nil ) end
 	for i=1,#self.sorted do if self.sorted[i].w == window then table.remove( self.sorted , i ); break; end end
 	self.windows[window] = nil
+	end
+
+-- request a window to be on top, or restore it to its standard mode
+function mainLayout:setOnTop( window , onTop )
+	if not onTop then 
+		layout.windows[window].l = layout.maxWindowLayer+1
+	else 
+		layout.windows[window].l = 10e5
+	end
+	table.sort( self.sorted , function(a,b) return a.l < b.l end )
 	end
 
 -- manage display status of a window
