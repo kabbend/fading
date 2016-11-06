@@ -375,7 +375,7 @@ function Window:drawBar( )
  local availableForTitle = self.w / self.mag - reservedForButtons - marginForRect 
  local numChar = math.floor(availableForTitle / 7)
  local title = string.sub( self.title , 1, numChar ) 
- if self == layout:getFocus() then love.graphics.setColor(96,96,96) else love.graphics.setColor(224,224,224) end
+ if self == layout:getFocus() then love.graphics.setColor(160,160,160) else love.graphics.setColor(224,224,224) end
  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
  love.graphics.rectangle( "fill", zx , zy - 20 , self.w / self.mag , 20 )
  love.graphics.setColor(255,0,0)
@@ -654,13 +654,15 @@ function Map:draw()
 		     	dead = PNJTable[ index ].is_dead
 		     	if map.pawns[i].snapshot.im then
   		       		local zx,zy = (map.pawns[i].x) * 1/map.mag + x , (map.pawns[i].y) * 1/map.mag + y
-				-- color is different depending on PJ/PNJ, and if the character has played this round or not
+				-- color is different depending on PJ/PNJ, and if the character has played this round or not, or has the focus
 		       		if PNJTable[index].done then love.graphics.setColor(unpack(color.green))
 				elseif PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
 		       		love.graphics.rectangle( "fill", zx, zy, (map.pawns[i].sizex+6) / map.mag, (map.pawns[i].sizey+6) / map.mag)
 		       		if dead then 
 					love.graphics.setColor(50,50,50,200) -- dead are grey
-				else 	
+				elseif index == focus then 	
+					love.graphics.setColor( unpack(color.orange) )  -- focus is orange
+				else
 					love.graphics.setColor( unpack(map.pawns[i].color) )  
 				end
 		       		nzx = zx + map.pawns[i].offsetx / map.mag
