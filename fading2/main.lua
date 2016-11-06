@@ -3250,9 +3250,9 @@ function love.load( args )
 	snapshotH 		= messagesH - snapshotSize - snapshotMargin
 
         PNJmax = 14 
+--]]
 
     end
---]]
     love.window.setMode( 0  , 0  , { fullscreen=false, resizable=true, display=1} )
     love.window.maximize()
     W, H = love.window.getMode()
