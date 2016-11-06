@@ -2222,7 +2222,7 @@ function love.draw()
   local alpha = 80
 
   love.graphics.setColor(255,255,255)
-  love.graphics.draw( backgroundImage , 0, 0)
+  love.graphics.draw( backgroundImage , 0, 0, 0, W / backgroundImage:getWidth(), H / backgroundImage:getHeight() )
 
   love.graphics.setLineWidth(3)
 
@@ -3240,7 +3240,9 @@ function love.load( args )
 
     -- some adjustments on different systems
     if love.system.getOS() == "Windows" then
+	keyZoomIn, keyZoomOut = ':', '!'
 
+--[[
     	W, H = love.window.getDesktopDimensions()
     	W, H = W*0.98, H*0.92 
 
@@ -3248,11 +3250,11 @@ function love.load( args )
 	snapshotH 		= messagesH - snapshotSize - snapshotMargin
 
         PNJmax = 14 
-	keyZoomIn, keyZoomOut = ':', '!'
 
     end
-
-    love.window.setMode( W  , H  , { fullscreen=false, resizable=true, display=1} )
+--]]
+    love.window.setMode( 0  , 0  , { fullscreen=false, resizable=true, display=1} )
+    love.window.maximize()
     W, H = love.window.getMode()
     io.write("W,H=" .. W .. " " .. H .. "\n")
     love.keyboard.setKeyRepeat(true)
@@ -3356,7 +3358,7 @@ function love.load( args )
 
     -- create basic windows
     combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(0), y=Window:cy(intW)}
-    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*iconSize - snapshotSize - 2*intW - H1 - 1) }
+    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*iconSize - snapshotSize - 2*intW - H1 - 3 ) }
     snapshotWindow = snapshotBar:new{ w=W, h=snapshotSize+2, x=Window:cx(0), y=Window:cy(H-snapshotSize-2*iconSize) }
     storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = storyImage, w=storyImage:getWidth(), h=storyImage:getHeight() , x=-1220, y=400}
     actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1220,y=700} 
