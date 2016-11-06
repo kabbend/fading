@@ -596,11 +596,6 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   
   -- window part of the object
   self.zoomable = true
-  --[[
-  self.x = self.w / 2
-  self.y = self.h / 2
-  self.mag = 1.0
-  --]]
   self.mag = self.w / mapOpeningSize	-- we set ratio so we stick to the required opening size	
   self.x, self.y = self.w/2, self.h/2
   Window.translate(self,mapOpeningXY-W/2,mapOpeningXY-H/2) -- set correct position
@@ -1038,6 +1033,7 @@ function iconWindow:click(x,y)
 		if self.open then
 			decideOpenWindow(combatWindow,cx,cy,0.3*self.w/self.mag)
 	 		currentSnap = 2 -- tactical maps			
+			snapshotWindow:setTitle( snapText[currentSnap] )
 			decideOpenWindow(snapshotWindow,cx,cy,0.3*self.w/self.mag)
 			decideOpenWindow(pWindow,cx,cy,0.3*self.w/self.mag)
 			-- sink all other windows
@@ -1066,6 +1062,7 @@ function iconWindow:click(x,y)
 	elseif self.text == "L'Histoire" then
 		if self.open then
 	 		currentSnap = 1 -- images			
+			snapshotWindow:setTitle( snapText[currentSnap] )
 			decideOpenWindow(snapshotWindow,cx,cy,0.3*self.w/self.mag)
 			decideOpenWindow(pWindow,cx,cy,0.3*self.w/self.mag)
 			decideOpenWindow(scenarioWindow,cx,cy,0.3*self.w/self.mag)
@@ -1438,7 +1435,7 @@ mainLayout = {}
 -- snapshotBarclass
 -- a snapshotBar is a window which displays images
 --
-snapshotBar = Window:new{ class = "snapshot" , title = snapText[1] , wResizable = true }
+snapshotBar = Window:new{ class = "snapshot" , title = snapText[currentSnap] , wResizable = true }
 
 function snapshotBar:new( t ) -- create from w, h, x, y
   local new = t or {}
@@ -1467,7 +1464,7 @@ function snapshotBar:draw()
 				snapshotSize)
 		end
 		if currentSnap == 2 and snapshots[currentSnap].s[i].kind == "scenario" then
-			-- do not draw scenario, ... FIXME: the frame should not appear neither
+			-- do not draw scenario, ... 
 		else
   			love.graphics.setColor(255,255,255)
 			love.graphics.draw( 	snapshots[currentSnap].s[i].im , 
@@ -3133,7 +3130,7 @@ function loadStartup( t )
 	layout:addWindow( s , false )
 	atlas.scenario = s
 	io.write("Loaded scenario image file at " .. path .. sep .. f .. "\n")
-	table.insert( snapshots[2].s, s ) 
+	--table.insert( snapshots[2].s, s )  -- don't insert in snapshots anymore
 
       elseif f == 'pawnDefault.jpg' then
 
