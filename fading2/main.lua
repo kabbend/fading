@@ -3207,7 +3207,7 @@ function love.load( args )
 
     -- GUI initializations...
     yui.UI.registerEvents()
-    love.window.setTitle( "Fading Suns Combat Tracker" )
+    love.window.setTitle( "Fading Suns Tabletop" )
 
     -- load fonts
     fontTitle = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",20)
@@ -3268,7 +3268,8 @@ function love.load( args )
     local opt = loadTemplates{ 	baseDirectory .. sep .. "data" , 
 				baseDirectory .. sep .. fadingDirectory .. sep .. "data" } 
 
-    opt = opt or {""}
+    if not opt or #opt == 0 then error("sorry, need at least one data file") end
+
     local current_class = opt[1]
 
 
@@ -3361,13 +3362,15 @@ function love.load( args )
 
     -- check if we have a scenario loaded. Reference it for direct access. Update size and mag factor to fit screen
     scenarioWindow = atlas:getScenario()
-    local w,h = scenarioWindow.w, scenarioWindow.h
-    local f1,f2 = w/WC, h/HC
-    scenarioWindow.mag = math.max(f1,f2)
-    scenarioWindow.x, scenarioWindow.y = scenarioWindow.w/2, scenarioWindow.h/2
-    local zx,zy = scenarioWindow:WtoS(0,0)
-    scenarioWindow:translate(0,intW+iconSize-zy)
-    scenarioWindow.startupX, scenarioWindow.startupY, scenarioWindow.startupMag = scenarioWindow.x, scenarioWindow.y, scenarioWindow.mag
+    if scenarioWindow then
+      local w,h = scenarioWindow.w, scenarioWindow.h
+      local f1,f2 = w/WC, h/HC
+      scenarioWindow.mag = math.max(f1,f2)
+      scenarioWindow.x, scenarioWindow.y = scenarioWindow.w/2, scenarioWindow.h/2
+      local zx,zy = scenarioWindow:WtoS(0,0)
+      scenarioWindow:translate(0,intW+iconSize-zy)
+      scenarioWindow.startupX, scenarioWindow.startupY, scenarioWindow.startupMag = scenarioWindow.x, scenarioWindow.y, scenarioWindow.mag
+    end
  
 end
 
