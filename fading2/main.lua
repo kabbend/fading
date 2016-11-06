@@ -1338,14 +1338,7 @@ function Combat:click(x,y)
 
   	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
 
-	-- clicking on button bar does not change focus, but might move window
-	if (y - zy) < 40 then 
-		mouseMove = true
-		arrowMode = false
-		arrowStartX, arrowStartY = x, y
-		arrowModeMap = nil
-		return
-	end
+	if (y - zy) >= 40 then -- clicking on buttons does not change focus
 
   	-- we assume that the mouse was pressed outside PNJ list, this might change below
   	lastFocus = focus
@@ -1354,8 +1347,8 @@ function Combat:click(x,y)
   	focusAttackers = nil
 
   	-- check which PNJ was selected, depending on position on y-axis
-  	for i=1,PNJnum-1 do
-    	if (y >= PNJtext[i].y -5 and y < PNJtext[i].y + 42 - 5) then
+  	  for i=1,PNJnum-1 do
+    	  if (y >= PNJtext[i].y -5 and y < PNJtext[i].y + 42 - 5) then
       		PNJTable[i].focus = true
       		lastFocus = focus
       		focus = i
@@ -1366,11 +1359,13 @@ function Combat:click(x,y)
         	arrowStartX = x
         	arrowStartY = y
         	arrowStartIndex = i
-    	else
+    	  else
       		PNJTable[i].focus = false
-    	end
+    	  end
 
-  	end
+	  end
+
+	end
 
   	Window.click(self,x,y)		-- the general click function may set mouseMove, but we want
 					-- to move only in certain circumstances, so we override this below
@@ -1393,6 +1388,10 @@ function Combat:click(x,y)
         	arrowMode = true
 	else
 		mouseMove = false
+        	arrowMode = false
+	end
+	
+	if (y - zy) < 40 then 
         	arrowMode = false
 	end
 
