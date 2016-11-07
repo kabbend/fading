@@ -960,8 +960,6 @@ function iconRollWindow:click(x,y)
 		arrowMode = false
 		arrowStartX, arrowStartY = x, y
 		arrowModeMap = nil
-		-- ask for bar drawing explicitely
-		drawMyBar = true
 	else 
 	  	if focus then 
 			drawDicesKind = "d6" 
@@ -984,7 +982,7 @@ function iconRollWindow:click(x,y)
 -- and always at bottom
 --
 
-iconWindow = Window:new{ class = "icon", alwaysBottom = true, alwaysVisible = true, zoomable = false , movable = false }
+iconWindow = Window:new{ class = "icon", alwaysBottom = true, alwaysVisible = true, zoomable = false }
 
 function iconWindow:new( t ) -- create from w, h, x, y + text, image, windows, mag
   local new = t or {}
@@ -1032,6 +1030,17 @@ function decideCloseWindow(window,cx,cy,w)
 	end
 
 function iconWindow:click(x,y)
+
+  	local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
+	if y < zy then 
+		-- we click on (invisible) button bar. This moves the window as well
+		mouseMove = true
+		arrowMode = false
+		arrowStartX, arrowStartY = x, y
+		arrowModeMap = nil
+		return
+	end
+
   	local cx,cy = Window.WtoS(self,self.w/2,self.h/2) 
 	self.open = not self.open
 	if self.open then -- only one opened at a time
@@ -2832,9 +2841,13 @@ elseif mouseMove then
 	if zx > W - margin or zx + w.w / w.mag < margin then newx = oldx end	-- FIXME: what margin ?
 	if zy > H - margin or zy + w.h / w.mag < margin then newy = oldy end	
 
+	local deltax, deltay = newx - oldx, newy - oldy
+
 	-- move the map 
 	if (newx ~= oldx or newy ~= oldy) then
 		w:move( newx, newy )
+		if w == storyWindow then actionWindow:move( actionWindow.x + deltax, actionWindow.y + deltay ) end
+		if w == actionWindow then storyWindow:move( storyWindow.x + deltax, storyWindow.y + deltay ) end
 	end
 
 end
