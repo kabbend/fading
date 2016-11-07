@@ -454,6 +454,9 @@ end
 function Window:click(x,y)
  	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
  	local mx,my = self:WtoS(self.w, self.h) 
+ 	local tx, ty = mx - iconSize, zy + 3
+	tx, ty = math.min(tx,W-iconSize), math.max(ty,0) + iconSize
+
 	-- click on X symbol
 	if x >= zx + self.w / self.mag - iconSize and x <= zx + self.w / self.mag and
 		y >= zy - iconSize and y <= zy then
@@ -472,6 +475,8 @@ function Window:click(x,y)
 	if x >= mx - iconSize and y >= my - iconSize then
 		-- clicking on the bottom corner, wants to resize, not to move
 		if self.wResizable or self.hResizable or self.whResizable then mouseResize = true end
+	elseif x >= tx and y >= zy and y <= ty and self.class == "map" then 
+		self:maximize()	
 	elseif self.movable then
 		-- clicking elsewhere, wants to move
 		mouseMove = true
@@ -761,6 +766,12 @@ function Map:draw()
     -- print window button bar
     self:drawBar()
     self:drawResize()
+
+    -- print minimize/maximize icon
+    local tx, ty = x + self.w / self.mag - iconSize , y + 3 
+    tx, ty = math.min(tx,W-iconSize), math.max(ty,0)
+    love.graphics.draw( iconReduce, tx, ty )
+    
 end
 
 function Map:getFocus() if self.kind == "scenario" then searchActive = true end end
