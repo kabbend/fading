@@ -2886,7 +2886,8 @@ end
 local window = layout:getFocus()
 if not window then
   -- no window selected at the moment, we expect:
-  
+  -- FIXME: do we expect something ?
+ 
 else
   -- a window is selected. Keys applicable to any window:
   -- 'lctrl + c' : recenter window
@@ -3027,6 +3028,7 @@ else
 	-- 'return' to submit a query
 	-- 'backspace'
 	-- 'tab' to get to next search result
+	-- 'lctrl + z' : maximize/minimize (zoom)
 	-- any other key is treated as a search query input
     	if key == keyZoomIn then
 		ignoreLastChar = true
@@ -3038,6 +3040,10 @@ else
 		map:zoom( -1 )
     	end 
 	
+   	if key == "z" and love.keyboard.isDown("lctrl") then
+		map:maximize()
+	end
+
    	if key == "backspace" and text ~= textBase then
         	-- get the byte offset to the last UTF-8 character in the string.
         	local byteoffset = utf8.offset(text, -1)
