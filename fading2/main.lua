@@ -319,7 +319,7 @@ Window = { 	class = "window", w = 0, h = 0, mag = 1.0, x = 0, y = 0 , title = ""
 		markForClosure = false,							-- event to close the window
 		markForSink = false,							-- event to sink (gradually disappear)
 	        alwaysOnTop = false, alwaysBottom = false , 				-- force layering
-		wResizable = false, hResizable = false 					-- separate resizable for w and h
+		wResizable = false, hResizable = false, whResizable = false 		-- resizable for w and h
 	  }
 
 function Window:new( t ) 
@@ -470,8 +470,8 @@ function Window:click(x,y)
 		layout:setOnTop(self, self.alwaysOnTop)
 	end
 	if x >= mx - iconSize and y >= my - iconSize then
-		-- clicking on the bottom corner, wants to resize
-		if self.wResizable or self.hResizable then mouseResize = true end
+		-- clicking on the bottom corner, wants to resize, not to move
+		if self.wResizable or self.hResizable or self.whResizable then mouseResize = true end
 	elseif self.movable then
 		-- clicking elsewhere, wants to move
 		mouseMove = true
@@ -596,6 +596,7 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   
   -- window part of the object
   self.zoomable = true
+  self.whResizable = true
   self.mag = self.w / mapOpeningSize	-- we set ratio so we stick to the required opening size	
   self.x, self.y = self.w/2, self.h/2
   Window.translate(self,mapOpeningXY-W/2,mapOpeningXY-H/2) -- set correct position
@@ -2383,7 +2384,17 @@ function love.mousereleased( x, y )
 	end
 
 	-- we were moving or resizing the window. We stop now
-	if mouseResize then mouseResize = false; return end
+	if mouseResize then 
+		mouseResize = false
+		mouseMove = false 
+		-- we were resizing a map. Send the result to the projector eventually
+		local window = layout:getFocus()
+		if window and window.class == "map" and atlas:getVisible() == window then
+  			tcpsend( projector, "MAGN " .. 1/window.mag)
+  			tcpsend( projector, "CHXY " .. math.floor(window.x) .. " " .. math.floor(window.y) )
+		end
+		return 
+	end
 	if mouseMove then mouseMove = false; return end
 
 	-- we were moving a pawn. we stop now
@@ -2776,10 +2787,23 @@ if mouseResize then
 
 	-- check we are still within the window limits
 	if x >= zx + 40 and y >= zy +40 then
-		if not w.wResizable then dx = 0 end
-		if not w.hResizable then dy = 0 end
-		w.w = w.w + dx * w.mag
-		w.h = w.h + dy * w.mag
+		if w.whResizable then
+		  local ratio = w.w / w.h
+		  local projected = (x - mx)+(y - my) 
+		  local neww= w.w + projected * w.mag
+		  local oldmag = w.im:getWidth() / w.w
+		  local newmag = w.im:getWidth() / neww
+		  if w.class == "map" then 
+			w.mag = w.mag + (newmag - oldmag) 
+			local cx,cy = w:WtoS(0,0)
+			w:translate(zx-cx,zy-cy)
+		  end
+		else
+		  if not w.wResizable then dx = 0 end
+		  if not w.hResizable then dy = 0 end
+		  w.w = w.w + dx * w.mag
+		  w.h = w.h + dy * w.mag
+		end
 	end
  
 elseif mouseMove then
