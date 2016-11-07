@@ -38,7 +38,7 @@ intW			= 2
 
 -- main screen size
 W, H = 1440, 800 	-- main window size default values (may be changed dynamically on some systems)
-iconSize = 24
+iconSize = 20
 
 -- tcp information for network
 address, serverport	= "*", "12345"		-- server information
@@ -416,13 +416,13 @@ function Window:drawBar( )
  love.graphics.setFont(fontRound)
  if not self.alwaysVisible then
    --love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
-   love.graphics.draw( iconClose, zx + self.w / self.mag - iconSize + 3, zy - iconSize + 3, 0, 18/iconSize , 18/iconSize)
+   love.graphics.draw( iconClose, zx + self.w / self.mag - iconSize + 3, zy - iconSize + 3)
  end
  if self.alwaysOnTop then 
  	--love.graphics.print( "T" , zx + self.w / self.mag - 24 , zy - 18 )
- 	love.graphics.draw( iconOnTopActive, zx + self.w / self.mag - 2*iconSize+3 , zy - iconSize+3, 0, 18/iconSize, 18/iconSize)
+ 	love.graphics.draw( iconOnTopActive, zx + self.w / self.mag - 2*iconSize+3 , zy - iconSize+3)
  else
- 	love.graphics.draw( iconOnTopInactive, zx + self.w / self.mag - 2*iconSize+3 , zy - iconSize+3, 0, 18/iconSize, 18/iconSize)
+ 	love.graphics.draw( iconOnTopInactive, zx + self.w / self.mag - 2*iconSize+3 , zy - iconSize+3)
  end
 
  -- print title
@@ -440,7 +440,7 @@ end
 
 function Window:drawResize()
    local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-   love.graphics.draw( iconResize, zx + self.w / self.mag - iconSize + 3, zy + self.h/self.mag - iconSize + 3, 0, 18/iconSize , 18/iconSize)
+   love.graphics.draw( iconResize, zx + self.w / self.mag - iconSize + 3, zy + self.h/self.mag - iconSize + 3)
 end
 
 function Window:drawBack()
@@ -1431,6 +1431,7 @@ function Combat:click(x,y)
 -- store all windows, with their display status (displayed or not) and layer value
 --
 mainLayout = {}
+
 --
 -- snapshotBarclass
 -- a snapshotBar is a window which displays images
@@ -1497,7 +1498,7 @@ function snapshotBar:update(dt)
 	  snapshots[currentSnap].offset = snapshots[currentSnap].offset + snapshotMargin * 2
 	  if snapshots[currentSnap].offset > 0 then snapshots[currentSnap].offset = 0  end
 	end
-	if (x > right - snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h) then
+	if (x > right - snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h - iconSize) then
 	  snapshots[currentSnap].offset = snapshots[currentSnap].offset - snapshotMargin * 2
 	  if snapshots[currentSnap].offset < -snapMax then snapshots[currentSnap].offset = -snapMax end
 	end
@@ -3222,16 +3223,17 @@ function love.load( args )
     fontSearch = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",16)
    
     -- base images
-    backgroundImage 	= love.graphics.newImage( "background.jpg" )
-    actionImage 	= love.graphics.newImage( "action.jpg" )
-    storyImage 		= love.graphics.newImage( "histoire.jpg" )
-    dicesImage 		= love.graphics.newImage( "dices.png" )
+    backgroundImage 	= love.graphics.newImage( "images/background.jpg" )
+    actionImage 	= love.graphics.newImage( "images/action.jpg" )
+    storyImage 		= love.graphics.newImage( "images/histoire.jpg" )
+    dicesImage 		= love.graphics.newImage( "images/dices.png" )
 
-    -- base icons. We expect 24x24 icons
-    iconClose 		= love.graphics.newImage( "cancel.png" )
-    iconResize 		= love.graphics.newImage( "resize.png" )
-    iconOnTopInactive 	= love.graphics.newImage( "up-arrow.png" )
-    iconOnTopActive 	= love.graphics.newImage( "up-arrow-red.png" )
+    -- base icons. We expect 16x16 icons
+    iconClose 		= love.graphics.newImage( "icons/close16x16red.png" )
+    iconResize 		= love.graphics.newImage( "icons/minimize16x16.png" )
+    iconOnTopInactive 	= love.graphics.newImage( "icons/ontop16x16black.png" )
+    iconOnTopActive 	= love.graphics.newImage( "icons/ontop16x16red.png" )
+    iconReduce	 	= love.graphics.newImage( "icons/reduce16x16.png" )
 
     -- adjust number of rows in screen
     --PNJmax = math.floor( viewh / 42 )
