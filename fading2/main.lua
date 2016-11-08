@@ -72,6 +72,10 @@ vieww = W - 260		-- view width
 size = 19 		-- base font size
 margin = 20		-- screen margin in map mode
 
+-- various mouse movements
+mouseMove		= false
+dragMove		= false
+dragObject		= { originWindow = nil, object = nil, snapshot = nil }
 
 -- pawns and PJ snapshots
 pawnMove 		= nil		-- pawn currently moved by mouse movement
@@ -518,6 +522,7 @@ function Window:update(dt)
 function Window:draw() end 
 function Window:getFocus() end
 function Window:looseFocus() end
+function Window:drop() end
 
 --
 --  Pawn object 
@@ -641,6 +646,14 @@ function Map:zoom( mag )
 		if self.mag <= 0.1 then self.mag = 0.1 end
 	end
 	if atlas:isVisible(self) and not self.sticky then tcpsend( projector, "MAGN " .. 1/self.mag ) end	
+	end
+
+function Map:drop( o )
+	local id = o.object
+	if type(id) == "string" then -- receiving a PNJ id
+		local x, y = love.mouse.getPosition()
+		self:createPawns(x,y,0,id) 
+	end 
 	end
 
 function Map:maximize()
@@ -1404,11 +1417,21 @@ function Combat:click(x,y)
       		focus = i
       		focusTarget = PNJTable[i].target
       		focusAttackers = PNJTable[i].attackers
-      		-- this starts the arrow mode 
-        	arrowMode = true
-        	arrowStartX = x
-        	arrowStartY = y
-        	arrowStartIndex = i
+      		-- this starts the arrow mode or the drag&drop mode, depending on x
+	    	local s = PNJTable[i].snapshot
+	    	local xoffset = s.w * s.snapmag * 0.5 / 2
+		if x >= zx + 210 - xoffset and x <= zx + 210 + xoffset  then
+		 dragMove = true
+		 dragObject = { originWindow = self, 
+				object = PNJTable[i].id,
+				snapshot = PNJTable[i].snapshot
+				}	
+		else
+        	 arrowMode = true
+        	 arrowStartX = x
+        	 arrowStartY = y
+        	 arrowStartIndex = i
+		end	
     	  else
       		PNJTable[i].focus = false
     	  end
@@ -1433,7 +1456,7 @@ function Combat:click(x,y)
 		arrowMode = false
 		arrowStartX, arrowStartY = x, y
 		arrowModeMap = nil
-	elseif focus then
+	elseif focus and not dragMove then
 		mouseMove = false
         	arrowMode = true
 	else
@@ -2289,6 +2312,15 @@ function love.draw()
   -- draw windows
   layout:draw() 
 
+  -- drag & drop
+  if dragMove then
+
+	local x,y = love.mouse.getPosition()
+	local s = dragObject.snapshot
+	love.graphics.draw(s.im, x, y, 0, s.snapmag, s.snapmag)
+
+  end
+
   -- draw arrow
   if arrowMode then
 
@@ -2401,6 +2433,12 @@ function love.mousereleased( x, y )
 	if w and w.markForClosure then 
 		w.markForClosure = false
 		layout:setDisplay(w,false) 
+	end
+
+	-- we were dragging, we drop the object
+	if dragMove then
+		dragMove = false
+		if w then w:drop( dragObject ) end
 	end
 
 	-- we were moving or resizing the window. We stop now
