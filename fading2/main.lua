@@ -619,10 +619,28 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   self.pawns = {}
   self.basePawnSize = nil -- base size for pawns on this map (in pixels, for map at scale 1)
   self.shader = love.graphics.newShader( glowCode ) 
+  self.quad = nil
 
   -- outmost limits of the current mask
   self.maskMinX, self.maskMaxX, self.maskMinY, self.maskMaxY = 100 * self.w , -100 * self.w, 100 * self.h, - 100 * self.h 
 end
+
+function Map:setQuad(x1,y1,x2,y2)
+	if not x1 then self.quad = nil end -- setQuad() with no arguments resets the quad FIXME
+  	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+	local x1, y1 = (x1 - zx) * self.mag , (y1 - zy) * self.mag  -- convert to map coordinates
+	local x2, y2 = (x2 - zx) * self.mag , (y2 - zy) * self.mag  -- convert to map coordinates
+	if x1 > x2 then x1, x2 = x2, x1 end
+	if y1 > y2 then y1, y2 = y2, y1 end
+	local w, h = x2 - x1, y2 - y1
+	if x1 + w > self.w then w = self.w - x1 end
+	if y1 + h > self.h then h = self.h - y1 end
+	self.quad = love.graphics.newQuad(x1,y1,w,h,self.w,self.h)
+	local px,py = self:WtoS(x1,y1)
+	self.w, self.h = w, h
+	local nx,ny = self:WtoS(0,0)
+	self:translate(px-nx,py-ny)
+	end
 
 -- a Map move or zoom is a  bit more than a window move or zoom: 
 -- We might send the same movement to the projector as well
@@ -709,12 +727,20 @@ function Map:draw()
      end
 
      love.graphics.setScissor(x,y,self.w/MAG,self.h/MAG) 
-     love.graphics.draw( map.im, x, y, 0, 1/MAG, 1/MAG )
+     if map.quad then
+       love.graphics.draw( map.im, map.quad, x, y, 0, 1/MAG, 1/MAG )
+     else
+       love.graphics.draw( map.im, x, y, 0, 1/MAG, 1/MAG )
+     end
 
      if map.mask then
        love.graphics.setStencilTest("gequal", 2)
        love.graphics.setColor(255,255,255)
+     if map.quad then
+       love.graphics.draw( map.im, map.quad, x, y, 0, 1/MAG, 1/MAG )
+     else
        love.graphics.draw( map.im, x, y, 0, 1/MAG, 1/MAG )
+     end
        love.graphics.setStencilTest()
      end
 
@@ -2608,7 +2634,7 @@ function love.mousereleased( x, y )
 	end
 
 	-- if we were drawing a mask shape as well, we terminate it now (even if we are outside the map)
-	if arrowModeMap then
+	if arrowModeMap and not arrowQuad then
 	
 		local map = layout:getFocus()
 		assert( map and map.class == "map" )
@@ -2663,8 +2689,20 @@ function love.mousereleased( x, y )
 
 		arrowModeMap = nil
 	
-	-- not drawing a mask, so maybe selecting a PNJ
+	elseif arrowQuad then
+		-- drawing a Quad on a map
+		local map = layout:getFocus()
+		assert( map and map.class == "map" )
+	
+		map:setQuad(arrowStartX, arrowStartY, arrowX, arrowY)
+	
+      		-- this stops the arrow mode
+      		arrowMode = false
+		arrowQuad = false
+		arrowModeMap = nil
+
 	else 
+		-- not drawing a mask, so maybe selecting a PNJ
 	   	-- depending on position on y-axis
   	  	for i=1,PNJnum-1 do
     		  if (y >= PNJtext[i].y-5 and y < PNJtext[i].y + 42) then
@@ -2708,7 +2746,8 @@ function love.mousepressed( x, y , button )
 
 		-- not clicking a pawn, it's either a map move or an rect/circle mask...
 		elseif button == 1 then --Left click
-	  		if not love.keyboard.isDown("lshift") and not love.keyboard.isDown("lctrl") then 
+	  		if not love.keyboard.isDown("lshift") and not love.keyboard.isDown("lctrl") 
+				and not love.keyboard.isDown("lgui") then 
 				-- want to move map
 	   			mouseMove = true
 	   			arrowMode = false
@@ -2722,7 +2761,13 @@ function love.mousepressed( x, y , button )
 	   			arrowStartX, arrowStartY = x, y
 	   			mouseMove = false 
 				arrowModeMap = nil 
-
+			elseif love.keyboard.isDown("lgui") then
+				-- want to create a quad
+				arrowMode = true
+				arrowQuad = true
+	   			arrowStartX, arrowStartY = x, y
+	   			mouseMove = false 
+				arrowModeMap = "RECT" 
 			else
 	   			if map.kind ~= "scenario" then 
 					-- want to create a mask
