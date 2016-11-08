@@ -651,8 +651,14 @@ function Map:zoom( mag )
 function Map:drop( o )
 	local id = o.object
 	if type(id) == "string" then -- receiving a PNJ id
-		local x, y = love.mouse.getPosition()
-		self:createPawns(x,y,0,id) 
+		if not self.basePawnSize then addMessage("No pawn size defined on this map. Please define it with Ctrl+mouse")
+		else
+		  local x, y = love.mouse.getPosition()
+  		  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+		  local px, py = (x - zx) * self.mag , (y - zy) * self.mag 
+		  local p = self:createPawns(0,0,0,id)  -- we create it at 0,0, and translate it afterwards
+		  if p then p.x, p.y = px,py end
+		end
 	end 
 	end
 
@@ -825,6 +831,13 @@ function Map:removePawn( id )
 --
 -- return the pawns array if multiple pawns requested, or the unique pawn if 'id' provided
 --
+
+function Map:setPawnSize( requiredSize )
+  	local border = 3 -- size of a colored border, in pixels, at scale 1 (3 pixels on all sides)
+  	local requiredSize = math.floor((requiredSize) * self.mag) - border*2
+  	self.basePawnSize = requiredSize
+	end
+
 function Map:createPawns( sx, sy, requiredSize , id ) 
 
   local map = self
@@ -2331,7 +2344,17 @@ function love.draw()
       if x3 then
         love.graphics.polygon( "fill", arrowX, arrowY, x3, y3, x4, y4 )
       end
-     
+
+      -- draw a pawn to know the size    
+      if arrowPawn then
+	local map = layout:getFocus()
+	local w = distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY)
+	love.graphics.setColor(255,255,255,180)
+	local s = defaultPawnSnapshot
+	local f = w / s.im:getWidth() 
+	love.graphics.draw( s.im, arrowStartX, arrowStartY, 0, f, f )
+      end
+ 
       -- draw circle or rectangle itself
       if arrowModeMap == "RECT" then 
 		love.graphics.rectangle("line",arrowStartX, arrowStartY,(arrowX - arrowStartX),(arrowY - arrowStartY)) 
@@ -2574,8 +2597,12 @@ function love.mousereleased( x, y )
   	  	--local map = atlas:getMap()
 		local map = layout:getFocus()
 		local w = distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY)
-		map:createPawns( arrowX, arrowY, w )
-		table.sort( map.pawns, function(a,b) return a.layer < b.layer end )
+		if map.basePawnSize then
+			map:createPawns( arrowX, arrowY, w )
+			table.sort( map.pawns, function(a,b) return a.layer < b.layer end )
+		else
+			map:setPawnSize(w)
+		end
 		arrowPawn = false
 		return
 	end
