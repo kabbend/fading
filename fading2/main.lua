@@ -416,17 +416,17 @@ function Window:drawBar( )
  love.graphics.rectangle( "fill", zx , zy - iconSize , self.w / self.mag , iconSize )
 
  -- draw icons
- --love.graphics.setColor(255,0,0)
  love.graphics.setFont(fontRound)
- if not self.alwaysVisible then
-   --love.graphics.print( "X" , zx + self.w / self.mag - 12 , zy - 18 )
+ if not self.alwaysVisible then -- close
    love.graphics.draw( iconClose, zx + self.w / self.mag - iconSize + 3, zy - iconSize + 3)
  end
- if self.alwaysOnTop then 
- 	--love.graphics.print( "T" , zx + self.w / self.mag - 24 , zy - 18 )
+ if self.alwaysOnTop then -- always on top
  	love.graphics.draw( iconOnTopActive, zx + self.w / self.mag - 2*iconSize+3 , zy - iconSize+3)
  else
  	love.graphics.draw( iconOnTopInactive, zx + self.w / self.mag - 2*iconSize+3 , zy - iconSize+3)
+ end
+ if self.class == "map" and self.quad then -- expand
+   love.graphics.draw( iconExpand, zx + self.w / self.mag - 3 * iconSize + 3, zy - iconSize + 3)
  end
 
  -- print title
@@ -461,7 +461,7 @@ function Window:click(x,y)
  	local tx, ty = mx - iconSize, zy + 3
 	tx, ty = math.min(tx,W-iconSize), math.max(ty,0) + iconSize
 
-	-- click on X symbol
+	-- click on Close 
 	if x >= zx + self.w / self.mag - iconSize and x <= zx + self.w / self.mag and
 		y >= zy - iconSize and y <= zy then
 		self.markForClosure = true
@@ -471,15 +471,26 @@ function Window:click(x,y)
 		-- the actual closure
 		return self
 	end
+
+	-- click on Always On Top 
 	if x >= zx + self.w / self.mag - 2 * iconSize and x <= zx + self.w / self.mag - iconSize and
 		y >= zy - iconSize and y <= zy then
 		self.alwaysOnTop = not self.alwaysOnTop 
 		layout:setOnTop(self, self.alwaysOnTop)
 	end
+
+	-- click on Expand (for maps with quad)
+	if self.class == "map" and self.quad and x >= zx + self.w / self.mag - 3 * iconSize and x <= zx + self.w / self.mag - 2 * iconSize and
+		y >= zy - iconSize and y <= zy then
+		-- remove the quad. restore to initial size
+		self:setQuad()
+	end
+	
 	if x >= mx - iconSize and y >= my - iconSize then
-		-- clicking on the bottom corner, wants to resize, not to move
+		-- click on Resize at bottom right corner 
 		if self.wResizable or self.hResizable or self.whResizable then mouseResize = true end
 	elseif x >= tx and y >= zy and y <= ty and self.class == "map" then 
+		-- click on Maximize/Minimize at upper right corner 
 		self:maximize()	
 	elseif self.movable then
 		-- clicking elsewhere, wants to move
@@ -628,7 +639,7 @@ end
 
 function Map:setQuad(x1,y1,x2,y2)
 	if not x1 then 
-		-- setQuad() with no arguments resets the quad 
+		-- setQuad() with no arguments removes the quad 
 		self.quad = nil 
 		self.translateQuadX, self.translateQuadY = 0,0
 		self.w, self.h = self.im:getDimensions()
@@ -2949,8 +2960,8 @@ if mouseResize then
 	if x >= zx + 40 and y >= zy +40 then
 		if w.whResizable then
 		  assert(w.class == "map")
-		  local ratio = w.w / w.h
-		  local projected = (x - mx)+(y - my) 
+		  --local ratio = w.w / w.h
+		  local projected = (x - mx)+(y - my)
 		  local neww= w.w + projected * w.mag
 		  local originalw, originalh = w.im:getDimensions()
 		  if w.quad then _,_,originalw, originalh = w.quad:getViewport() end
@@ -3431,6 +3442,7 @@ function love.load( args )
     iconOnTopInactive 	= love.graphics.newImage( "icons/ontop16x16black.png" )
     iconOnTopActive 	= love.graphics.newImage( "icons/ontop16x16red.png" )
     iconReduce	 	= love.graphics.newImage( "icons/reduce16x16.png" )
+    iconExpand	 	= love.graphics.newImage( "icons/expand16x16.png" )
 
     -- adjust number of rows in screen
     --PNJmax = math.floor( viewh / 42 )
@@ -3438,15 +3450,6 @@ function love.load( args )
     -- some adjustments on different systems
     if love.system.getOS() == "Windows" then
 	keyZoomIn, keyZoomOut = ':', '!'
-
---[[
-    	W, H = love.window.getDesktopDimensions()
-    	W, H = W*0.98, H*0.92 
-	messagesH		= H - 22
-	snapshotH 		= messagesH - snapshotSize - snapshotMargin
-        PNJmax = 14 
---]]
-
     end
 
     -- get actual screen size
