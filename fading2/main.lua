@@ -645,24 +645,27 @@ function Map:setQuad(x1,y1,x2,y2)
 		self.w, self.h = self.im:getDimensions()
   		local f1, f2 = snapshotSize / self.w, snapshotSize / self.h
   		self.snapmag = math.min( f1, f2 )
+		self.restoreX, self.restoreY, self.restoreMag = nil, nil, nil
 		return
 		end 
   	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-	local x1, y1 = (x1 - zx) * self.mag , (y1 - zy) * self.mag  -- convert to map coordinates
-	local x2, y2 = (x2 - zx) * self.mag , (y2 - zy) * self.mag  -- convert to map coordinates
+	local x1, y1 = math.floor((x1 - zx) * self.mag) , math.floor((y1 - zy) * self.mag)  -- convert to map coordinates
+	local x2, y2 = math.floor((x2 - zx) * self.mag) , math.floor((y2 - zy) * self.mag)  -- convert to map coordinates
 	if x1 > x2 then x1, x2 = x2, x1 end
 	if y1 > y2 then y1, y2 = y2, y1 end
-	local w, h = x2 - x1, y2 - y1
+	local w, h = math.floor(x2 - x1), math.floor(y2 - y1)
 	if x1 + w > self.w then w = self.w - x1 end
 	if y1 + h > self.h then h = self.h - y1 end
 	self.quad = love.graphics.newQuad(x1,y1,w,h,self.w,self.h)
 	local px,py = self:WtoS(x1,y1)
 	self.translateQuadX, self.translateQuadY = math.floor(x1), math.floor(y1) 
+	io.write("creating quad x y w h (versus w h): " .. x1 .. " " .. y1 .. " " .. w .. " " .. h .. " " .. "(" .. self.w .. " " .. self.h .. ")\n")
 	self.w, self.h = w, h
 	local nx,ny = self:WtoS(0,0)
 	self:translate(px-nx,py-ny)
   	local f1, f2 = snapshotSize / self.w, snapshotSize / self.h
   	self.snapmag = math.min( f1, f2 )
+	self.restoreX, self.restoreY, self.restoreMag = self.x, self.y, self.mag
 	end
 
 -- a Map move or zoom is a  bit more than a window move or zoom: 
@@ -698,7 +701,7 @@ function Map:drop( o )
   		  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
 		  local px, py = (x - zx) * self.mag , (y - zy) * self.mag 
 		  local p = self:createPawns(0,0,0,id)  -- we create it at 0,0, and translate it afterwards
-		  if p then p.x, p.y = px,py end
+		  if p then p.x, p.y = px + self.translateQuadX ,py + self.translateQuadY end
 		end
 	end 
 	end
@@ -707,13 +710,13 @@ function Map:maximize()
 
 	-- if values are stored for restoration, we restore
 	if self.restoreX then
-		self.x, self.y, self.mag = self.restoreX, self.restoreY, self.restoreMagindex, self.restoreMag
-		self.restoreX, self.restoreY, self.restoreMagindex, self.restoreMag = nil,nil,nil,nil 
+		self.x, self.y, self.mag = self.restoreX, self.restoreY, self.restoreMag
+		self.restoreX, self.restoreY, self.restoreMag = nil,nil,nil,nil 
 		return
 	end
 
 	-- store values for restoration
-	self.restoreX, self.restoreY, self.restoreMagindex, self.restoreMag = self.x, self.y, self.mag
+	self.restoreX, self.restoreY, self.restoreMag = self.x, self.y, self.mag
 
 	if not self.mask or (self.mask and #self.mask == 0) then
 		-- no mask, just center the window with scale 1:0
@@ -721,8 +724,9 @@ function Map:maximize()
 		self.mag = 1.0
 	else
 		-- there are masks. We take the center of the combined masks
-		self.x, self.y = (self.maskMinX + self.maskMaxX) / 2, (self.maskMinY + self.maskMaxY) / 2 
+		self.x, self.y = (self.maskMinX + self.maskMaxX) / 2 - self.translateQuadX, (self.maskMinY + self.maskMaxY) / 2 - self.translateQuadY
 		self.mag = 1.0
+		io.write("maximize with masks: going to " .. self.x .. " " .. self.y .. "\n")
 	end
 	end
 
@@ -778,7 +782,7 @@ function Map:draw()
 		     	local dead = false
 		     	dead = PNJTable[ index ].is_dead
 		     	if map.pawns[i].snapshot.im then
-  		       		local zx,zy = (map.pawns[i].x) * 1/map.mag + x , (map.pawns[i].y) * 1/map.mag + y
+  		       		local zx,zy = (map.pawns[i].x - map.translateQuadX) * 1/map.mag + x , (map.pawns[i].y - map.translateQuadY) * 1/map.mag + y
 				-- color is different depending on PJ/PNJ, and if the character has played this round or not, or has the focus
 		       		if PNJTable[index].done then love.graphics.setColor(unpack(color.green))
 				elseif PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
