@@ -620,13 +620,19 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   self.basePawnSize = nil -- base size for pawns on this map (in pixels, for map at scale 1)
   self.shader = love.graphics.newShader( glowCode ) 
   self.quad = nil
+  self.translateQuadX, self.translateQuadY = 0,0
 
   -- outmost limits of the current mask
   self.maskMinX, self.maskMaxX, self.maskMinY, self.maskMaxY = 100 * self.w , -100 * self.w, 100 * self.h, - 100 * self.h 
 end
 
 function Map:setQuad(x1,y1,x2,y2)
-	if not x1 then self.quad = nil end -- setQuad() with no arguments resets the quad FIXME
+	if not x1 then 
+		-- setQuad() with no arguments resets the quad 
+		self.quad = nil 
+		self.translateQuadX, self.translateQuadY = 0,0
+		return
+		end 
   	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
 	local x1, y1 = (x1 - zx) * self.mag , (y1 - zy) * self.mag  -- convert to map coordinates
 	local x2, y2 = (x2 - zx) * self.mag , (y2 - zy) * self.mag  -- convert to map coordinates
@@ -637,6 +643,7 @@ function Map:setQuad(x1,y1,x2,y2)
 	if y1 + h > self.h then h = self.h - y1 end
 	self.quad = love.graphics.newQuad(x1,y1,w,h,self.w,self.h)
 	local px,py = self:WtoS(x1,y1)
+	self.translateQuadX, self.translateQuadY = math.floor(x1), math.floor(y1) 
 	self.w, self.h = w, h
 	local nx,ny = self:WtoS(0,0)
 	self:translate(px-nx,py-ny)
@@ -1551,10 +1558,18 @@ function snapshotBar:draw()
 			-- do not draw scenario, ... 
 		else
   			love.graphics.setColor(255,255,255)
+			if currentSnap == 2 and snapshots[currentSnap].s[i].quad then
+			love.graphics.draw( 	snapshots[currentSnap].s[i].im , 
+				snapshots[currentSnap].s[i].quad,
+				x ,
+				zy - ( snapshots[currentSnap].s[i].h * snapshots[currentSnap].s[i].snapmag - snapshotSize ) / 2 + 2, 
+			    	0 , snapshots[currentSnap].s[i].snapmag, snapshots[currentSnap].s[i].snapmag )
+			else
 			love.graphics.draw( 	snapshots[currentSnap].s[i].im , 
 				x ,
 				zy - ( snapshots[currentSnap].s[i].h * snapshots[currentSnap].s[i].snapmag - snapshotSize ) / 2 + 2, 
 			    	0 , snapshots[currentSnap].s[i].snapmag, snapshots[currentSnap].s[i].snapmag )
+			end
 		end
   		love.graphics.setScissor() 
 	end
@@ -2286,13 +2301,13 @@ function myStencilFunction( )
 		local _,_,shape = string.find( v , "(%a+)" )
 		if shape == "RECT" then 
 			local _,_,_,x,y,wm,hm = string.find( v , "(%a+) (%-?%d+) (%-?%d+) (%d+) (%d+)" )
-			x = zx + x/mag
-			y = zy + y/mag
+			x = zx + x/mag - map.translateQuadX/mag
+			y = zy + y/mag - map.translateQuadY/mag
 			love.graphics.rectangle( "fill", x, y, wm/mag, hm/mag) 
 		elseif shape == "CIRC" then
 			local _,_,_,x,y,r = string.find( v , "(%a+) (%-?%d+) (%-?%d+) (%d+%.?%d+)" )
-		  	x = zx + x/mag
-			y = zy + y/mag
+			x = zx + x/mag - map.translateQuadX/mag
+			y = zy + y/mag - map.translateQuadY/mag
 			love.graphics.circle( "fill", x, y, r/mag ) 
 		end
 	end
@@ -2651,6 +2666,10 @@ function love.mousereleased( x, y )
 	  		local sy = math.floor( (arrowStartY + ( map.y / map.mag  - H / 2)) *map.mag )
 	  		local w = math.floor((arrowX - arrowStartX) * map.mag)
 	  		local h = math.floor((arrowY - arrowStartY) * map.mag)
+
+			-- if quad, apply current translation
+			sx, sy = sx + map.translateQuadX, sy + map.translateQuadY
+
 	  		command = "RECT " .. sx .. " " .. sy .. " " .. w .. " " .. h 
 		
 			maxX = sx + w
@@ -2666,6 +2685,10 @@ function love.mousereleased( x, y )
 	  		sx = math.floor( (sx + ( map.x / map.mag  - W / 2)) *map.mag )
 	  		sy = math.floor( (sy + ( map.y / map.mag  - H / 2)) *map.mag )
 			local r = distanceFrom( arrowX, arrowY, arrowStartX, arrowStartY) * map.mag / 2
+
+			-- if quad, apply current translation
+			sx, sy = sx + map.translateQuadX, sy + map.translateQuadY
+
 	  		if r ~= 0 then command = "CIRC " .. sx .. " " .. sy .. " " .. r end
 
 			maxX = sx + r
