@@ -1597,11 +1597,11 @@ function snapshotBar:update(dt)
 	local x,y = love.mouse.getPosition()
 	local left = math.max(zx,0)
 	local right = math.min(zx+self.w,W)
-	if (x < left + snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h) then
+	if (x > left) and (x < left + snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h) then
 	  snapshots[currentSnap].offset = snapshots[currentSnap].offset + snapshotMargin * 2
 	  if snapshots[currentSnap].offset > 0 then snapshots[currentSnap].offset = 0  end
 	end
-	if (x > right - snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h - iconSize) then
+	if (x > right - snapshotMargin * 4 ) and (x < right) and (y > zy) and (y < zy + self.h - iconSize) then
 	  snapshots[currentSnap].offset = snapshots[currentSnap].offset - snapshotMargin * 2
 	  if snapshots[currentSnap].offset < -snapMax then snapshots[currentSnap].offset = -snapMax end
 	end
