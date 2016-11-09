@@ -2918,11 +2918,14 @@ if mouseResize then
 	-- check we are still within the window limits
 	if x >= zx + 40 and y >= zy +40 then
 		if w.whResizable then
+		  assert(w.class == "map")
 		  local ratio = w.w / w.h
 		  local projected = (x - mx)+(y - my) 
 		  local neww= w.w + projected * w.mag
-		  local oldmag = w.im:getWidth() / w.w
-		  local newmag = w.im:getWidth() / neww
+		  local originalw, originalh = w.im:getDimensions()
+		  if w.quad then _,_,originalw, originalh = w.quad:getViewport() end
+		  local oldmag = originalw / w.w
+		  local newmag = originalw / neww
 		  if w.class == "map" then 
 			w.mag = w.mag + (newmag - oldmag) 
 			local cx,cy = w:WtoS(0,0)
