@@ -631,6 +631,9 @@ function Map:setQuad(x1,y1,x2,y2)
 		-- setQuad() with no arguments resets the quad 
 		self.quad = nil 
 		self.translateQuadX, self.translateQuadY = 0,0
+		self.w, self.h = self.im:getDimensions()
+  		local f1, f2 = snapshotSize / self.w, snapshotSize / self.h
+  		self.snapmag = math.min( f1, f2 )
 		return
 		end 
   	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
@@ -647,6 +650,8 @@ function Map:setQuad(x1,y1,x2,y2)
 	self.w, self.h = w, h
 	local nx,ny = self:WtoS(0,0)
 	self:translate(px-nx,py-ny)
+  	local f1, f2 = snapshotSize / self.w, snapshotSize / self.h
+  	self.snapmag = math.min( f1, f2 )
 	end
 
 -- a Map move or zoom is a  bit more than a window move or zoom: 
@@ -2785,12 +2790,14 @@ function love.mousepressed( x, y , button )
 	   			mouseMove = false 
 				arrowModeMap = nil 
 			elseif love.keyboard.isDown("lgui") then
-				-- want to create a quad
-				arrowMode = true
-				arrowQuad = true
-	   			arrowStartX, arrowStartY = x, y
-	   			mouseMove = false 
-				arrowModeMap = "RECT" 
+				-- want to create a quad, but only if none already
+				if not map.quad then
+				  arrowMode = true
+				  arrowQuad = true
+	   			  arrowStartX, arrowStartY = x, y
+	   			  mouseMove = false 
+				  arrowModeMap = "RECT" 
+				end
 			else
 	   			if map.kind ~= "scenario" then 
 					-- want to create a mask
