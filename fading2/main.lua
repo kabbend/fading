@@ -998,7 +998,7 @@ function Map:isInsidePawn(x,y)
 		-- check that this pawn is still active/alive
 		local index = findPNJ( self.pawns[i].id )
 		if index then  
-		  local lx,ly = self.pawns[i].x, self.pawns[i].y -- position x,y relative to the map, at scale 1
+		  local lx,ly = self.pawns[i].x - self.translateQuadX, self.pawns[i].y - self.translateQuadY-- position x,y relative to the map, at scale 1
 		  local tx,ty = zx + lx / self.mag, zy + ly / self.mag -- position tx,ty relative to the screen
 		  local sizex = self.pawns[i].sizex / self.mag -- size relative to the screen
 		  local sizey = self.pawns[i].sizey / self.mag -- size relative to the screen
@@ -2572,7 +2572,7 @@ function love.mousereleased( x, y )
 				local px, py = (x - zx) * map.mag - p.sizex / 2 , (y - zy) * map.mag - p.sizey / 2
 
 				-- now it is created, set it to correct position
-				p.x, p.y = px, py
+				p.x, p.y = px + map.translateQuadX, py + map.translateQuadY
 
 				-- the pawn will popup, no tween
 				pawnMaxLayer = pawnMaxLayer + 1
@@ -2582,8 +2582,10 @@ function love.mousereleased( x, y )
 				-- we must stay within the limits of the map	
 				if p.x < 0 then p.x = 0 end
 				if p.y < 0 then p.y = 0 end
-				if p.x + p.sizex + 6 > map.w then p.x = math.floor(map.w - p.sizex - 6) end
-				if p.y + p.sizey + 6 > map.h then p.y = math.floor(map.h - p.sizey - 6) end
+				local w,h = map.w, map.h
+				if map.quad then w,h = map.im:getDimensions() end
+				if p.x + p.sizex + 6 > w then p.x = math.floor(w - p.sizex - 6) end
+				if p.y + p.sizey + 6 > h then p.y = math.floor(h - p.sizey - 6) end
 	
 				if atlas:isVisible(sourcemap) then	
 					tcpsend( projector , "ERAP " .. p.id )
@@ -2623,15 +2625,21 @@ function love.mousereleased( x, y )
 			-- we consider that the mouse position is at the center of the new image
   			local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
 			pawnMove.moveToX, pawnMove.moveToY = (x - zx) * map.mag - pawnMove.sizex / 2 , (y - zy) * map.mag - pawnMove.sizey / 2
+			pawnMove.moveToX = pawnMove.moveToX + map.translateQuadX
+			pawnMove.moveToY = pawnMove.moveToY + map.translateQuadY
+			
 			pawnMaxLayer = pawnMaxLayer + 1
 			pawnMove.layer = pawnMaxLayer
 			table.sort( map.pawns , function (a,b) return a.layer < b.layer end )
 	
-			-- we must stay within the limits of the map	
+			-- we must stay within the limits of the (unquad) map	
 			if pawnMove.moveToX < 0 then pawnMove.moveToX = 0 end
 			if pawnMove.moveToY < 0 then pawnMove.moveToY = 0 end
-			if pawnMove.moveToX + pawnMove.sizex + 6 > map.w then pawnMove.moveToX = math.floor(map.w - pawnMove.sizex - 6) end
-			if pawnMove.moveToY + pawnMove.sizey + 6 > map.h then pawnMove.moveToY = math.floor(map.h - pawnMove.sizey - 6) end
+			local w,h = map.w, map.h
+			if map.quad then w,h = map.im:getDimensions() end
+			
+			if pawnMove.moveToX + pawnMove.sizex + 6 > w then pawnMove.moveToX = math.floor(w - pawnMove.sizex - 6) end
+			if pawnMove.moveToY + pawnMove.sizey + 6 > h then pawnMove.moveToY = math.floor(h - pawnMove.sizey - 6) end
 
 			pawnMove.timer = tween.new( pawnMovingTime , pawnMove , { x = pawnMove.moveToX, y = pawnMove.moveToY } )
 	
