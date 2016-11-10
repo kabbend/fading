@@ -673,7 +673,7 @@ function Map:setQuad(x1,y1,x2,y2)
 function Map:move( x, y ) 
 		self.x = x; self.y = y
 		if atlas:isVisible(self) and not self.sticky then 
-			tcpsend( projector, "CHXY " .. math.floor(self.x) .. " " .. math.floor(self.y) ) 
+			tcpsend( projector, "CHXY " .. math.floor(self.x+self.translateQuadX) .. " " .. math.floor(self.y+self.translateQuadY) ) 
 		end
 	end
 
@@ -702,6 +702,17 @@ function Map:drop( o )
 		  local px, py = (x - zx) * self.mag , (y - zy) * self.mag 
 		  local p = self:createPawns(0,0,0,id)  -- we create it at 0,0, and translate it afterwards
 		  if p then p.x, p.y = px + self.translateQuadX ,py + self.translateQuadY end
+		  -- send it to projector
+		  if p and atlas:isVisible(self) then	
+	  		local flag
+	  		if p.PJ then flag = "1" else flag = "0" end
+			local i = findPNJ( p.id )
+	  		local f = p.snapshot.baseFilename -- FIXME: what about pawns loaded dynamically ?
+	  		io.write("PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. 
+					math.floor(p.sizex * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f .. "\n")
+	  		tcpsend( projector, "PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. 
+					math.floor(p.sizex * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f)
+			end
 		end
 	end 
 	end
@@ -2533,7 +2544,7 @@ function love.mousereleased( x, y )
 		local window = layout:getFocus()
 		if window and window.class == "map" and atlas:getVisible() == window then
   			tcpsend( projector, "MAGN " .. 1/window.mag)
-  			tcpsend( projector, "CHXY " .. math.floor(window.x) .. " " .. math.floor(window.y) )
+  			tcpsend( projector, "CHXY " .. math.floor(window.x+window.translateQuadX) .. " " .. math.floor(window.y+window.translateQuadY) )
 		end
 		return 
 	end
@@ -2916,7 +2927,7 @@ function Atlas:toggleVisible( map )
 		end
 		-- set map frame
   		tcpsend( projector, "MAGN " .. 1/map.mag)
-  		tcpsend( projector, "CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) )
+  		tcpsend( projector, "CHXY " .. math.floor(map.x+map.translateQuadX) .. " " .. math.floor(map.y+map.translateQuadY) )
   		tcpsend( projector, "DISP")
 
 	end
@@ -3167,7 +3178,7 @@ else
 			-- we were already sticky, with a different status probably. So we store this
 			-- new one, but we need to align the projector as well
 			map.stickX, map.stickY, map.stickmag = map.x, map.y, map.mag
-			tcpsend( projector, "CHXY " .. math.floor(map.x) .. " " .. math.floor(map.y) ) 
+			tcpsend( projector, "CHXY " .. math.floor(map.x+map.translateQuadX) .. " " .. math.floor(map.y+map.translateQuadY) ) 
 			tcpsend( projector, "MAGN " .. 1/map.mag ) 
 		end
 		return
