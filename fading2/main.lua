@@ -696,14 +696,30 @@ function Map:zoom( mag )
 
 function Map:drop( o )
 	local obj = o.object
-	if obj.class == "pnjtable" then -- receiving a PNJ id
+	if obj.class == "pnjtable" or obj.class == "pnj" then -- receiving a PNJ either from PNJ list or from snapshot PNJ Class bar 
 		if not self.basePawnSize then addMessage("No pawn size defined on this map. Please define it with Ctrl+mouse")
 		else
 		  local x, y = love.mouse.getPosition()
   		  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
 		  local px, py = (x - zx) * self.mag , (y - zy) * self.mag 
-		  local p = self:createPawns(0,0,0,obj.id)  -- we create it at 0,0, and translate it afterwards
-		  if p then p.x, p.y = px + self.translateQuadX ,py + self.translateQuadY end
+
+		  -- maybe we need to create the PNJ before
+		  local id
+		  if obj.class == "pnj" then
+			id  = generateNewPNJ( obj.rpgClass.class )
+			if id then sortAndDisplayPNJ() end
+		  else
+			id = obj.id
+		  end
+		  io.write("map drop 1: object is pnj with id " .. id .. "\n")
+		  if not id then return end
+
+		  local p = self:createPawns(0,0,0,id)  -- we create it at 0,0, and translate it afterwards
+		  if p then 
+			p.x, p.y = px + self.translateQuadX ,py + self.translateQuadY 
+		  	io.write("map drop 2: creating pawn " .. id .. "\n")
+			end
+
 		  -- send it to projector
 		  if p and atlas:isVisible(self) then	
 	  		local flag
@@ -962,9 +978,9 @@ function Map:createPawns( sx, sy, requiredSize , id )
 		assert(defaultPawnSnapshot,"no default image available. You should refrain from using pawns on the map...")
 	  	p = Pawn:new( PNJTable[i].id , defaultPawnSnapshot, pawnSize * PNJTable[i].sizefactor , a , b ) 
 	  end
-	  io.write("creating pawn " .. i .. " with id " .. p.id .. "\n")
 	  p.PJ = PNJTable[i].PJ
 	  map.pawns[#map.pawns+1] = p
+	  io.write("creating pawn " .. i .. " with id " .. p.id .. " and inserting in map at rank " .. #map.pawns .. "\n")
 	  if id then uniquepawn = p end
 
 	  -- send to projector...

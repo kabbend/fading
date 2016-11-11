@@ -780,8 +780,7 @@ function UIDiterator()
   end
 
 -- create and store a new PNJ in PNJTable{}, based on a given class,
--- return true if a new PNJ was actually generated, 
--- false otherwise (because limit is reached).
+-- return the id of the new PNJ generated, nil otherwise (because limit is reached).
 --
 -- If a PNJ with same class was already generated before, then keeps
 -- the same INITIATIVE value (so all PNJs with same class are sorted
@@ -792,7 +791,7 @@ function UIDiterator()
 function generateNewPNJ(current_class)
 
   -- cannot generate too many PNJ...
-  if (PNJnum > PNJmax) then return false end
+  if (PNJnum > PNJmax) then return nil end
 
   -- generate a new one, at current index, with new ID
   PNJTable[PNJnum] = PNJConstructor( templateArray[current_class] )
@@ -835,7 +834,7 @@ function generateNewPNJ(current_class)
   -- shift to next slot
   PNJnum = PNJnum + 1
 
-  return true
+  return pnj.id 
 end
 
 
