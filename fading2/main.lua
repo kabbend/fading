@@ -1279,76 +1279,6 @@ function Dialog:update(dt) Window.update(self,dt) end
 
 -- projectorWindow class
 -- a projectorWindow is a window which displays images. it is not zoomable
---[[
-diceWindow = Window:new{ class = "dice" , title = "Gobelet" }
-
-function diceWindow:new( t ) -- create from w, h, x, y
-  local new = t or {}
-  setmetatable( new , self )
-  self.__index = self
-  self.maxDice = 25
-  self.dice = 1
-  self.angle = 0 
-  return new
-end
-
-function diceWindow:update(dt)
- 
-  local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
-  local cx, cy = zx + self.w/2, zy + self.h/2
-  local x,y = love.mouse.getPosition()
-  local d = distanceFrom( x , y , cx , cy )
-  local radius2 = self.w/2 * 0.7
-  if d >= radius2 - 10 and d <= radius2 + 10 then
-	self.angle = findRotation(cx , cy, x , y )
-	self.dice = math.ceil( self.angle / ( 2 * math.pi ) * self.maxDice )
-	if self.dice == 0 then self.dice = 1 end
-  end
-
-  end
-
-function findRotation(x1,y1,x2,y2)
-  local t = math.atan2(y2-y1,x2-x1)
-  if t<0 then t = t + 2* math.pi end
-  return t;
-  end
-
-function diceWindow:draw()
-
-  self:drawBack()
-
-  local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
-  local cx, cy = zx + self.w/2, zy + self.h/2
-  love.graphics.setColor(0,0,0)
-  love.graphics.setFont(fontTitle)
-  love.graphics.print( self.dice , cx, cy )
-  local radius1 = self.w/2 * 0.5
-  local radius2 = self.w/2 * 0.7
-  love.graphics.circle( "line", cx, cy , radius1 )
-  love.graphics.setColor(0,0,255)
-  love.graphics.arc( "line", cx , cy , radius2, 0 , self.angle ) 
-  -- print bar
-  self:drawBar()
-  end
-
-function diceWindow:click(x,y)
-
-  	Window.click(self,x,y)
-
-	-- want to move window eventually ?
-	mouseMove = true
-	arrowMode = false
-	arrowStartX, arrowStartY = x, y
-	arrowModeMap = nil
-
-	-- roll dices if button pressed
-	launchDices(self.dice)
-
-	end
---]]
-
--- projectorWindow class
--- a projectorWindow is a window which displays images. it is not zoomable
 projectorWindow = Window:new{ class = "projector" , title = "Projector" }
 
 function projectorWindow:new( t ) -- create from w, h, x, y
@@ -1382,6 +1312,10 @@ function projectorWindow:draw()
 
 function projectorWindow:click(x,y)
   	Window.click(self,x,y)
+	end
+
+function projectorWindow:drop(o)
+	currentImage = o.snapshot.im	
 	end
 
 --
@@ -1678,6 +1612,15 @@ function snapshotBar:click(x,y)
     -- 2 possibilities: if this image is already selected, then use it
     -- otherwise, just select it (and deselect any other eventually)
     if index >= 1 and index <= #snapshots[currentSnap].s then
+
+      -- this may start a drag&drop
+      dragMove = true
+      dragObject = {
+			originWindow = self,
+			object = snapshots[currentSnap].s[index],
+			snapshot = snapshots[currentSnap].s[index]
+		   }
+
       if snapshots[currentSnap].s[index].selected then
 	      -- already selected
 	      snapshots[currentSnap].s[index].selected = false 
