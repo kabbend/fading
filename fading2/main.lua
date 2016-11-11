@@ -1483,6 +1483,15 @@ function Combat:click(x,y)
 
   	end
 
+function Combat:drop( o )
+
+	if o.object.class == "pnj" then
+		generateNewPNJ( o.object.rpgClass.class )
+		sortAndDisplayPNJ()
+	end
+
+	end
+
 --
 -- mainLayout class
 -- store all windows, with their display status (displayed or not) and layer value
@@ -1615,11 +1624,11 @@ function snapshotBar:click(x,y)
 
       -- this may start a drag&drop
       dragMove = true
-      dragObject = {
-			originWindow = self,
-			object = snapshots[currentSnap].s[index],
-			snapshot = snapshots[currentSnap].s[index]
-		   }
+      dragObject = { originWindow = self, snapshot = snapshots[currentSnap].s[index] }
+      if currentSnap == 1 then dragObject.object = { class = "image" } end
+      if currentSnap == 2 then dragObject.object = { class = "map" } end
+      if currentSnap == 3 then dragObject.object = { class = "pnj", rpgClass = RpgClasses[index] } end
+      if currentSnap == 4 then dragObject.object = { class = "pawn" } end
 
       if snapshots[currentSnap].s[index].selected then
 	      -- already selected
@@ -3289,7 +3298,6 @@ function loadStartup( t )
 	if string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
 		local s = Snapshot:new{ filename = path .. sep .. f }
-		s.kind = "pnj"	
 		local store = true
 
         	if string.sub(f,1,4) == 'pawn' then
@@ -3347,7 +3355,6 @@ function loadStartup( t )
 
 	defaultPawnSnapshot = Snapshot:new{ filename = path .. sep .. f }
 	table.insert( snapshots[4].s, defaultPawnSnapshot ) 
-	s.kind = "pnj"	
 
       elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
@@ -3355,7 +3362,6 @@ function loadStartup( t )
 
 		local s = Snapshot:new{ filename = path .. sep .. f }
 		table.insert( snapshots[4].s, s ) 
-		s.kind = "pnj"	
 		
 		local pjname = string.sub(f,5, f:len() - 4 )
 		io.write("Looking for PJ " .. pjname .. "\n")
@@ -3372,7 +3378,6 @@ function loadStartup( t )
  	else
 	  
 	  local s = Snapshot:new{ filename = path .. sep .. f } 
-	  s.kind = "image"	
 	  table.insert( snapshots[1].s, s ) 
 	  
         end
