@@ -67,7 +67,7 @@ snapshotMargin 		= 7 				-- space between images and screen border
 snapshotH 		= messagesH - snapshotSize - snapshotMargin
 
 HC = H - 4 * intW - 3 * iconSize - snapshotSize
-WC = 1290
+WC = 1290 - 2 * intW
 viewh = HC 		-- view height
 vieww = W - 260		-- view width
 size = 19 		-- base font size
@@ -147,7 +147,7 @@ HelpLog = {
 -- some basic colors
 color = {
   masked = {210,210,210}, black = {0,0,0}, red = {250,80,80}, darkblue = {66,66,238}, purple = {127,0,255}, 
-  orange = {204,102,0},   darkgreen = {0,102,0},   white = {255,255,255} , green = {0,240,0} } 
+  orange = {204,102,0},   darkgreen = {0,102,0},   white = {255,255,255} , green = {0,240,0} , darkgrey = {96,96,96} } 
 
 -- array of PJ and PNJ characters
 -- Only PJ at startup (PNJ are created upon user request)
@@ -1425,8 +1425,8 @@ function Combat:draw()
 		  love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,WC - 5,42) 
 		  -- emphasize defense value, but only for PNJ
     		  if not PNJTable[index].PJ then
-			  love.graphics.setColor(255,0,0,200)
-		  	  love.graphics.rectangle("fill",PNJtext[index].x+743,PNJtext[index].y-3, 26,39) 
+			  love.graphics.setColor(0,0,0,120)
+		  	  love.graphics.rectangle("line",PNJtext[index].x+743,PNJtext[index].y-3, 26,39) 
 		  end
 		  PNJtext[index].def.color = { unpack(color.white) }
     		  love.graphics.setColor(204,102,0,alpha)
@@ -3557,7 +3557,7 @@ function love.load( args )
     messagesH	= H 
     snapshotH = messagesH - snapshotSize - snapshotMargin
     HC = H - 4 * intW - 3 * iconSize - snapshotSize
-    WC = 1290
+    WC = 1290 - 2 * intW
     viewh = HC 		-- view height
     vieww = W - 260	-- view width
 
@@ -3659,9 +3659,9 @@ function love.load( args )
     loadStartup{ path = baseDirectory .. sep .. "pawns" , kind = "pawns" }
 
     -- create basic windows
-    combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(0), y=Window:cy(intW)}
+    combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(intW), y=Window:cy(intW)}
     pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*iconSize - snapshotSize - 2*intW - H1 - 2 ) }
-    snapshotWindow = snapshotBar:new{ w=W, h=snapshotSize+2, x=Window:cx(0), y=Window:cy(H-snapshotSize-2*iconSize) }
+    snapshotWindow = snapshotBar:new{ w=W-2*intW, h=snapshotSize+2, x=Window:cx(intW), y=Window:cy(H-snapshotSize-2*iconSize) }
     storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = storyImage, w=storyImage:getWidth(), h=storyImage:getHeight() , x=-1220, y=400}
     actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1220,y=700} 
     rollWindow = iconRollWindow:new{ mag=3.5, image = dicesImage, w=dicesImage:getWidth(), h=dicesImage:getHeight(), x=-2074,y=133} 

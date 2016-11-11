@@ -366,11 +366,11 @@ function updateLineColor( i )
       PNJtext[i].roll.color 			= color.red
       PNJtext[i].dmg.color 			= color.red
     elseif not PNJTable[i].roll:isPassDefense() then
-      PNJtext[i].roll.color 			= color.white
-      PNJtext[i].dmg.color 			= color.white
+      PNJtext[i].roll.color 			= color.darkgrey
+      PNJtext[i].dmg.color 			= color.darkgrey
     else 
-      PNJtext[i].roll.color 			= color.green
-      PNJtext[i].dmg.color 			= color.green
+      PNJtext[i].roll.color 			= color.darkgreen
+      PNJtext[i].dmg.color 			= color.darkgreen
     end
   else
     PNJtext[i].roll.color 			= color.purple
@@ -615,7 +615,7 @@ function createPNJGUIFrame()
             end}),
 
         yui.Text({name="armor",text="", w=width, bold=1, size=size, center = 1}),
-        yui.Text({name="hits", text="", w=40, bold=1, size=size+8, color = color.white, center = 1}),
+        yui.Text({name="hits", text="", w=40, bold=1, size=size+8, color = color.orange, center = 1}),
 
         yui.Button({name="minus", text = '-1', size=size-2,
             onClick = function(self) 
