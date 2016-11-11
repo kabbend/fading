@@ -52,7 +52,7 @@ fullBinary		= false			-- if true, the server will systematically send binary fil
 
 -- messages zone
 messages 		= {}
-messagesH		= H - 22
+messagesH		= H 
 
 -- snapshots
 snapshots    = {}
@@ -1085,6 +1085,62 @@ function iconRollWindow:click(x,y)
 	end
 
 --
+-- notificationWindow class
+-- a notificationWindow is a window which displays a temporary message in the background . it is not zoomable, movable, no window bar
+-- and always at bottom
+--
+
+notificationWindow = Window:new{ class = "notification", alwaysOnTop = true, zoomable = false, movable = false }
+
+function notificationWindow:new( t ) -- create from w, h, x, y
+  local new = t or {}
+  setmetatable( new , self )
+  self.__index = self
+  new.opening = false
+  new.closing = false
+  new.pause   = false
+  new.maxX = t.x + t.w - 10 
+  new.minX = t.x 
+  return new
+end
+
+function notificationWindow:draw()
+  local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
+  love.graphics.setColor(255,255,255)
+  love.graphics.rectangle( "fill", zx, zy, self.w, self.h, 10, 10 ) 
+  love.graphics.setColor(0,0,0)
+  love.graphics.setFont(fontRound)
+  if self.text then love.graphics.printf( self.text, zx + 10, zy, self.w - 20 ) end
+  end
+
+function notificationWindow:update(dt)
+  if not self.text and #messages ~= 0 then
+	self.text = messages[1].text
+	table.remove(messages,1)
+ 	self.opening = true 
+	layout:setDisplay(self,true)
+  end
+  if self.opening and self.x <= self.maxX then 
+	self.x = self.x + 3 
+	if self.x > self.maxX then self.opening = false; self.pause = true; self.closing = false; self.pauseTimer = 3  end
+  end
+  if self.pause then
+	self.pauseTimer = self.pauseTimer - dt
+	if self.pauseTimer < 0 then self.pause = false; self.closing = true end
+  end
+  if self.closing and self.x >= self.minX then 
+	self.x = self.x - 3 
+	if self.x < self.minX then self.closing = false; self.text = nil ; layout:setDisplay(self,false) end
+  end
+  end
+
+function notificationWindow:click(x,y)
+  self.opening = false
+  self.pause = false
+  self.closing = true
+  end
+
+--
 -- iconWindow class
 -- a Icon is a window which displays a fixed image on the background . it is not zoomable, movable, no window bar
 -- and always at bottom
@@ -2012,14 +2068,18 @@ function love.filedropped(file)
 function love.update(dt)
 
 	-- decrease timelength of 1st message if any
+--[[
 	if messages[1] then 
 	  if messages[1].time < 0 then
 		messages[1].offset = messages[1].offset + 1
-		if messages[1].offset > 21 then table.remove( messages, 1 ) end
+		if messages[1].offset > 21 then 
+			table.remove( messages, 1 ) 
+		end
 	  else	  
-		messages[1].time = messages[1].time - dt 
+		messages[1].time = messages[1].time - dt
 	end	
 	end
+--]]
 
 	-- listening to anyone calling on our port 
 	local tcp = server:accept()
@@ -2440,8 +2500,10 @@ function love.draw()
  end  
 
  -- print messages zone in any case 
+ --[[
  love.graphics.setColor(255,255,255)
  love.graphics.rectangle( "fill", 0, messagesH, W, 22 )
+ --]]
 
  -- bottom applicative message
  local appmessage = "" 
@@ -2457,6 +2519,7 @@ function love.draw()
  love.graphics.setColor(255,255,255)
 
  -- print messages eventually
+ --[[
  if messages[1] then
         if messages[1].important then 
 		love.graphics.setColor(255,0,0)
@@ -2469,6 +2532,7 @@ function love.draw()
 	love.graphics.printf( messages[1].text, W - wi - 15 , messagesH - messages[1].offset ,W)
 	love.graphics.setScissor()
  end
+ --]]
 
  -- draw dices if needed
  if drawDices then
@@ -3494,7 +3558,7 @@ function love.load( args )
     io.write("W,H=" .. W .. " " .. H .. "\n")
 
     -- adjust some windows accordingly
-    messagesH	= H - 22
+    messagesH	= H 
     snapshotH = messagesH - snapshotSize - snapshotMargin
     HC = H - 4 * intW - 3 * iconSize - snapshotSize
     WC = 1290
@@ -3605,10 +3669,12 @@ function love.load( args )
     storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = storyImage, w=storyImage:getWidth(), h=storyImage:getHeight() , x=-1220, y=400}
     actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1220,y=700} 
     rollWindow = iconRollWindow:new{ mag=3.5, image = dicesImage, w=dicesImage:getWidth(), h=dicesImage:getHeight(), x=-2074,y=133} 
+    notifWindow = notificationWindow:new{ w=300, h=100, x=-W/2,y=H/2-50} 
   
     layout:addWindow( combatWindow , false ) -- do not display them yet
     layout:addWindow( pWindow , false )
     layout:addWindow( snapshotWindow , false )
+    layout:addWindow( notifWindow , false )
 
     layout:addWindow( storyWindow , true )
     layout:addWindow( actionWindow , true )
