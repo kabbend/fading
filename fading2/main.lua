@@ -271,7 +271,8 @@ end
 -- sending it to the projector, it is also either stored as a path on the shared 
 -- filesystem, or a file object on the local filesystem
 Snapshot = { class = "snapshot" , filename = nil, file = nil }
-function Snapshot:new( t ) -- create from filename or file object (one mandatory)
+
+function Snapshot:new( t ) -- create from filename or file object (one mandatory), and kind 
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
@@ -694,14 +695,14 @@ function Map:zoom( mag )
 	end
 
 function Map:drop( o )
-	local id = o.object
-	if type(id) == "string" then -- receiving a PNJ id
+	local obj = o.object
+	if obj.class == "pnjtable" then -- receiving a PNJ id
 		if not self.basePawnSize then addMessage("No pawn size defined on this map. Please define it with Ctrl+mouse")
 		else
 		  local x, y = love.mouse.getPosition()
   		  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
 		  local px, py = (x - zx) * self.mag , (y - zy) * self.mag 
-		  local p = self:createPawns(0,0,0,id)  -- we create it at 0,0, and translate it afterwards
+		  local p = self:createPawns(0,0,0,obj.id)  -- we create it at 0,0, and translate it afterwards
 		  if p then p.x, p.y = px + self.translateQuadX ,py + self.translateQuadY end
 		  -- send it to projector
 		  if p and atlas:isVisible(self) then	
@@ -1501,7 +1502,7 @@ function Combat:click(x,y)
 		if x >= zx + 210 - xoffset and x <= zx + 210 + xoffset  then
 		 dragMove = true
 		 dragObject = { originWindow = self, 
-				object = PNJTable[i].id,
+				object = { class = "pnjtable", id = PNJTable[i].id },
 				snapshot = PNJTable[i].snapshot
 				}	
 		else
@@ -2001,8 +2002,10 @@ function love.filedropped(file)
 		local snap = Snapshot:new{ file = file }
 		if is_a_pawn then 
 			table.insert( snapshots[4].s , snap )
+			snap.kind = "pawn"	
 		else
 			table.insert( snapshots[1].s , snap )
+			snap.kind = "image"	
 	  		-- set the local image
 	  		currentImage = snap.im 
 			-- remove the 'visible' flag from maps (eventually)
@@ -3343,6 +3346,7 @@ function loadStartup( t )
 	if string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
 		local s = Snapshot:new{ filename = path .. sep .. f }
+		s.kind = "pnj"	
 		local store = true
 
         	if string.sub(f,1,4) == 'pawn' then
@@ -3400,6 +3404,7 @@ function loadStartup( t )
 
 	defaultPawnSnapshot = Snapshot:new{ filename = path .. sep .. f }
 	table.insert( snapshots[4].s, defaultPawnSnapshot ) 
+	s.kind = "pnj"	
 
       elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
@@ -3407,7 +3412,8 @@ function loadStartup( t )
 
 		local s = Snapshot:new{ filename = path .. sep .. f }
 		table.insert( snapshots[4].s, s ) 
-
+		s.kind = "pnj"	
+		
 		local pjname = string.sub(f,5, f:len() - 4 )
 		io.write("Looking for PJ " .. pjname .. "\n")
 		local index = findPNJByClass( pjname ) 
@@ -3421,8 +3427,10 @@ function loadStartup( t )
 	  table.insert( snapshots[2].s, s ) 
 
  	else
-
-	  table.insert( snapshots[1].s, Snapshot:new{ filename = path .. sep .. f } ) 
+	  
+	  local s = Snapshot:new{ filename = path .. sep .. f } 
+	  s.kind = "image"	
+	  table.insert( snapshots[1].s, s ) 
 	  
         end
 
