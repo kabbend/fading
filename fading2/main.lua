@@ -58,8 +58,9 @@ messagesH		= H - 22
 snapshots    = {}
 snapshots[1] = { s = {}, index = 1, offset = 0 } 	-- small snapshots at the bottom, for general images
 snapshots[2] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for scenario & maps
-snapshots[3] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for pawns
-snapText = { "Images", "Tactical Maps", "Pawn images" }
+snapshots[3] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for PNJ classes 
+snapshots[4] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for pawn images
+snapText = { "Images", "Tactical Maps", "PNJ Classes", "Pawn images" }
 currentSnap		= 1				-- by default, we display images
 snapshotSize 		= 70 				-- w and h of each snapshot
 snapshotMargin 		= 7 				-- space between images and screen border
@@ -1605,7 +1606,28 @@ function snapshotBar:draw()
   		love.graphics.setScissor() 
 	end
   end
-  
+ 
+   -- print over text eventually
+ 
+   love.graphics.setFont(fontRound)
+   local x,y = love.mouse.getPosition()
+   local left = math.max(zx,0)
+   local right = math.min(zx+self.w,W)
+	
+   if x > left and x < right and y > zy and y < zy + self.h then
+	-- display text is over a class image
+    	local index = math.floor(((x-zx) - snapshots[currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
+    	if index >= 1 and index <= #snapshots[currentSnap].s then
+		if currentSnap == 3 then
+			local size = fontRound:getWidth( RpgClasses[index].class )
+   			love.graphics.setColor(255,255,255)
+			love.graphics.rectangle("fill",x,y,size,fontRound:getHeight())
+   			love.graphics.setColor(0,0,0)
+			love.graphics.print( RpgClasses[index].class , x, y )
+		end
+	end
+   end
+
    -- print bar
    self:drawBar()
    self:drawResize()
@@ -1617,19 +1639,27 @@ function snapshotBar:update(dt)
 	Window.update(self,dt)
 
   	local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
+
 	-- change snapshot offset if mouse  at bottom right or left
 	local snapMax = #snapshots[currentSnap].s * (snapshotSize + snapshotMargin) - W
 	if snapMax < 0 then snapMax = 0 end
 	local x,y = love.mouse.getPosition()
 	local left = math.max(zx,0)
 	local right = math.min(zx+self.w,W)
-	if (x > left) and (x < left + snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h) then
-	  snapshots[currentSnap].offset = snapshots[currentSnap].offset + snapshotMargin * 2
-	  if snapshots[currentSnap].offset > 0 then snapshots[currentSnap].offset = 0  end
-	end
-	if (x > right - snapshotMargin * 4 ) and (x < right) and (y > zy) and (y < zy + self.h - iconSize) then
-	  snapshots[currentSnap].offset = snapshots[currentSnap].offset - snapshotMargin * 2
-	  if snapshots[currentSnap].offset < -snapMax then snapshots[currentSnap].offset = -snapMax end
+	
+	if x > left and x < right then
+
+	  if (x < left + snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h) then
+	  	snapshots[currentSnap].offset = snapshots[currentSnap].offset + snapshotMargin * 2
+	  	if snapshots[currentSnap].offset > 0 then snapshots[currentSnap].offset = 0  end
+	  end
+
+	  if (x > right - snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h - iconSize) then
+	  	snapshots[currentSnap].offset = snapshots[currentSnap].offset - snapshotMargin * 2
+	  	if snapshots[currentSnap].offset < -snapMax then snapshots[currentSnap].offset = -snapMax end
+	  end
+
+	
 	end
 	end
 
@@ -1968,7 +1998,7 @@ function love.filedropped(file)
 
 		local snap = Snapshot:new{ file = file }
 		if is_a_pawn then 
-			table.insert( snapshots[3].s , snap )
+			table.insert( snapshots[4].s , snap )
 		else
 			table.insert( snapshots[1].s , snap )
 	  		-- set the local image
@@ -3126,7 +3156,7 @@ else
   	-- 'space' to change snapshot list
 	if key == 'space' then
 	  currentSnap = currentSnap + 1
-	  if currentSnap == 4 then currentSnap = 1 end
+	  if currentSnap == 5 then currentSnap = 1 end
 	  window:setTitle( snapText[currentSnap] ) 
 	  return
   	end
@@ -3325,7 +3355,7 @@ function loadStartup( t )
 			end
 		end	
    
-		if store then table.insert( snapshots[3].s, s ) end
+		if store then table.insert( snapshots[4].s, s ) end
 
 		-- check if default image 
       		if f == 'pawnDefault.jpg' then
@@ -3333,10 +3363,10 @@ function loadStartup( t )
 		end
 
 		-- check if corresponds to a PNJ template as well
-		for k,v in pairs( templateArray ) do
-			if v.image == f then 
-				v.snapshot = s 
-				io.write("store image for class " .. v.class .. "\n")
+		for i=1,#RpgClasses do
+			if RpgClasses[i].image == f then 
+				RpgClasses[i].snapshot = s 
+				io.write("store image for class " .. RpgClasses[i].class .. "\n")
 			end
 		end
 
@@ -3367,14 +3397,14 @@ function loadStartup( t )
       elseif f == 'pawnDefault.jpg' then
 
 	defaultPawnSnapshot = Snapshot:new{ filename = path .. sep .. f }
-	table.insert( snapshots[3].s, defaultPawnSnapshot ) 
+	table.insert( snapshots[4].s, defaultPawnSnapshot ) 
 
       elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
         if string.sub(f,1,4) == 'pawn' then
 
 		local s = Snapshot:new{ filename = path .. sep .. f }
-		table.insert( snapshots[3].s, s ) 
+		table.insert( snapshots[4].s, s ) 
 
 		local pjname = string.sub(f,5, f:len() - 4 )
 		io.write("Looking for PJ " .. pjname .. "\n")
@@ -3398,6 +3428,14 @@ function loadStartup( t )
 
     end
 
+    -- all classes are loaded with a snapshot
+    -- add them to snapshotBar
+    for i=1,#RpgClasses do
+	if not RpgClasses[i].snapshot then RpgClasses[i].snapshot = defaultPawnSnapshot end
+	if not RpgClasses[i].PJ then table.insert( snapshots[3].s, RpgClasses[i].snapshot ) end
+    end
+
+    
 end
 
 
@@ -3507,8 +3545,8 @@ function love.load( args )
     -- initialize class template list  and dropdown list (opt{}) at the same time
     -- later on, we might attach some images to these classes if we find them
     -- try 2 locations to find data. Merge results if 2 files 
-    local opt = loadTemplates{ 	baseDirectory .. sep .. "data" , 
-				baseDirectory .. sep .. fadingDirectory .. sep .. "data" } 
+    opt, RpgClasses = loadClasses{ baseDirectory .. sep .. "data" , 
+				   baseDirectory .. sep .. fadingDirectory .. sep .. "data" } 
 
     if not opt or #opt == 0 then error("sorry, need at least one data file") end
 

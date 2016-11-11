@@ -9,11 +9,13 @@ local yui       = require 'yui.yaoui'   -- graphical library on top of Love2D
 -- array of PNJ templates (loaded from data file)
 templateArray   = {}
 
--- load PNJ templates from data file, return a list of class names (to be used in dropdown listbox)
+-- load PNJ templates from data file, return a list of names (to be used in dropdown listbox) 
+-- and an (number-sorted) array of classes
 -- argument t is a table (list) of paths to try
-function loadTemplates( paths )
+function loadClasses( paths )
 
    local opt = {}
+   local array = {}
    local i = 1
    Class = function( t )
   		if not t.class then error("need a class attribute (string value) for each class entry") end
@@ -22,6 +24,7 @@ function loadTemplates( paths )
   		templateArray[t.class] = t
   		if not already_exist and not t.PJ then          -- only display PNJ classes in Dropdown list, not PJ
     			opt[i] = t.class ; i = i  + 1
+			table.insert( array, t )
   		end
 		end
 
@@ -31,7 +34,7 @@ function loadTemplates( paths )
 	if f then f() end 
    end
 
-   return opt
+   return opt, array
    end
 
 -- for a given PNJ at index i, return true if Attack or Armor button should be clickable
