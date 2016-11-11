@@ -34,7 +34,7 @@ sinkSteps = sinkTime / sinkTimerLimit
 -- main layout
 layout 			= nil
 currentWindowDraw 	= nil
-intW			= 2 
+intW			= 2 	-- interval between windows
 
 -- main screen size
 W, H = 1440, 800 	-- main window size default values (may be changed dynamically on some systems)
@@ -84,9 +84,8 @@ defaultPawnSnapshot	= nil		-- default image to be used for pawns
 pawnMaxLayer		= 1
 pawnMovingTime		= 2		-- how many seconds to complete a movement on the map ?
 
--- snapshot size and image
+-- projector snapshot size
 H1, W1 = 140, 140
-currentImage = nil
 
 -- some GUI buttons whose color will need to be changed at runtime
 attButton	= nil		-- button Roll Attack
@@ -1356,6 +1355,7 @@ function projectorWindow:new( t ) -- create from w, h, x, y
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
+  self.currentImage = nil
   return new
 end
 
@@ -1364,18 +1364,15 @@ function projectorWindow:draw()
   self:drawBack()
 
   local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
-  -- small snapshot
-  --love.graphics.setColor(unpack(color.white))
-  --love.graphics.rectangle("fill",  zx, zy , W1 , H1 )
-  if currentImage then 
-    local w, h = currentImage:getDimensions()
+  if self.currentImage then 
+    local w, h = self.currentImage:getDimensions()
     -- compute magnifying factor f to fit to screen, with max = 2
     local xfactor = (W1) / w
     local yfactor = (H1) / h
     local f = math.min( xfactor, yfactor )
     if f > 2 then f = 2 end
     w , h = f * w , f * h
-    love.graphics.draw( currentImage , zx +  (W1 - w) / 2, zy + ( H1 - h ) / 2, 0 , f, f )
+    love.graphics.draw( self.currentImage , zx +  (W1 - w) / 2, zy + ( H1 - h ) / 2, 0 , f, f )
   end
   -- print bar
   self:drawBar()
@@ -1386,7 +1383,7 @@ function projectorWindow:click(x,y)
 	end
 
 function projectorWindow:drop(o)
-	currentImage = o.snapshot.im	
+	self.currentImage = o.snapshot.im	
 	end
 
 --
@@ -1709,7 +1706,7 @@ function snapshotBar:click(x,y)
 
 	      -- 1: general image, sent it to projector
 	      if currentSnap == 1 then
-	      	currentImage = snapshots[currentSnap].s[index].im
+	      	pWindow.currentImage = snapshots[currentSnap].s[index].im
 	      	-- remove the 'visible' flag from maps (eventually)
 	      	atlas:removeVisible()
 		tcpsend(projector,"ERAS") 	-- remove all pawns (if any) 
@@ -2030,7 +2027,7 @@ function love.filedropped(file)
 			table.insert( snapshots[1].s , snap )
 			snap.kind = "image"	
 	  		-- set the local image
-	  		currentImage = snap.im 
+	  		pWindow.currentImage = snap.im 
 			-- remove the 'visible' flag from maps (eventually)
 			atlas:removeVisible()
 		  	tcpsend(projector,"ERAS") 	-- remove all pawns (if any) 
@@ -2940,7 +2937,7 @@ function Atlas:toggleVisible( map )
 		self.visible = nil 
 		map.sticky = false
 		-- erase snapshot !
-		currentImage = nil 
+		pWindow.currentImage = nil 
 	  	-- remove all pawns remotely !
 		tcpsend( projector, "ERAS")
 	  	-- send hide command to projector
@@ -2948,7 +2945,7 @@ function Atlas:toggleVisible( map )
 	else    
 		self.visible = map 
 		-- change snapshot !
-		currentImage = map.im
+		pWindow.currentImage = map.im
 	  	-- remove all pawns remotely !
 		tcpsend( projector, "ERAS")
 		-- send to projector
