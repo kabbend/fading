@@ -1665,10 +1665,12 @@ function snapshotBar:update(dt)
 
 function snapshotBar:click(x,y)
 
-  Window.click(self,x,y)
-
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
   
+  Window.click(self,x,y)
+ 
+  if y > zy then mouseMove = false end -- Window.click() above might set mouseMove improperly
+ 
     --arrowMode = false
     -- check if there is a snapshot there
     local index = math.floor(((x-zx) - snapshots[currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
