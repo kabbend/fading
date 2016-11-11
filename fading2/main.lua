@@ -131,7 +131,8 @@ HelpLog = {
 	{"CTRL+Z",170,"Zoom. Active la maximization/minimization de la Map sélectionnée"},
 	{"CTRL+P",170,"Pions. Sur une Map avec des pions, retire tous les pions"},
 	{"SHIFT+Mouse",170,"Sur une Map, créé une forme géométrique qui réduit le brouillard de guerre"},
-	{"CTRL+Mouse",170,"Sur une Map, créé et positionne des pions"},
+	{"CTRL+Mouse",170,"Sur une Map, définit la taille des pions"},
+	{"COMMAND+Mouse",170,"Sur une Map, définit une zone d'affichage réduite"},
 	{"TAB",170,"Pour les Maps, passe du mode Rectangle au mode Cercle pour tracer les brouillards de guerre"},
 	{"ESPACE",170,"Change la catégorie de la barre de snapshots, entre images, maps et pions"},
 	{"ESC",170,"Cache toutes les fenêtres (ou les restaure)"},
@@ -149,13 +150,11 @@ color = {
   masked = {210,210,210}, black = {0,0,0}, red = {250,80,80}, darkblue = {66,66,238}, purple = {127,0,255}, 
   orange = {204,102,0},   darkgreen = {0,102,0},   white = {255,255,255} , green = {0,240,0} } 
 
--- array of actual PNJs, from index 1 to index (PNJnum - 1)
--- None at startup (they are created upon user request)
+-- array of PJ and PNJ characters
+-- Only PJ at startup (PNJ are created upon user request)
 -- Maximum number is PNJmax
--- At a given time, number of PNJs is (PNJnum - 1)
 -- A Dead PNJ counts as 1, except if explicitely removed from the list
 PNJTable 	= {}		
-PNJnum 		= 1		-- next index to use in PNJTable 
 PNJmax   	= 13		-- Limit in the number of PNJs (and the GUI frame size as well)
 
 -- Direct access (without traversal) to GUI structure:
@@ -956,7 +955,7 @@ function Map:createPawns( sx, sy, requiredSize , id )
 
   local a,b = starta, startb
 
-  for i=1,PNJnum-1 do
+  for i=1,#PNJTable do
 
 	 local p
 	 local needCreate = true
@@ -1445,7 +1444,7 @@ function Combat:draw()
     if index then love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,WC - 5,42) end
 
     -- draw PNJ snapshot if applicable
-    for i=1,PNJnum-1 do
+    for i=1,#PNJTable do
       if PNJTable[i].snapshot then
        	    love.graphics.setColor(255,255,255)
 	    local s = PNJTable[i].snapshot
@@ -1461,7 +1460,7 @@ function Combat:draw()
     else
       love.graphics.setColor(0,0,0,alpha*1.5)
     end
-    love.graphics.rectangle("fill",PNJtext[1].x+1010,PNJtext[1].y-5,400,(PNJnum-1)*43)
+    love.graphics.rectangle("fill",PNJtext[1].x+1010,PNJtext[1].y-5,400,(#PNJTable)*43)
   end
   love.graphics.setScissor() 
 
@@ -1495,7 +1494,7 @@ function Combat:click(x,y)
   	focusAttackers = nil
 
   	-- check which PNJ was selected, depending on position on y-axis
-  	  for i=1,PNJnum-1 do
+  	  for i=1,#PNJTable do
     	  if (y >= PNJtext[i].y -5 and y < PNJtext[i].y + 42 - 5) then
       		PNJTable[i].focus = true
       		lastFocus = focus
@@ -2316,7 +2315,7 @@ function love.update(dt)
   	end
 
 	-- check PNJ-related timers
-  	for i=1,PNJnum-1 do
+  	for i=1,#PNJTable do
 
   		-- temporarily change color of DEF (defense) value for each PNJ attacked within the last 3 seconds, 
     		if not PNJTable[i].acceptDefLoss then
@@ -2833,7 +2832,7 @@ function love.mousereleased( x, y )
 	else 
 		-- not drawing a mask, so maybe selecting a PNJ
 	   	-- depending on position on y-axis
-  	  	for i=1,PNJnum-1 do
+  	  	for i=1,#PNJTable do
     		  if (y >= PNJtext[i].y-5 and y < PNJtext[i].y + 42) then
       			-- this stops the arrow mode
       			arrowMode = false
@@ -3017,7 +3016,7 @@ end
 function findPNJByClass( class )
   if not class then return nil end
   class = string.lower( trim(class) )
-  for i=1,PNJnum-1 do if string.lower(PNJTable[i].class) == class then return i end end
+  for i=1,#PNJTable do if string.lower(PNJTable[i].class) == class then return i end end
   return nil
   end
 
@@ -3032,7 +3031,7 @@ function findClientByName( class )
 -- return the character by its ID, or nil if not found
 function findPNJ( id )
   if not id then return nil end
-  for i=1,PNJnum-1 do if PNJTable[i].id == id then return i end end
+  for i=1,#PNJTable do if PNJTable[i].id == id then return i end end
   return nil
   end
 
@@ -3202,7 +3201,7 @@ else
   
   	-- 'up', 'down' within the PNJ list
   	if focus and key == "down" then
-    		if focus < PNJnum-1 then 
+    		if focus < #PNJTable then 
       			lastFocus = focus
       			focus = focus + 1
       			focusAttackers = PNJTable[ focus ].attackers

@@ -419,7 +419,7 @@ function updateTargetByArrow( i, j )
   
   -- remove i as attacker of anybody else
   PNJTable[j].attackers[ PNJTable[i].id ] = true
-  for k=1,PNJnum-1 do
+  for k=1,#PNJTable do
     if k ~= j then PNJTable[k].attackers[ PNJTable[i].id ] = false end
   end
   
@@ -482,7 +482,7 @@ function computeDangerosity( i )
 function computeGlobalDangerosity()
   local potentialTouch = 0
   local hits = 0
-  for i=1,PNJnum-1 do
+  for i=1,#PNJTable do
    if PNJTable[i].PJ then
     hits = hits + PNJTable[i].hits
     for k,v in pairs(PNJTable[i].attackers) do
@@ -510,7 +510,7 @@ function changeDefense( i, n, m )
   PNJtext[i].def.text = PNJTable[i].final_defense; 
 
   -- check for potential attacking characters, who have not played yet in the round   
-  for j=1,PNJnum-1 do
+  for j=1,#PNJTable do
 
     if not PNJTable[j].done then
 
@@ -578,7 +578,7 @@ function createPNJGUIFrame()
 
         yui.Button({name="initm", text = '-', size=size-4,
             onClick = function(self) 
-              if (i>=PNJnum) then return end
+              if (i>#PNJTable) then return end
               if (PNJTable[i].is_dead) then return end
               if (PNJTable[i].PJ) then 
                 if (PNJTable[i].final_initiative >= 1) then PNJTable[i].final_initiative = PNJTable[i].final_initiative - 1 end
@@ -590,7 +590,7 @@ function createPNJGUIFrame()
         yui.HorizontalSpacing({w=3}),
         yui.Button({name="initp", text = '+', size=size-4,
             onClick = function(self) 
-              if (i>=PNJnum) then return end
+              if (i>#PNJTable) then return end
               if (PNJTable[i].is_dead) then return end
               if (PNJTable[i].PJ) then 
                 PNJTable[i].final_initiative = PNJTable[i].final_initiative + 1
@@ -609,7 +609,7 @@ function createPNJGUIFrame()
 
         yui.Button({name="minusd", text = '-', size=size,
             onClick = function(self) 
-              if (i>=PNJnum) then return end
+              if (i>#PNJTable) then return end
               if (PNJTable[i].is_dead) then return end
               changeDefense(i,-1,nil)
             end}),
@@ -619,7 +619,7 @@ function createPNJGUIFrame()
 
         yui.Button({name="minus", text = '-1', size=size-2,
             onClick = function(self) 
-              if (i>=PNJnum) then return end
+              if (i>#PNJTable) then return end
               if (PNJTable[i].is_dead) then return end
               PNJTable[i].hits = PNJTable[i].hits - 1
               -- remove DEF if allowed
@@ -662,7 +662,7 @@ function createPNJGUIFrame()
         yui.HorizontalSpacing({w=3}),
         yui.Button({name="shot", text = '0', size=size-2,
             onClick = function(self) 
-              if (i>=PNJnum) then return end
+              if (i>#PNJTable) then return end
               if (PNJTable[i].is_dead) then return end
               -- remove DEF if allowed
               if PNJTable[i].acceptDefLoss then
@@ -676,7 +676,7 @@ function createPNJGUIFrame()
         yui.HorizontalSpacing({w=3}),
         yui.Button({name="kill", text = 'kill', size=size-2, 
             onClick = function(self)
-              if (i>=PNJnum) then return end
+              if (i>#PNJTable) then return end
               if (PNJTable[i].is_dead) then return end
               PNJTable[i].hits = 0
               PNJTable[i].is_dead = true 
@@ -704,7 +704,7 @@ function createPNJGUIFrame()
         yui.Text({name="stance",text="", w=100, size=size, center = 1}),
         yui.Button({name="agressive", text = 'A', size=size,
             onClick = function(self)
-              if (i>=PNJnum) then return end
+              if (i>#PNJTable) then return end
               if (PNJTable[i].is_dead) then return end
               PNJTable[i].goalstancebonus = 3;
               PNJTable[i].final_goal = PNJTable[i].goal + PNJTable[i].malus + PNJTable[i].goalstancebonus;
@@ -720,7 +720,7 @@ function createPNJGUIFrame()
         yui.HorizontalSpacing({w=3}),
         yui.Button({name="neutral", text = 'N', size=size,
             onClick = function(self)
-              if (i>=PNJnum) then return end
+              if (i>#PNJTable) then return end
               if (PNJTable[i].is_dead) then return end
               PNJTable[i].goalstancebonus = 0;
               PNJTable[i].final_goal = PNJTable[i].goal + PNJTable[i].malus + PNJTable[i].goalstancebonus;
@@ -736,7 +736,7 @@ function createPNJGUIFrame()
         yui.HorizontalSpacing({w=3}),
         yui.Button({name="defense", text = 'D', size=size,
             onClick = function(self)
-              if (i>=PNJnum) then return end
+              if (i>#PNJTable) then return end
               if (PNJTable[i].is_dead) then return end
               PNJTable[i].goalstancebonus = -3;
               PNJTable[i].final_goal = PNJTable[i].goal + PNJTable[i].malus + PNJTable[i].goalstancebonus;
@@ -791,14 +791,14 @@ function UIDiterator()
 function generateNewPNJ(current_class)
 
   -- cannot generate too many PNJ...
-  if (PNJnum > PNJmax) then return nil end
+  if (#PNJTable >= PNJmax) then return nil end
 
   -- generate a new one, at current index, with new ID
-  PNJTable[PNJnum] = PNJConstructor( templateArray[current_class] )
+  PNJTable[#PNJTable+1] = PNJConstructor( templateArray[current_class] )
 
   -- display it's class and INIT value (rest will be displayed when start button is pressed)
-  local pnj = PNJTable[PNJnum]
-  PNJtext[PNJnum].class.text = current_class;
+  local pnj = PNJTable[#PNJTable]
+  PNJtext[#PNJTable].class.text = current_class;
 
   -- set a default image if needed
   if not pnj.snapshot then pnj.snapshot = defaultPawnSnapshot end
@@ -806,7 +806,7 @@ function generateNewPNJ(current_class)
   if (pnj.PJ) then
 
     pnj.final_initiative = pnj.initiative;
-    PNJtext[PNJnum].init.text  = pnj.final_initiative;
+    PNJtext[#PNJTable].init.text  = pnj.final_initiative;
 
   else
 
@@ -814,10 +814,10 @@ function generateNewPNJ(current_class)
     -- otherwise, assign a new value (common to the whole class)
     -- the new value is INITIATIVE + 1D6
     local found = false
-    for i=1,PNJnum-1 do
+    for i=1,#PNJTable - 1 do
       if (PNJTable[i].class == current_class) then 
         found = true; 
-        PNJtext[PNJnum].init.text = PNJtext[i].init.text; 
+        PNJtext[#PNJTable].init.text = PNJtext[i].init.text; 
         pnj.final_initiative = PNJTable[i].final_initiative
       end
     end
@@ -827,12 +827,9 @@ function generateNewPNJ(current_class)
       -- and we always remove this fraction (math.floor) when we display the value
       -- In this way, 2 different classes with same (apparent) initiative are sorted nicely, and not mixed
       pnj.final_initiative = math.random(pnj.initiative + 1, pnj.initiative + 6) + math.random()
-      PNJtext[PNJnum].init.text = math.floor( pnj.final_initiative )
+      PNJtext[#PNJTable].init.text = math.floor( pnj.final_initiative )
     end
   end
-
-  -- shift to next slot
-  PNJnum = PNJnum + 1
 
   return pnj.id 
 end
@@ -857,7 +854,7 @@ function sortAndDisplayPNJ()
   -- then display PNJ table completely	
   for i=1,PNJmax do  
 
-    if (i>=PNJnum) then
+    if (i>#PNJTable) then
 
       -- erase unused slots (at the end of the list)
       PNJtext[i].done.checkbox.reset = true
@@ -948,40 +945,18 @@ function sortAndDisplayPNJ()
 end
 
 -- remove dead PNJs from the PNJTable{}, but keeps all other PNJs
--- in the same order. Reduces PNJnum index value accordingly.
+-- in the same order. 
 -- return true if a dead PNJ was actually removed, false if none was found.
 -- Does not re-print the PNJ list on the screen. 
 function removeDeadPNJ()
 
   local has_removed =  false
-  local a_change_occured = true -- a priori
-
-  while (a_change_occured) do
-    a_change_occured = false -- might change below
-    local i = 1
-    while (PNJTable[i]) do
-      if PNJTable[i].is_dead then
-        
-        -- we are about to remove a PNJ. If this PNJ is currently a target, or attacking someone,
-        -- cleanup these tables first
-        -- FIXME
-        
-        a_change_occured = true
-        has_removed = true
-        local j=i+1
-        while PNJTable[j] do
-          -- erase PNJ with the next one in the list
-          PNJTable[j-1] = PNJTable[j]
-          j = j + 1
-        end
-        PNJnum = PNJnum - 1
-        PNJTable[PNJnum] = nil
-      end
-      i = i + 1
-    end
-  end
+  local initialSize = #PNJTable
+  local new = {}
+  for i=1,#PNJTable do if not PNJTable[i].is_dead then table.insert( new, PNJTable[i] ) end end
+  PNJTable = new
   thereIsDead = false
-  return has_removed
+  return initialSize ~= #PNJTable 
 end
 
 -- Check if all PNJs have played (the "done" checkbox is checked for all, 
@@ -990,7 +965,7 @@ end
 -- Return true or false depending on what was done 
 function checkForNextRound()
   	local goNextRound = true -- a priori, might change below
-  	for i=1,PNJnum-1 do if not PNJTable[i].done then goNextRound = false end end
+  	for i=1,#PNJTable do if not PNJTable[i].done then goNextRound = false end end
   	nextFlash = goNextRound
   	return goNextRound
 	end
@@ -1042,7 +1017,7 @@ function nextRound()
     newRound = true
 
     -- reset defense & done checkbox
-    for i=1,PNJnum-1 do
+    for i=1,#PNJTable do
 
       if (not PNJTable[i].is_dead) then
 
