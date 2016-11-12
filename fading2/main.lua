@@ -24,7 +24,7 @@ require 'fading2/dice/default/config'
 -- GLOBAL VARIABLES
 --
 
-debug = false
+debug = true 
 
 -- sink motion
 sinkTime = 1 		-- in seconds
@@ -1289,6 +1289,7 @@ function iconWindow:click(x,y)
 				   layout.sorted[i].w ~= pWindow and 
 				   layout.sorted[i].w ~= snapshotWindow and
 				   layout.sorted[i].w.class ~= "dialog" and
+				   layout.sorted[i].w.class ~= "setup" and
 				   layout.sorted[i].w.class ~= "help" and
 				   layout.sorted[i].d and 
 				   not layout.sorted[i].w.alwaysVisible then
@@ -1317,6 +1318,7 @@ function iconWindow:click(x,y)
 				   layout.sorted[i].w ~= snapshotWindow and
 				   layout.sorted[i].w ~= scenarioWindow and
 				   layout.sorted[i].w.class ~= "dialog" and
+				   layout.sorted[i].w.class ~= "setup" and
 				   layout.sorted[i].w.class ~= "help" and
 				   layout.sorted[i].d and 
 				   not layout.sorted[i].w.alwaysVisible then
@@ -3611,23 +3613,27 @@ function love.load( args )
     layout = mainLayout:new()
 
     -- parse arguments
-    local parse = doParse( args )
+    --local parse = doParse( args )
+    dofile( "fading2/fsconf.lua" )    
 
     -- get images & scenario directory, provided at command line
+    --[[
     fadingDirectory = parse.fadingDirectory 
     baseDirectory = parse.arguments[1]
     debug = parse.debug
     serverport = parse.port
     fullBinary = parse.binary
     ack = parse.acknowledge
+    --]]
     sep = '/'
 
     -- log file
-    if parse.log then
+    --[[if parse.log then
       logFile = io.open("fading.log","w")
       io.output(logFile)
     end
-
+    --]]
+    --
     -- GUI initializations...
     yui.UI.registerEvents()
     love.window.setTitle( "Fading Suns Tabletop" )
