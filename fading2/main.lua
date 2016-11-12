@@ -117,7 +117,9 @@ dialogLog		= {}			-- store all dialogs for complete display
 ack			= false			-- automatic acknowledge when message received ?
 
 -- current text input
-textActive		= nil
+textActiveCallback		= nil			-- if set, function to call with keyboard input (argument: one char)
+textActiveBackspaceCallback	= nil			-- if set, function to call on a backspace (suppress char)
+textActivePaste			= nil			-- if set, function to call on a paste (argument: string)
 
 -- Help stuff
 HelpLog = {
@@ -320,8 +322,25 @@ function lineWidget:new( t )
   return new
   end
 
-function lineWidget:select() self.selected = true; textActive = function(t) self.text = self.text .. t ; self:setCursorPosition() end end
-function lineWidget:unselect() if self.selected then self.selected = false; textActive = false; end end
+function lineWidget:select() 
+	self.selected = true; 
+	textActiveCallback = function(t) self.text = self.text .. t ; self:setCursorPosition() end 
+	textActiveBackspaceCallback = function()  
+         	local byteoffset = utf8.offset(self.text, -1)
+         	if byteoffset then self.text = string.sub(self.text, 1, byteoffset - 1) end 
+		self:setCursorPosition()
+		end
+	textActivePasteCallback = function(s) end 
+	end
+
+function lineWidget:unselect() 
+	if self.selected then 
+		self.selected = false
+		textActiveCallback = nil 
+		textActiveBackspaceCallback = nil 
+		textActivePasteCallback = nil 
+	end 
+	end
 
 function lineWidget:setCursorPosition()
   self.cursorPosition = fontRound:getWidth(self.text) 
@@ -2114,14 +2133,14 @@ function doDialog( text )
 
 -- capture text input (for text search)
 function love.textinput(t)
-	if (not searchActive) and (not dialogActive) and (not textActive) then return end
+	if (not searchActive) and (not dialogActive) and (not textActiveCallback) then return end
 	if ignoreLastChar then ignoreLastChar = false; return end
 	if searchActive then
 		text = text .. t
 	elseif dialogActive then
 		dialog = dialog .. t
 	else
-		textActive( t )
+		textActiveCallback( t )
 	end
 	end
 
@@ -3250,6 +3269,8 @@ end
 end
 
 function love.keypressed( key, isrepeat )
+
+if textActiveBackspaceCallback and key == "backspace" then textActiveBackspaceCallback(); return end
 
 if not initialized then return end
 
