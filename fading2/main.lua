@@ -116,6 +116,9 @@ dialogActive		= false
 dialogLog		= {}			-- store all dialogs for complete display
 ack			= false			-- automatic acknowledge when message received ?
 
+-- current text input
+textActive		= nil
+
 -- Help stuff
 HelpLog = {
 	{"",0,""},
@@ -298,6 +301,54 @@ function Snapshot:new( t ) -- create from filename or file object (one mandatory
   return new
 end
 
+-- lineWidget class
+lineWidget = { 	x=0, y=0,	-- relative to the parent object
+		w=200, h=20,
+	 	parent = nil, selected = false,
+		text = "" 
+	     }
+
+function lineWidget:new( t ) 
+  local new = t or {}
+  setmetatable( new , self )
+  self.__index = self
+  return new
+  end
+
+function lineWidget:select() self.selected = true; textActive = function(t) self.text = self.text .. t end end
+function lineWidget:unselect() if self.selected then self.selected = false; textActive = false; end end
+
+function lineWidget:draw()
+  local x,y = self.x, self.y
+  local zx , zy = 0 , 0
+  if self.parent then zx, zy = self.parent:WtoS(0,0) end
+  if self.selected then
+    love.graphics.setColor(255,255,255)
+    love.graphics.rectangle("fill",x+zx,y+zy,self.w,self.h)
+  end
+  love.graphics.setColor(0,0,0)
+  love.graphics.setFont( fontRound )
+  love.graphics.print(self.text,x+zx,y+zy)
+  end
+
+function lineWidget:update(dt)
+  end
+
+function lineWidget:click(x,y)
+  end
+
+function lineWidget:isInside(x,y)
+  local lx,ly = self.x, self.y
+  local zx , zy = 0 , 0
+  if self.parent then zx, zy = self.parent:WtoS(0,0) end
+  if x > lx + zx and x < lx + zx + self.w and 
+	y > ly + zy and y < ly + zy + self.h then
+	return true
+  end 
+  return false
+  end
+
+
 
 -- Window class
 -- a window is here an object slightly different from common usage, because
@@ -323,7 +374,8 @@ Window = { 	class = "window", w = 0, h = 0, mag = 1.0, x = 0, y = 0 , title = ""
 		markForClosure = false,							-- event to close the window
 		markForSink = false,							-- event to sink (gradually disappear)
 	        alwaysOnTop = false, alwaysBottom = false , 				-- force layering
-		wResizable = false, hResizable = false, whResizable = false 		-- resizable for w and h
+		wResizable = false, hResizable = false, whResizable = false, 		-- resizable for w and h
+		widgets = {}
 	  }
 
 function Window:new( t ) 
@@ -340,6 +392,8 @@ function Window:new( t )
   return new
 end
 
+function Window:addWidget( widget ) table.insert( self.widgets, widget ); widget.parent = self end
+ 
 -- window to screen, screen to window: transform x,y coordinates within the window from point on screen
 function Window:WtoS(x,y) return (x - self.x)/self.mag + W/2, (y - self.y)/self.mag + H/2 end
 
@@ -499,6 +553,12 @@ function Window:click(x,y)
 		arrowStartX, arrowStartY = x, y
 		arrowModeMap = nil
 	end
+
+	-- check for click on a widget
+	for i=1,#self.widgets do 
+		if self.widgets[i]:isInside(x,y) then self.widgets[i]:click(x,y) end
+	end
+
 	return nil
 	end
 
@@ -529,8 +589,10 @@ function Window:update(dt)
 	end
 	end
 
+function Window:drawWidgets() for i=1,#self.widgets do self.widgets[i]:draw() end end 
+
 -- to be redefined in inherited classes
-function Window:draw() end 
+function Window:draw() for i=1,#self.widgets do self.widgets[i]:draw() end end 
 function Window:getFocus() end
 function Window:looseFocus() end
 function Window:drop() end
@@ -1395,21 +1457,37 @@ function setupWindow:new( t ) -- create from w, h, x, y
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
+  new.text1 = lineWidget:new{ x = 120, y = 5 , w = 450, text = baseDirectory }
+  new.text2 = lineWidget:new{ x = 120, y = 35, w = 450, text = scenarioDirectory }
+  new:addWidget(new.text1)
+  new:addWidget(new.text2)
   return new
 end
 
 function setupWindow:draw()
-  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
   self:drawBack()
+  self:drawWidgets()
   love.graphics.setFont(fontRound)
-  love.graphics.setColor(0,0,0)
-  love.graphics.print("Base Directory:",zx+5,zy+5)
+  love.graphics.setColor( color.black )
+  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+  love.graphics.print("Base directory", zx + 5, zy + 5 )
+  love.graphics.print("Scenario", zx + 5, zy + 35 )
   self:drawBar()
   end
 
 function setupWindow:update(dt)
-	Window.update(self,dt)
-  	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+  Window.update(self,dt)
+  end
+
+function setupWindow:click(x,y)
+  Window.click(self,x,y)
+  for i=1,#self.widgets do 
+	if self.widgets[i]:isInside(x,y) then 
+		self.widgets[i]:select() 
+	else 
+		self.widgets[i]:unselect() 
+	end 
+  end 
   end
 
 --
@@ -2010,12 +2088,14 @@ function doDialog( text )
 
 -- capture text input (for text search)
 function love.textinput(t)
-	if (not searchActive) and (not dialogActive) then return end
+	if (not searchActive) and (not dialogActive) and (not textActive) then return end
 	if ignoreLastChar then ignoreLastChar = false; return end
 	if searchActive then
 		text = text .. t
-	else
+	elseif dialogActive then
 		dialog = dialog .. t
+	else
+		textActive( t )
 	end
 	end
 
