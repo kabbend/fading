@@ -312,11 +312,22 @@ function lineWidget:new( t )
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
+  new.cursorTimer = 0
+  new.cursorTimerLimit = 0.7
+  new.cursorPosition = 0
+  new.cursorDraw = false
+  if new.text then new:setCursorPosition() end
   return new
   end
 
-function lineWidget:select() self.selected = true; textActive = function(t) self.text = self.text .. t end end
+function lineWidget:select() self.selected = true; textActive = function(t) self.text = self.text .. t ; self:setCursorPosition() end end
 function lineWidget:unselect() if self.selected then self.selected = false; textActive = false; end end
+
+function lineWidget:setCursorPosition()
+  self.cursorPosition = fontRound:getWidth(self.text) 
+  end
+
+function lineWidget:click() end
 
 function lineWidget:draw()
   local x,y = self.x, self.y
@@ -325,6 +336,8 @@ function lineWidget:draw()
   if self.selected then
     love.graphics.setColor(255,255,255)
     love.graphics.rectangle("fill",x+zx,y+zy,self.w,self.h)
+    love.graphics.setColor(0,0,0)
+    if self.cursorDraw then love.graphics.line(self.cursorPosition + x + zx, y+zy, self.cursorPosition + x + zx, y+zy+self.h) end
   end
   love.graphics.setColor(0,0,0)
   love.graphics.setFont( fontRound )
@@ -332,9 +345,10 @@ function lineWidget:draw()
   end
 
 function lineWidget:update(dt)
-  end
-
-function lineWidget:click(x,y)
+  if self.selected then 
+    self.cursorTimer = self.cursorTimer + dt
+    if self.cursorTimer > self.cursorTimerLimit then self.cursorDraw = not self.cursorDraw ; self.cursorTimer = 0 end
+  end 
   end
 
 function lineWidget:isInside(x,y)
@@ -563,6 +577,10 @@ function Window:click(x,y)
 	end
 
 function Window:update(dt) 
+
+	-- update widgets widget
+	for i=1,#self.widgets do self.widgets[i]:update(dt) end
+
 	if self.markForSink then 
 			self.markForSinkTimer = 0
 			self.sinkSteps = self.sinkSteps + 1
@@ -1482,6 +1500,9 @@ function setupWindow:draw()
 
 function setupWindow:update(dt)
   Window.update(self,dt)
+  self.text1:update(dt)
+  self.text2:update(dt)
+  self.text3:update(dt)
   end
 
 function setupWindow:click(x,y)
