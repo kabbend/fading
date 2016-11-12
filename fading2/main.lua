@@ -303,7 +303,67 @@ function Snapshot:new( t ) -- create from filename or file object (one mandatory
   return new
 end
 
+--
+-- buttonWidget class
+--
+buttonWidget = { x=0, y=0,	-- relative to the parent object
+		 w=40, h=20,
+	 	 parent = nil, text = "button",
+		 onClick = nil
+	       }
+
+function buttonWidget:new( t ) 
+  local new = t or {}
+  setmetatable( new , self )
+  self.__index = self
+  new.clickTimer = 0
+  new.clickTimerLimit = 2
+  new.clickDraw = false
+  return new
+  end
+
+function buttonWidget:click() 
+	if self.onClick then self.onClick() end 
+	self.clickDraw = true	
+	end
+
+function buttonWidget:draw()
+  local x,y = self.x, self.y
+  local zx , zy = 0 , 0
+  if self.parent then zx, zy = self.parent:WtoS(0,0) end
+  if self.clickDraw then
+    love.graphics.setColor(255,255,255,80)
+    love.graphics.rectangle("fill",x+zx-10,y+zy-10,self.w+20,self.h+20)
+  end
+  love.graphics.setColor(color.darkgrey)
+  love.graphics.rectangle("fill",x+zx,y+zy,self.w,self.h,5,5)
+  love.graphics.setColor(color.white)
+  love.graphics.setFont( fontRound )
+  local margin = (self.w - fontRound:getWidth( self.text ))/2
+  love.graphics.print(self.text,x+zx+margin,y+zy)
+  end
+
+function buttonWidget:update(dt) 
+	if self.clickDraw then
+	  self.clickTimer = self.clickTimer + dt
+	  if self.clickTimer > self.clickTimerLimit then self.clickDraw = false; self.clickTimer = 0 end
+	end
+	end
+
+function buttonWidget:isInside(x,y)
+  local lx,ly = self.x, self.y
+  local zx , zy = 0 , 0
+  if self.parent then zx, zy = self.parent:WtoS(0,0) end
+  if x > lx + zx and x < lx + zx + self.w and 
+	y > ly + zy and y < ly + zy + self.h then
+	return true
+  end 
+  return false
+  end
+
+--
 -- lineWidget class
+--
 lineWidget = { 	x=0, y=0,	-- relative to the parent object
 		w=200, h=20,
 	 	parent = nil, selected = false,
@@ -315,7 +375,7 @@ function lineWidget:new( t )
   setmetatable( new , self )
   self.__index = self
   new.cursorTimer = 0
-  new.cursorTimerLimit = 0.7
+  new.cursorTimerLimit = 2 
   new.cursorPosition = 0
   new.cursorDraw = false
   if new.text then new:setCursorPosition() end
@@ -356,7 +416,9 @@ function lineWidget:draw()
     love.graphics.setColor(255,255,255)
     love.graphics.rectangle("fill",x+zx,y+zy,self.w,self.h)
     love.graphics.setColor(0,0,0)
-    if self.cursorDraw then love.graphics.line(self.cursorPosition + x + zx, y+zy, self.cursorPosition + x + zx, y+zy+self.h) end
+    if self.cursorDraw then 
+	love.graphics.line(self.cursorPosition + x + zx, y+zy, self.cursorPosition + x + zx, y+zy+self.h) 
+    end
   end
   love.graphics.setColor(0,0,0)
   love.graphics.setFont( fontRound )
@@ -1283,7 +1345,7 @@ function decideOpenWindow(window,cx,cy,w)
 
 function decideCloseWindow(window,cx,cy,w)
 	if window.minimized or not layout:getDisplay(window) or window.alwaysVisible or 
-		window.class == "dialog" or window.class == "help" then
+		window.class == "dialog" or window.class == "help" or window.class == "setup" then
 	  -- nothing to do 
 	else
 		window:sink(cx,cy,w)
@@ -1499,11 +1561,21 @@ function setupWindow:new( t ) -- create from w, h, x, y
   new.text1 = lineWidget:new{ x = 120, y = 5 , w = 450, text = baseDirectory }
   new.text2 = lineWidget:new{ x = 120, y = 35, w = 450, text = fadingDirectory }
   new.text3 = lineWidget:new{ x = 120, y = 65, w = 150, text = serverport }
+  new.save  = buttonWidget:new{ x = 400, y = new.h - 35, w = 50, text = "Save", onClick = setupSave() }
+  new.load  = buttonWidget:new{ x = 470, y = new.h - 35, w = 50, text = "Load", onClick = setupLoad() }
   new:addWidget(new.text1)
   new:addWidget(new.text2)
   new:addWidget(new.text3)
+  new:addWidget(new.save)
+  new:addWidget(new.load)
   return new
 end
+
+function setupSave()
+  end
+
+function setupLoad()
+  end
 
 function setupWindow:draw()
   self:drawBack()
@@ -1517,22 +1589,13 @@ function setupWindow:draw()
   self:drawBar()
   end
 
-function setupWindow:update(dt)
-  Window.update(self,dt)
-  self.text1:update(dt)
-  self.text2:update(dt)
-  self.text3:update(dt)
-  end
-
 function setupWindow:click(x,y)
   Window.click(self,x,y)
-  for i=1,#self.widgets do 
-	if self.widgets[i]:isInside(x,y) then 
-		self.widgets[i]:select() 
-	else 
-		self.widgets[i]:unselect() 
-	end 
-  end 
+  if self.text1:isInside(x,y) then self.text1:select() else self.text1:unselect() end 
+  if self.text2:isInside(x,y) then self.text2:select() else self.text2:unselect() end 
+  if self.text3:isInside(x,y) then self.text3:select() else self.text3:unselect() end 
+  if self.load:isInside(x,y) then self.load:click() end 
+  if self.save:isInside(x,y) then self.save:click() end 
   end
 
 --
@@ -2581,7 +2644,7 @@ function love.draw()
   love.graphics.setColor(255,255,255)
   love.graphics.draw( backgroundImage , 0, 0, 0, W / backgroundImage:getWidth(), H / backgroundImage:getHeight() )
 
-  love.graphics.setLineWidth(3)
+  love.graphics.setLineWidth(2)
 
 --[[
   -- display global dangerosity
@@ -3875,7 +3938,7 @@ function love.load( args )
     generateUID = UIDiterator()
 
     -- create window for data setup. This might be the first window to display
-    dataWindow = setupWindow:new{ w=600, h=400, x=W/2,y=H/2-100} 
+    dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100} 
     if baseDirectory and baseDirectory ~= "" then
       layout:addWindow( dataWindow , false )
       init()
