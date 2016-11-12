@@ -1619,6 +1619,9 @@ function snapshotBar:draw()
 	end
   end
  
+   -- print bar
+   self:drawBar()
+
    -- print over text eventually
  
    love.graphics.setFont(fontRound)
@@ -1632,16 +1635,26 @@ function snapshotBar:draw()
     	if index >= 1 and index <= #snapshots[currentSnap].s then
 		if currentSnap == 3 then
 			local size = fontRound:getWidth( RpgClasses[index].class )
+			local px = x + 5
+			if px + size > W then px = px - size end
    			love.graphics.setColor(255,255,255)
-			love.graphics.rectangle("fill",x,y,size,fontRound:getHeight())
+			love.graphics.rectangle("fill",px,y-20,size,fontRound:getHeight())
    			love.graphics.setColor(0,0,0)
-			love.graphics.print( RpgClasses[index].class , x, y )
+			love.graphics.print( RpgClasses[index].class , px, y-20 )
+		else
+			if snapshots[currentSnap].s[index].baseFilename then
+			  local size = fontRound:getWidth( snapshots[currentSnap].s[index].baseFilename )
+			  local px = x + 5
+			  if px + size > W then px = px - size end
+   			  love.graphics.setColor(255,255,255)
+			  love.graphics.rectangle("fill",px,y-20,size,fontRound:getHeight())
+   			  love.graphics.setColor(0,0,0)
+			  love.graphics.print( snapshots[currentSnap].s[index].baseFilename, px, y-20 )
+			end
 		end
 	end
    end
 
-   -- print bar
-   self:drawBar()
    self:drawResize()
 
 end
