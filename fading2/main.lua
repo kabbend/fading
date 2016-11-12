@@ -1461,8 +1461,10 @@ function setupWindow:new( t ) -- create from w, h, x, y
   self.__index = self
   new.text1 = lineWidget:new{ x = 120, y = 5 , w = 450, text = baseDirectory }
   new.text2 = lineWidget:new{ x = 120, y = 35, w = 450, text = fadingDirectory }
+  new.text3 = lineWidget:new{ x = 120, y = 65, w = 150, text = serverport }
   new:addWidget(new.text1)
   new:addWidget(new.text2)
+  new:addWidget(new.text3)
   return new
 end
 
@@ -1474,6 +1476,7 @@ function setupWindow:draw()
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
   love.graphics.print("Base directory", zx + 5, zy + 5 )
   love.graphics.print("Scenario", zx + 5, zy + 35 )
+  love.graphics.print("Server IP port", zx + 5, zy + 65 )
   self:drawBar()
   end
 
@@ -2202,6 +2205,12 @@ function love.update(dt)
 	end
 --]]
 
+	-- update all windows
+	layout:update(dt)
+
+	-- all code below does not take place until the environement is fully initialized (ie baseDirectory is defined)
+	if not initialized then return end
+
 	-- listening to anyone calling on our port 
 	local tcp = server:accept()
 	if tcp then
@@ -2328,9 +2337,6 @@ function love.update(dt)
   	--view:update(dt)
   	--yui.update({view})
 
-	-- restore pawn color when needed
-	-- move pawns progressively
-	layout:update(dt)
 
   	-- store current mouse position in arrow mode
   	if arrowMode then 
@@ -2580,6 +2586,9 @@ function love.draw()
 
   -- draw windows
   layout:draw() 
+
+  -- all code below does not take place until the environement is fully initialized (ie baseDirectory is defined)
+  if not initialized then return end
 
   -- drag & drop
   if dragMove then
@@ -3221,6 +3230,8 @@ end
 
 function love.keypressed( key, isrepeat )
 
+if not initialized then return end
+
 -- keys applicable in any context
 -- we expect:
 -- 'lctrl + d' : open dialog window
@@ -3458,7 +3469,7 @@ function leave()
 	end
 
 -- load initial data from file at startup
-function loadStartup( t )
+function parseDirectory( t )
 
     -- call with kind == "all" or "pawn", and path
     local path = assert(t.path)
@@ -3589,6 +3600,7 @@ function loadStartup( t )
 end
 
 
+--[[
 options = { { opcode="-s", longopcode="--scenario", mandatory=false, varname="fadingDirectory", value=true, default="." , 
 		desc="Path to scenario directory" },
 	    { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false , 
@@ -3601,8 +3613,132 @@ options = { { opcode="-s", longopcode="--scenario", mandatory=false, varname="fa
 		desc="Specify server local port, by default 12345" },
 	    { opcode="-y", longopcode="--binary", mandatory=false, varname="binary", value=false, default=false,
 		desc="Systematically send binary files to the projector, instead of filesystem references" },
-	    { opcode="", mandatory=true, varname="baseDirectory" , desc="Path to global directory"} }
-	    
+	    { opcode="", mandatory=true, varname="baseDirectory" , desc="Path to global directory"} }	    
+
+--]]
+
+
+function init() 
+
+    io.write("base directory   : " .. baseDirectory .. "\n") ; addMessage("base directory : " .. baseDirectory .. "\n")
+    io.write("fading directory : " .. fadingDirectory .. "\n") ; addMessage("fading directory : " .. fadingDirectory .. "\n")
+
+    -- create socket and listen to any client
+    server = socket.tcp()
+    server:settimeout(0)
+    local success, msg = server:bind(address, serverport)
+    io.write("server local bind to " .. tostring(address) .. ":" .. tostring(serverport) .. ":" .. tostring(success) .. "," .. tostring(msg) .. "\n")
+    if not success then leave(); love.event.quit() end
+    server:listen(10)
+
+    tcpbin = socket.tcp()
+    tcpbin:bind(address, serverport+1)
+    tcpbin:listen(1)
+
+    -- initialize class template list  and dropdown list (opt{}) at the same time
+    -- later on, we might attach some images to these classes if we find them
+    -- try 2 locations to find data. Merge results if 2 files 
+    opt, RpgClasses = loadClasses{ baseDirectory .. sep .. "data" , 
+				   baseDirectory .. sep .. fadingDirectory .. sep .. "data" } 
+
+    if not opt or #opt == 0 then error("sorry, need at least one data file") end
+
+    local current_class = opt[1]
+
+
+    -- create view structure
+
+    view = yui.View(0, 0, vieww, viewh, {
+        margin_top = 5,
+        margin_left = 5,
+	yui.Stack({name="s",
+            yui.Flow({name="t",
+                yui.HorizontalSpacing({w=10}),
+                yui.Button({name="nextround", text="  Next Round  ", size=size, black = true, 
+			onClick = function(self) if self.button.black then return end 
+				 		 if checkForNextRound() then nextRound() end end }),
+                yui.Text({text="Round #", size=size, bold=1, center = 1}),
+                yui.Text({name="round", text=tostring(roundNumber), size=32, w = 50, bold=1, color={0,0,0} }),
+                yui.FlatDropdown({options = opt, size=size-2, onSelect = function(self, option) current_class = option end}),
+                yui.HorizontalSpacing({w=10}),
+                yui.Button({text=" Create ", size=size, 
+			onClick = function(self) return generateNewPNJ(current_class) and sortAndDisplayPNJ() end }),
+                yui.HorizontalSpacing({w=50}),
+                yui.Button({name = "rollatt", text="     Roll Attack     ", size=size, black = true,
+			onClick = function(self) if self.button.black then return end rollAttack("attack") end }), 
+		yui.HorizontalSpacing({w=10}),
+                yui.Button({name = "rollarm", text="     Roll  Armor     ", size=size, black = true,
+			onClick = function(self) if self.button.black then return end rollAttack("armor") end }),
+                yui.HorizontalSpacing({w=150}),
+                yui.Button({name="cleanup", text="       Cleanup       ", size=size, 
+			onClick = function(self) return removeDeadPNJ() and sortAndDisplayPNJ() end }),
+                --yui.HorizontalSpacing({w=270}),
+                --yui.Button({text="    Quit    ", size=size, onClick = function(self) leave(); love.event.quit() end }),
+              }), -- end of Flow
+            createPNJGUIFrame(),
+           }) -- end of Stack
+        --})
+      })
+
+
+    nextButton = view.s.t.nextround
+    attButton = view.s.t.rollatt
+    armButton = view.s.t.rollarm
+    clnButton = view.s.t.cleanup
+
+    nextButton.button.black = true
+    attButton.button.black = true
+    armButton.button.black = true
+    clnButton.button.black = true
+    
+    -- create PJ automatically (1 instance of each!)
+    -- later on, an image might be attached to them, if we find one
+    createPJ()
+
+    -- create a new empty atlas (an array of maps)
+    atlas = Atlas.new()
+
+    -- load various data files
+    parseDirectory{ path = baseDirectory .. sep .. fadingDirectory }
+    parseDirectory{ path = baseDirectory .. sep .. "pawns" , kind = "pawns" }
+
+    -- create basic windows
+    combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(intW), y=Window:cy(intW)}
+    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*iconSize - snapshotSize - 2*intW - H1 - 2 ) }
+    snapshotWindow = snapshotBar:new{ w=W-2*intW, h=snapshotSize+2, x=Window:cx(intW), y=Window:cy(H-snapshotSize-2*iconSize) }
+    storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = storyImage, w=storyImage:getWidth(), h=storyImage:getHeight() , x=-1220, y=400}
+    actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1220,y=700} 
+    rollWindow = iconRollWindow:new{ mag=3.5, image = dicesImage, w=dicesImage:getWidth(), h=dicesImage:getHeight(), x=-2074,y=133} 
+    notifWindow = notificationWindow:new{ w=300, h=100, x=-W/2,y=H/2-50} 
+    dialogWindow = Dialog:new{w=800,h=220,x=400,y=110}
+    helpWindow = Help:new{w=1000,h=480,x=500,y=240}
+  
+    layout:addWindow( combatWindow , false ) -- do not display them yet
+    layout:addWindow( pWindow , false )
+    layout:addWindow( snapshotWindow , false )
+    layout:addWindow( notifWindow , false )
+    layout:addWindow( dialogWindow , false )
+    layout:addWindow( helpWindow , false ) 
+
+    layout:addWindow( storyWindow , true )
+    layout:addWindow( actionWindow , true )
+    layout:addWindow( rollWindow , true )
+
+    -- check if we have a scenario loaded. Reference it for direct access. Update size and mag factor to fit screen
+    scenarioWindow = atlas:getScenario()
+    if scenarioWindow then
+      local w,h = scenarioWindow.w, scenarioWindow.h
+      local f1,f2 = w/WC, h/HC
+      scenarioWindow.mag = math.max(f1,f2)
+      scenarioWindow.x, scenarioWindow.y = scenarioWindow.w/2, scenarioWindow.h/2
+      local zx,zy = scenarioWindow:WtoS(0,0)
+      scenarioWindow:translate(0,intW+iconSize-zy)
+      scenarioWindow.startupX, scenarioWindow.startupY, scenarioWindow.startupMag = scenarioWindow.x, scenarioWindow.y, scenarioWindow.mag
+    end
+ 
+end
+
+
 --
 -- Main function
 -- Load PNJ class file, print (empty) GUI, then go on
@@ -3693,127 +3829,19 @@ function love.load( args )
     	    sep = '\\'
     end
 
-    io.write("base directory   : |" .. baseDirectory .. "|\n") ; addMessage("base directory : " .. baseDirectory .. "\n")
-    io.write("fading directory : |" .. fadingDirectory .. "|\n") ; addMessage("fading directory : " .. fadingDirectory .. "\n")
-
-    -- initialize class template list  and dropdown list (opt{}) at the same time
-    -- later on, we might attach some images to these classes if we find them
-    -- try 2 locations to find data. Merge results if 2 files 
-    opt, RpgClasses = loadClasses{ baseDirectory .. sep .. "data" , 
-				   baseDirectory .. sep .. fadingDirectory .. sep .. "data" } 
-
-    if not opt or #opt == 0 then error("sorry, need at least one data file") end
-
-    local current_class = opt[1]
-
-
-    -- create view structure
-
-    view = yui.View(0, 0, vieww, viewh, {
-        margin_top = 5,
-        margin_left = 5,
-	yui.Stack({name="s",
-            yui.Flow({name="t",
-                yui.HorizontalSpacing({w=10}),
-                yui.Button({name="nextround", text="  Next Round  ", size=size, black = true, 
-			onClick = function(self) if self.button.black then return end 
-				 		 if checkForNextRound() then nextRound() end end }),
-                yui.Text({text="Round #", size=size, bold=1, center = 1}),
-                yui.Text({name="round", text=tostring(roundNumber), size=32, w = 50, bold=1, color={0,0,0} }),
-                yui.FlatDropdown({options = opt, size=size-2, onSelect = function(self, option) current_class = option end}),
-                yui.HorizontalSpacing({w=10}),
-                yui.Button({text=" Create ", size=size, 
-			onClick = function(self) return generateNewPNJ(current_class) and sortAndDisplayPNJ() end }),
-                yui.HorizontalSpacing({w=50}),
-                yui.Button({name = "rollatt", text="     Roll Attack     ", size=size, black = true,
-			onClick = function(self) if self.button.black then return end rollAttack("attack") end }), 
-		yui.HorizontalSpacing({w=10}),
-                yui.Button({name = "rollarm", text="     Roll  Armor     ", size=size, black = true,
-			onClick = function(self) if self.button.black then return end rollAttack("armor") end }),
-                yui.HorizontalSpacing({w=150}),
-                yui.Button({name="cleanup", text="       Cleanup       ", size=size, 
-			onClick = function(self) return removeDeadPNJ() and sortAndDisplayPNJ() end }),
-                --yui.HorizontalSpacing({w=270}),
-                --yui.Button({text="    Quit    ", size=size, onClick = function(self) leave(); love.event.quit() end }),
-              }), -- end of Flow
-            createPNJGUIFrame(),
-           }) -- end of Stack
-        --})
-      })
-
-
-    nextButton = view.s.t.nextround
-    attButton = view.s.t.rollatt
-    armButton = view.s.t.rollarm
-    clnButton = view.s.t.cleanup
-
-    nextButton.button.black = true
-    attButton.button.black = true
-    armButton.button.black = true
-    clnButton.button.black = true
-    
-    -- create socket and listen to any client
-    server = socket.tcp()
-    server:settimeout(0)
-    local success, msg = server:bind(address, serverport)
-    io.write("server local bind to " .. tostring(address) .. ":" .. tostring(serverport) .. ":" .. tostring(success) .. "," .. tostring(msg) .. "\n")
-    if not success then leave(); love.event.quit() end
-    server:listen(10)
-
-    tcpbin = socket.tcp()
-    tcpbin:bind(address, serverport+1)
-    tcpbin:listen(1)
-
     -- some initialization stuff
     generateUID = UIDiterator()
 
-    -- create PJ automatically (1 instance of each!)
-    -- later on, an image might be attached to them, if we find one
-    createPJ()
-
-    -- create a new empty atlas (an array of maps)
-    atlas = Atlas.new()
-
-    -- load various data files
-    loadStartup{ path = baseDirectory .. sep .. fadingDirectory }
-    loadStartup{ path = baseDirectory .. sep .. "pawns" , kind = "pawns" }
-
-    -- create basic windows
-    combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(intW), y=Window:cy(intW)}
-    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*iconSize - snapshotSize - 2*intW - H1 - 2 ) }
-    snapshotWindow = snapshotBar:new{ w=W-2*intW, h=snapshotSize+2, x=Window:cx(intW), y=Window:cy(H-snapshotSize-2*iconSize) }
-    storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = storyImage, w=storyImage:getWidth(), h=storyImage:getHeight() , x=-1220, y=400}
-    actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1220,y=700} 
-    rollWindow = iconRollWindow:new{ mag=3.5, image = dicesImage, w=dicesImage:getWidth(), h=dicesImage:getHeight(), x=-2074,y=133} 
-    notifWindow = notificationWindow:new{ w=300, h=100, x=-W/2,y=H/2-50} 
+    -- create window for data setup. This might be the first window to display
     dataWindow = setupWindow:new{ w=600, h=400, x=W/2,y=H/2-100} 
-    dialogWindow = Dialog:new{w=800,h=220,x=400,y=110}
-    helpWindow = Help:new{w=1000,h=480,x=500,y=240}
-  
-    layout:addWindow( combatWindow , false ) -- do not display them yet
-    layout:addWindow( pWindow , false )
-    layout:addWindow( snapshotWindow , false )
-    layout:addWindow( notifWindow , false )
-    layout:addWindow( dataWindow , false )
-    layout:addWindow( dialogWindow , false )
-    layout:addWindow( helpWindow , false ) 
-
-    layout:addWindow( storyWindow , true )
-    layout:addWindow( actionWindow , true )
-    layout:addWindow( rollWindow , true )
-
-    -- check if we have a scenario loaded. Reference it for direct access. Update size and mag factor to fit screen
-    scenarioWindow = atlas:getScenario()
-    if scenarioWindow then
-      local w,h = scenarioWindow.w, scenarioWindow.h
-      local f1,f2 = w/WC, h/HC
-      scenarioWindow.mag = math.max(f1,f2)
-      scenarioWindow.x, scenarioWindow.y = scenarioWindow.w/2, scenarioWindow.h/2
-      local zx,zy = scenarioWindow:WtoS(0,0)
-      scenarioWindow:translate(0,intW+iconSize-zy)
-      scenarioWindow.startupX, scenarioWindow.startupY, scenarioWindow.startupMag = scenarioWindow.x, scenarioWindow.y, scenarioWindow.mag
+    if baseDirectory and baseDirectory ~= "" then
+      layout:addWindow( dataWindow , false )
+      init()
+      initialized = true
+    else
+      layout:addWindow( dataWindow , true )
+      initialized = false
     end
- 
-end
 
+    end
 
