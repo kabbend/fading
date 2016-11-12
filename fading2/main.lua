@@ -1458,7 +1458,7 @@ function setupWindow:new( t ) -- create from w, h, x, y
   setmetatable( new , self )
   self.__index = self
   new.text1 = lineWidget:new{ x = 120, y = 5 , w = 450, text = baseDirectory }
-  new.text2 = lineWidget:new{ x = 120, y = 35, w = 450, text = scenarioDirectory }
+  new.text2 = lineWidget:new{ x = 120, y = 35, w = 450, text = fadingDirectory }
   new:addWidget(new.text1)
   new:addWidget(new.text2)
   return new
