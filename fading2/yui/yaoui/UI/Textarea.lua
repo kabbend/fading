@@ -465,11 +465,12 @@ function Textarea:draw()
         self:basePostDraw()
         love.graphics.setStencil()
     else
-        love.graphics.stencil(function() love.graphics.rectangle('fill', self.x, self.y, self.w, self.h) end)
-        love.graphics.setStencilTest(true)
+        --love.graphics.stencil(function() love.graphics.rectangle('fill', self.x, self.y, self.w, self.h) end)
+        love.graphics.rectangle('fill', self.x, self.y, self.w, self.h)
+        --love.graphics.setStencilTest(true)
         self:basePreDraw()
         self:basePostDraw()
-        love.graphics.setStencilTest(false)
+        --love.graphics.setStencilTest(false)
     end
 end
 

@@ -1387,6 +1387,32 @@ function projectorWindow:drop(o)
 	end
 
 --
+-- setupWindow class
+--
+setupWindow = Window:new{ class = "setup" , title = "Setup information"  }
+
+function setupWindow:new( t ) -- create from w, h, x, y
+  local new = t or {}
+  setmetatable( new , self )
+  self.__index = self
+  return new
+end
+
+function setupWindow:draw()
+  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+  self:drawBack()
+  love.graphics.setFont(fontRound)
+  love.graphics.setColor(0,0,0)
+  love.graphics.print("Base Directory:",zx+5,zy+5)
+  self:drawBar()
+  end
+
+function setupWindow:update(dt)
+	Window.update(self,dt)
+  	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+  end
+
+--
 -- Combat class
 -- a Combat is a window which displays PNJ list and buttons 
 --
@@ -1825,6 +1851,10 @@ function mainLayout:getDisplay( window ) if self.windows[window] then return sel
 function mainLayout:toggleDisplay() 
 	self.globalDisplay = not self.globalDisplay 
  	if not self.globalDisplay then self:setFocus(nil) end -- no more window focus	
+	end
+
+function mainLayout:toggleWindow(w)
+	self.windows[w].d = not self.windows[w].d
 	end
 
 function mainLayout:hideAll()
@@ -3112,29 +3142,20 @@ function love.keypressed( key, isrepeat )
 -- keys applicable in any context
 -- we expect:
 -- 'lctrl + d' : open dialog window
+-- 'lctrl + f' : open setup window
 -- 'lctrl + h' : open help window
 -- 'lctrl + tab' : give focus to the next window if any
 -- 'escape' : hide or restore all windows 
 if key == "d" and love.keyboard.isDown("lctrl") then
-  if dialogWindow then 
-	layout:setDisplay( dialogWindow, true )
-	layout:setFocus( dialogWindow ) 
-  else
-	dialogWindow = Dialog:new{w=800,h=220,x=400,y=110}
-	layout:addWindow( dialogWindow , true ) -- display it. Set focus
-	layout:setFocus( dialogWindow ) 
-  end
+  layout:toggleWindow( dialogWindow )
   return
 end
-if key == "h" and love.keyboard.isDown("lctrl") then
-  if helpWindow then 
-	layout:setDisplay( helpWindow, true )
-	layout:setFocus( helpWindow ) 
-  else
-	helpWindow = Help:new{w=1000,h=480,x=500,y=240}
-	layout:addWindow( helpWindow , true ) -- display it. Set focus
-	layout:setFocus( helpWindow ) 
-  end
+if key == "h" and love.keyboard.isDown("lctrl") then 
+  layout:toggleWindow( helpWindow )
+  return
+end
+if key == "f" and love.keyboard.isDown("lctrl") then 
+  layout:toggleWindow( dataWindow )
   return
 end
 if key == "escape" then
@@ -3679,11 +3700,17 @@ function love.load( args )
     actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1220,y=700} 
     rollWindow = iconRollWindow:new{ mag=3.5, image = dicesImage, w=dicesImage:getWidth(), h=dicesImage:getHeight(), x=-2074,y=133} 
     notifWindow = notificationWindow:new{ w=300, h=100, x=-W/2,y=H/2-50} 
+    dataWindow = setupWindow:new{ w=600, h=400, x=W/2,y=H/2-100} 
+    dialogWindow = Dialog:new{w=800,h=220,x=400,y=110}
+    helpWindow = Help:new{w=1000,h=480,x=500,y=240}
   
     layout:addWindow( combatWindow , false ) -- do not display them yet
     layout:addWindow( pWindow , false )
     layout:addWindow( snapshotWindow , false )
     layout:addWindow( notifWindow , false )
+    layout:addWindow( dataWindow , false )
+    layout:addWindow( dialogWindow , false )
+    layout:addWindow( helpWindow , false ) 
 
     layout:addWindow( storyWindow , true )
     layout:addWindow( actionWindow , true )

@@ -392,20 +392,20 @@ YaouiTheme.FlatTextinput.draw = function(self)
             love.graphics.setColor(unpack(self.yui.Theme.colors.text_light))
             if love_version == '0.9.1' or love_version == '0.9.2' then
                 for i, _ in ipairs(self.selection_positions) do
-                    love.graphics.setStencil(function() 
+                    --love.graphics.setStencil(function() 
                         love.graphics.rectangle('fill', self.selection_positions[i].x, self.selection_positions[i].y, self.selection_sizes[i].w, self.selection_sizes[i].h)
-                    end)
+                    --end)
                     self.text:draw()
-                    love.graphics.setStencil()
+                    --love.graphics.setStencil()
                 end
             else
                 for i, _ in ipairs(self.selection_positions) do
-                    love.graphics.stencil(function() 
+                    --love.graphics.stencil(function() 
                         love.graphics.rectangle('fill', self.selection_positions[i].x, self.selection_positions[i].y, self.selection_sizes[i].w, self.selection_sizes[i].h)
-                    end)
-                    love.graphics.setStencilTest(true)
+                    --end)
+                    --love.graphics.setStencilTest(true)
                     self.text:draw()
-                    love.graphics.setStencilTest(false)
+                    --love.graphics.setStencilTest(false)
                 end
             end
         end
@@ -684,12 +684,12 @@ YaouiTheme.Textinput.draw = function(self)
                 end
             else
                 for i, _ in ipairs(self.selection_positions) do
-                    love.graphics.stencil(function() 
+                    --love.graphics.stencil(function() 
                         love.graphics.rectangle('fill', self.selection_positions[i].x, self.selection_positions[i].y, self.selection_sizes[i].w, self.selection_sizes[i].h)
-                    end)
-                    love.graphics.setStencilTest(true)
+                    --end)
+                    --love.graphics.setStencilTest(true)
                     self.text:draw()
-                    love.graphics.setStencilTest(false)
+                    --love.graphics.setStencilTest(false)
                 end
             end
         end
