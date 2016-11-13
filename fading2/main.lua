@@ -119,7 +119,9 @@ ack			= false			-- automatic acknowledge when message received ?
 -- current text input
 textActiveCallback		= nil			-- if set, function to call with keyboard input (argument: one char)
 textActiveBackspaceCallback	= nil			-- if set, function to call on a backspace (suppress char)
-textActivePaste			= nil			-- if set, function to call on a paste (argument: string)
+textActivePasteCallback		= nil			-- if set, function to call on a paste (argument: string)
+textActiveLeftCallback		= nil			
+textActiveRightCallback		= nil			
 
 -- Help stuff
 HelpLog = {
@@ -376,20 +378,46 @@ function lineWidget:new( t )
   new.cursorTimerLimit = 0.5
   new.cursorPosition = 0
   new.cursorDraw = false
-  if new.text then new:setCursorPosition() end
+  -- text is splitted in 2, so we can place cursor
+  new.head = t.text or ""
+  new.trail = ""
+  new:setCursorPosition() 
   return new
   end
 
 function lineWidget:select() 
 	self.selected = true; 
 	self.cursorTimer = 0
-	textActiveCallback = function(t) self.text = self.text .. t ; self:setCursorPosition() end 
+
+	textActiveCallback = function(t) 
+		self.head = self.head .. t ; self:setCursorPosition() 
+		end 
+
 	textActiveBackspaceCallback = function()  
-         	local byteoffset = utf8.offset(self.text, -1)
-         	if byteoffset then self.text = string.sub(self.text, 1, byteoffset - 1) end 
+         	local byteoffset = utf8.offset(self.head, -1)
+         	if byteoffset then self.head = string.sub(self.head, 1, byteoffset - 1) end 
 		self:setCursorPosition()
 		end
-	textActivePasteCallback = function(s) end 
+
+	textActivePasteCallback = function(s) 
+		end 
+
+	textActiveLeftCallback = function() 
+		if self.head == "" then return end
+		local c = string.sub(self.head,-1)
+		self.head = string.sub(self.head,1,string.len(self.head)-1)
+		self.trail = c .. self.trail
+		self:setCursorPosition()
+		end 
+
+	textActiveRightCallback = function() 
+		if self.trail == "" then return end
+		local c = string.sub(self.trail,1,1)
+		self.trail = string.sub(self.trail,2)
+		self.head = self.head .. c
+		self:setCursorPosition()
+		end 
+
 	end
 
 function lineWidget:unselect() 
@@ -398,12 +426,16 @@ function lineWidget:unselect()
 		textActiveCallback = nil 
 		textActiveBackspaceCallback = nil 
 		textActivePasteCallback = nil 
+		textActiveLeftCallback = nil 
+		textActiveRightCallback = nil 
 	end 
 	end
 
 function lineWidget:setCursorPosition()
-  self.cursorPosition = fontRound:getWidth(self.text) 
+  self.cursorPosition = fontRound:getWidth(self.head) 
   end
+
+function lineWidget:getText() return self.head .. self.trail end
 
 function lineWidget:click() self:select() end
 
@@ -421,7 +453,7 @@ function lineWidget:draw()
   end
   love.graphics.setColor(0,0,0)
   love.graphics.setFont( fontRound )
-  love.graphics.print(self.text,x+zx,y+zy)
+  love.graphics.print(self.head..self.trail,x+zx,y+zy)
   end
 
 function lineWidget:update(dt)
@@ -1563,9 +1595,9 @@ function setupWindow:new( t ) -- create from w, h, x, y
 end
 
 function setupWindow:setupSave()
-  local t1 = self.text1.text or ""
-  local t2 = self.text2.text or ""
-  local t3 = self.text3.text or ""
+  local t1 = self.text1:getText() or ""
+  local t2 = self.text2:getText() or ""
+  local t3 = self.text3:getText() or ""
   local file, msg, code = io.open("fading2/fsconf.lua",'w')
   if not file then io.write("cannot write to conf file: " .. tostring(msg) .. "\n") ; return end
   file:write( "-- fading suns conf file\n")
@@ -3348,6 +3380,8 @@ end
 function love.keypressed( key, isrepeat )
 
 if textActiveBackspaceCallback and key == "backspace" then textActiveBackspaceCallback(); return end
+if textActiveLeftCallback and key == "left" then textActiveLeftCallback(); return end
+if textActiveRightCallback and key == "right" then textActiveRightCallback(); return end
 
 if not initialized then return end
 
