@@ -309,7 +309,7 @@ end
 -- buttonWidget class
 --
 buttonWidget = { x=0, y=0,	-- relative to the parent object
-		 w=40, h=20,
+		 w=60, h=30,
 	 	 parent = nil, text = "button",
 		 onClick = nil,
   		 clickTimer = 0, clickTimerLimit = 0.3, clickDraw = false,
@@ -335,12 +335,13 @@ function buttonWidget:draw()
     love.graphics.setColor(255,255,255,80)
     love.graphics.rectangle("fill",x+zx-10,y+zy-10,self.w+20,self.h+20)
   end
-  love.graphics.setColor(color.darkgrey)
-  love.graphics.rectangle("fill",x+zx,y+zy,self.w,self.h,5,5)
+  love.graphics.setColor(color.darkblue)
+  love.graphics.rectangle("fill",x+zx,y+zy,self.w,self.h,3,3)
   love.graphics.setColor(color.white)
-  love.graphics.setFont( fontRound )
-  local margin = (self.w - fontRound:getWidth( self.text ))/2
-  love.graphics.print(self.text,x+zx+margin,y+zy)
+  love.graphics.setFont( fontSearch )
+  local marginx = (self.w - fontSearch:getWidth( self.text ))/2
+  local marginy = (self.h - fontSearch:getHeight())/2
+  love.graphics.print(self.text,x+zx+marginx,y+zy+marginy)
   end
 
 function buttonWidget:update(dt) 
@@ -1616,8 +1617,8 @@ function setupWindow:new( t ) -- create from w, h, x, y
   new.text1 = lineWidget:new{ x = 120, y = 5 , w = 450, text = baseDirectory }
   new.text2 = lineWidget:new{ x = 120, y = 35, w = 450, text = fadingDirectory }
   new.text3 = lineWidget:new{ x = 120, y = 65, w = 150, text = serverport }
-  new.save  = buttonWidget:new{ x = 400, y = new.h - 35, w = 50, text = "Save", onClick = function() new:setupSave() end }
-  new.load  = buttonWidget:new{ x = 470, y = new.h - 35, w = 50, text = "Load", onClick = function() new:setupLoad() end }
+  new.save  = buttonWidget:new{ x = 440, y = new.h - 45, text = "Save", onClick = function() new:setupSave() end }
+  new.load  = buttonWidget:new{ x = 510, y = new.h - 45, text = "Load", onClick = function() new:setupLoad() end }
   new:addWidget(new.text1)
   new:addWidget(new.text2)
   new:addWidget(new.text3)
