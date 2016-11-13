@@ -50,28 +50,17 @@ baseDirectory                 -- banque globale d'images, de data, de maps. Peut
 Il faut fournir au moins un fichier data (ils se completent l'un l'autre s'ils sont présents tous les deux), et une image pawnDefault.jpg de pion par defaut. Tous les autres fichiers (images, maps, scenario...) sont facultatifs
 
 ##Ligne de commande
-Serveur:
+Serveur: Les parametres sont donnés dans un fichier de configuration (fading2/fsconf.lua), ou demandés au démarrage si absents
 
 ```
 #!c
-
-love fading2 [options] baseDirectory 
-
-baseDirectory :                   Full path to the global directory. This directory is the one shared with the projector 
-                                  It may (and is recommended to) be a network shared directory (eg. google drive)
-[-s|--scenario fadingDirectory] : relative path (starting from base directory) to the scenario directory
-[-d|--debug] :                    Run in debug mode
-[-l|--log] :                      Log to file (fading.log) instead of stdout
-[-a|--ack] :                      With fsmob application: Send an automatic acknowledge reply for each message received
-[-p|--port port] :                Specify server local port, by default 12345
-[-y|--binary] :                   Force full binary mode (all files are sent in binary form over the network to the projector) 
+love fading2
 ```
 
 Projecteur:
 
 ```
 #!c
-
 love proj2c [options]
 
 [-b|--base baseDirectory] : Path to a base directory, common with server. If no base directory is given, the projector will request
@@ -81,10 +70,6 @@ love proj2c [options]
 [-i|--ip address] :         server IP 
 [-p|--port port] :          server port (default 12345)
 ```
-
-## How to run tests
-Et bien, directement. L'option --debug (associee à --log sous Windows, qui a la mauvaise idee de ne pas retranscrire les sorties sur stdout directement dans la console, ce qui oblige a les ecrire dans un fichier) permet de savoir ce qui se passe. Sous ZeroBrane Studio existe un mode debug pas à pas pour le moteur Löve, mais très lent je trouve (sur ma config) donc pas utilisable en pratique.
-
 
 ## Deployment instructions
 
