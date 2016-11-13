@@ -309,16 +309,14 @@ end
 buttonWidget = { x=0, y=0,	-- relative to the parent object
 		 w=40, h=20,
 	 	 parent = nil, text = "button",
-		 onClick = nil
+		 onClick = nil,
+  		 clickTimer = 0, clickTimerLimit = 0.3, clickDraw = false,
 	       }
 
 function buttonWidget:new( t ) 
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
-  new.clickTimer = 0
-  new.clickTimerLimit = 2
-  new.clickDraw = false
   return new
   end
 
@@ -384,6 +382,7 @@ function lineWidget:new( t )
 
 function lineWidget:select() 
 	self.selected = true; 
+	self.cursorTimer = 0
 	textActiveCallback = function(t) self.text = self.text .. t ; self:setCursorPosition() end 
 	textActiveBackspaceCallback = function()  
          	local byteoffset = utf8.offset(self.text, -1)
@@ -406,7 +405,7 @@ function lineWidget:setCursorPosition()
   self.cursorPosition = fontRound:getWidth(self.text) 
   end
 
-function lineWidget:click() end
+function lineWidget:click() self:select() end
 
 function lineWidget:draw()
   local x,y = self.x, self.y
@@ -1561,8 +1560,8 @@ function setupWindow:new( t ) -- create from w, h, x, y
   new.text1 = lineWidget:new{ x = 120, y = 5 , w = 450, text = baseDirectory }
   new.text2 = lineWidget:new{ x = 120, y = 35, w = 450, text = fadingDirectory }
   new.text3 = lineWidget:new{ x = 120, y = 65, w = 150, text = serverport }
-  new.save  = buttonWidget:new{ x = 400, y = new.h - 35, w = 50, text = "Save", onClick = setupSave() }
-  new.load  = buttonWidget:new{ x = 470, y = new.h - 35, w = 50, text = "Load", onClick = setupLoad() }
+  new.save  = buttonWidget:new{ x = 400, y = new.h - 35, w = 50, text = "Save", onClick = function() new:setupSave() end }
+  new.load  = buttonWidget:new{ x = 470, y = new.h - 35, w = 50, text = "Load", onClick = function() new:setupLoad() end }
   new:addWidget(new.text1)
   new:addWidget(new.text2)
   new:addWidget(new.text3)
@@ -1571,10 +1570,23 @@ function setupWindow:new( t ) -- create from w, h, x, y
   return new
 end
 
-function setupSave()
+function setupWindow:setupSave()
+  local t1 = self.text1.text or ""
+  local t2 = self.text2.text or ""
+  local t3 = self.text3.text or ""
+  local file, msg, code = io.open("fading2/fsconf.lua",'w')
+  if not file then io.write("cannot write to conf file: " .. tostring(msg) .. "\n") ; return end
+  file:write( "-- fading suns conf file\n")
+  file:write( "baseDirectory = '" .. t1 .. "'\n")
+  file:write( "fadingDirectory = '" .. t2 .. "'\n")
+  file:write( "serverport = " .. t3 .. "\n")
+  file:close()
   end
 
-function setupLoad()
+function setupWindow:setupLoad()
+  self:setupSave()
+  dofile("fading2/fsconf.lua")
+  fsinit()
   end
 
 function setupWindow:draw()
@@ -3723,7 +3735,32 @@ options = { { opcode="-s", longopcode="--scenario", mandatory=false, varname="fa
 --]]
 
 
-function init() 
+function fsinit() 
+
+    -- cleanup in case we are already running
+    if initialized then
+
+    	leave()							-- close some ressources (eg. tcp) 
+	if setupWindow then 					-- we are probably within the setup window. Close it
+		layout:setDisplay(setupWindow,false) 
+	end
+	layout = nil
+    	layout = mainLayout:new()				-- reset all windows
+	templateArray = {}					-- remove all  RPG classes
+	snapshots[1] = { s = {}, index = 1, offset = 0 } 	-- remove all snapshots	
+	snapshots[2] = { s = {}, index = 1, offset = 0 }	
+	snapshots[3] = { s = {}, index = 1, offset = 0 }	
+	snapshots[4] = { s = {}, index = 1, offset = 0 }
+	atlas = nil						-- remove all maps 
+	PNJTable = {}						-- remove all characters
+
+	-- reset some values
+	mapOpeningXY = 250
+	messages = {}
+    	generateUID = UIDiterator()
+
+    	collectgarbage()					-- force memory cleanup before reloading 
+    end
 
     io.write("base directory   : " .. baseDirectory .. "\n") ; addMessage("base directory : " .. baseDirectory .. "\n")
     io.write("fading directory : " .. fadingDirectory .. "\n") ; addMessage("fading directory : " .. fadingDirectory .. "\n")
@@ -3752,7 +3789,7 @@ function init()
 
 
     -- create view structure
-
+    yui.UI.registerEvents()
     view = yui.View(0, 0, vieww, viewh, {
         margin_top = 5,
         margin_left = 5,
@@ -3817,6 +3854,7 @@ function init()
     notifWindow = notificationWindow:new{ w=300, h=100, x=-W/2,y=H/2-50} 
     dialogWindow = Dialog:new{w=800,h=220,x=400,y=110}
     helpWindow = Help:new{w=1000,h=480,x=500,y=240}
+    dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100} 
   
     layout:addWindow( combatWindow , false ) -- do not display them yet
     layout:addWindow( pWindow , false )
@@ -3824,6 +3862,7 @@ function init()
     layout:addWindow( notifWindow , false )
     layout:addWindow( dialogWindow , false )
     layout:addWindow( helpWindow , false ) 
+    layout:addWindow( dataWindow , false )
 
     layout:addWindow( storyWindow , true )
     layout:addWindow( actionWindow , true )
@@ -3840,6 +3879,8 @@ function init()
       scenarioWindow:translate(0,intW+iconSize-zy)
       scenarioWindow.startupX, scenarioWindow.startupY, scenarioWindow.startupMag = scenarioWindow.x, scenarioWindow.y, scenarioWindow.mag
     end
+
+    initialized = true
  
 end
 
@@ -3876,7 +3917,6 @@ function love.load( args )
     --]]
     --
     -- GUI initializations...
-    yui.UI.registerEvents()
     love.window.setTitle( "Fading Suns Tabletop" )
     love.keyboard.setKeyRepeat(true)
 
@@ -3906,6 +3946,7 @@ function love.load( args )
     -- some adjustments on different systems
     if love.system.getOS() == "Windows" then
 	keyZoomIn, keyZoomOut = ':', '!'
+    	sep = '\\'
     end
 
     -- get actual screen size
@@ -3925,25 +3966,25 @@ function love.load( args )
     -- some small differences in windows: separator is not the same, and some weird completion
     -- feature in command line may add an unexpected doublequote char at the end of the path (?)
     -- that we want to remove
+		--[[
     if love.system.getOS() == "Windows" then
 	    local n = string.len(fadingDirectory)
 	    if string.sub(fadingDirectory,1,1) ~= '"' and 
 		    string.sub(fadingDirectory,n,n) == '"' then
 		    fadingDirectory=string.sub(fadingDirectory,1,n-1)
-	    end
-    	    sep = '\\'
+	    end 
     end
+    --]]
 
     -- some initialization stuff
     generateUID = UIDiterator()
 
     -- create window for data setup. This might be the first window to display
-    dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100} 
     if baseDirectory and baseDirectory ~= "" then
-      layout:addWindow( dataWindow , false )
-      init()
+      fsinit()
       initialized = true
     else
+      dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100} 
       layout:addWindow( dataWindow , true )
       initialized = false
     end

@@ -50,7 +50,8 @@ UI.textinput = function(text)
 end
 
 UI.registerEvents = function()
-    local callbacks = {'keypressed', 'keyreleased', 'mousepressed', 'mousereleased', 'gamepadpressed', 'gamepadreleased', 'gamepadaxis', 'textinput'}
+    --local callbacks = {'keypressed', 'keyreleased', 'mousepressed', 'mousereleased', 'gamepadpressed', 'gamepadreleased', 'gamepadaxis', 'textinput'}
+    local callbacks = {'mousepressed', 'mousereleased'}
     local old_functions = {}
     local empty_function = function() end
     for _, f in ipairs(callbacks) do
