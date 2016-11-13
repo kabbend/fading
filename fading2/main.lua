@@ -381,6 +381,7 @@ function lineWidget:new( t )
   -- text is splitted in 2, so we can place cursor
   new.head = t.text or ""
   new.trail = ""
+  new.xOffset = 0
   new:setCursorPosition() 
   return new
   end
@@ -390,13 +391,26 @@ function lineWidget:select()
 	self.cursorTimer = 0
 
 	textActiveCallback = function(t) 
-		self.head = self.head .. t ; self:setCursorPosition() 
+		self.head = self.head .. t 
+		if fontRound:getWidth( self.head .. self.trail ) > self.w - fontRound:getWidth(t) then
+			self.xOffset = self.xOffset - fontRound:getWidth(t)
+		end 
+		self:setCursorPosition() 
 		end 
 
 	textActiveBackspaceCallback = function()  
-         	local byteoffset = utf8.offset(self.head, -1)
-         	if byteoffset then self.head = string.sub(self.head, 1, byteoffset - 1) end 
-		self:setCursorPosition()
+		if self.head ~= "" then 
+			local remove = ""
+         	  	local byteoffset = utf8.offset(self.head, -1)
+         		if byteoffset then 
+				remove = string.sub(self.head,byteoffset)
+				self.head = string.sub(self.head, 1, byteoffset - 1) 
+			end 
+			self:setCursorPosition()
+			if self.cursorPosition + self.xOffset < 0 then
+				self.xOffset = self.xOffset + fontRound:getWidth(remove)
+			end
+		end
 		end
 
 	textActivePasteCallback = function(s) 
@@ -404,18 +418,34 @@ function lineWidget:select()
 
 	textActiveLeftCallback = function() 
 		if self.head == "" then return end
-		local c = string.sub(self.head,-1)
-		self.head = string.sub(self.head,1,string.len(self.head)-1)
-		self.trail = c .. self.trail
+         	local byteoffset = utf8.offset(self.head, -1)
+		local remove = ""
+         	if byteoffset then 
+			remove = string.sub(self.head,byteoffset)
+			self.head = string.sub(self.head, 1, byteoffset - 1) 
+		end 
+		self.trail = remove .. self.trail
 		self:setCursorPosition()
+		if self.cursorPosition + self.xOffset < 0 then
+			self.xOffset = self.xOffset + fontRound:getWidth(remove)
+		end
 		end 
 
 	textActiveRightCallback = function() 
 		if self.trail == "" then return end
-		local c = string.sub(self.trail,1,1)
-		self.trail = string.sub(self.trail,2)
-		self.head = self.head .. c
+         	local byteoffset = utf8.offset(self.trail,2) 
+		local remove = ""
+         	if byteoffset then 
+			remove = string.sub(self.trail,1,byteoffset-1)
+			self.trail = string.sub(self.trail, byteoffset) 
+		end 
+		--self.trail = remove .. self.trail
+		--self.trail = string.sub(self.trail,2)
+		self.head = self.head .. remove 
 		self:setCursorPosition()
+		if self.cursorPosition + self.xOffset > self.w then
+			self.xOffset = self.xOffset - fontRound:getWidth(remove)
+		end
 		end 
 
 	end
@@ -432,7 +462,7 @@ function lineWidget:unselect()
 	end
 
 function lineWidget:setCursorPosition()
-  self.cursorPosition = fontRound:getWidth(self.head) 
+  self.cursorPosition = fontRound:getWidth( self.head ) 
   end
 
 function lineWidget:getText() return self.head .. self.trail end
@@ -448,12 +478,14 @@ function lineWidget:draw()
     love.graphics.rectangle("fill",x+zx,y+zy,self.w,self.h)
     love.graphics.setColor(0,0,0)
     if self.cursorDraw then 
-	love.graphics.line(self.cursorPosition + x + zx, y+zy, self.cursorPosition + x + zx, y+zy+self.h) 
+	love.graphics.line(self.cursorPosition + x + zx + self.xOffset, y+zy, self.cursorPosition + x + zx + self.xOffset, y+zy+self.h) 
     end
   end
   love.graphics.setColor(0,0,0)
   love.graphics.setFont( fontRound )
-  love.graphics.print(self.head..self.trail,x+zx,y+zy)
+  love.graphics.setScissor(x+zx,y+zy,self.w,self.h)
+  love.graphics.print(self.head..self.trail,x+zx+self.xOffset,y+zy)
+  love.graphics.setScissor()
   end
 
 function lineWidget:update(dt)
