@@ -373,7 +373,7 @@ function lineWidget:new( t )
   setmetatable( new , self )
   self.__index = self
   new.cursorTimer = 0
-  new.cursorTimerLimit = 2 
+  new.cursorTimerLimit = 0.5
   new.cursorPosition = 0
   new.cursorDraw = false
   if new.text then new:setCursorPosition() end
@@ -648,18 +648,10 @@ function Window:click(x,y)
 		arrowModeMap = nil
 	end
 
-	-- check for click on a widget
-	for i=1,#self.widgets do 
-		if self.widgets[i]:isInside(x,y) then self.widgets[i]:click(x,y) end
-	end
-
 	return nil
 	end
 
 function Window:update(dt) 
-
-	-- update widgets widget
-	for i=1,#self.widgets do self.widgets[i]:update(dt) end
 
 	if self.markForSink then 
 			self.markForSinkTimer = 0
@@ -1586,6 +1578,8 @@ function setupWindow:setupSave()
 function setupWindow:setupLoad()
   self:setupSave()
   dofile("fading2/fsconf.lua")
+  layout:setDisplay(self,false)  
+  self.markForClosure = true
   fsinit()
   end
 
@@ -1608,6 +1602,10 @@ function setupWindow:click(x,y)
   if self.text3:isInside(x,y) then self.text3:select() else self.text3:unselect() end 
   if self.load:isInside(x,y) then self.load:click() end 
   if self.save:isInside(x,y) then self.save:click() end 
+  end
+
+function setupWindow:update(dt)
+  for i=1,#self.widgets do self.widgets[i]:update(dt) end
   end
 
 --
@@ -2116,8 +2114,10 @@ function mainLayout:click( x , y )
 		-- this gives opportunity to the window to react, and potentially to close itself
 		-- if the close button is pressed. 
 		result:click(x,y)
+		if not result.markForClosure then self:setFocus( result ) end -- this gives focus
+	else
+		self:setFocus(nil)
 	end
-	self:setFocus( result ) -- this gives or removes focus
 	return result
 	end
 
@@ -2751,6 +2751,7 @@ function love.draw()
  --]]
 
  -- bottom applicative message
+ --[[
  local appmessage = "" 
  if not layout.globalDisplay then appmessage = appmessage .. " -- ESC mode is ON" end 	
  local m = layout:getFocus() 
@@ -2762,6 +2763,7 @@ function love.draw()
  love.graphics.setFont(fontRound)
  love.graphics.print( appmessage, 5, messagesH )
  love.graphics.setColor(255,255,255)
+ --]]
 
  -- print messages eventually
  --[[
@@ -3737,15 +3739,12 @@ options = { { opcode="-s", longopcode="--scenario", mandatory=false, varname="fa
 
 function fsinit() 
 
+    layout = mainLayout:new()					-- reset all windows
+
     -- cleanup in case we are already running
     if initialized then
 
     	leave()							-- close some ressources (eg. tcp) 
-	if setupWindow then 					-- we are probably within the setup window. Close it
-		layout:setDisplay(setupWindow,false) 
-	end
-	layout = nil
-    	layout = mainLayout:new()				-- reset all windows
 	templateArray = {}					-- remove all  RPG classes
 	snapshots[1] = { s = {}, index = 1, offset = 0 } 	-- remove all snapshots	
 	snapshots[2] = { s = {}, index = 1, offset = 0 }	
@@ -3758,9 +3757,11 @@ function fsinit()
 	mapOpeningXY = 250
 	messages = {}
     	generateUID = UIDiterator()
+	currentWindowDraw = nil
 
-    	collectgarbage()					-- force memory cleanup before reloading 
     end
+
+    collectgarbage()					-- force memory cleanup before reloading 
 
     io.write("base directory   : " .. baseDirectory .. "\n") ; addMessage("base directory : " .. baseDirectory .. "\n")
     io.write("fading directory : " .. fadingDirectory .. "\n") ; addMessage("fading directory : " .. fadingDirectory .. "\n")
