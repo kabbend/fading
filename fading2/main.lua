@@ -1645,7 +1645,7 @@ function setupWindow:setupLoad()
   dofile("fading2/fsconf.lua")
   layout:setDisplay(self,false)  
   self.markForClosure = true
-  fsinit()
+  love.event.quit("restart")
   end
 
 function setupWindow:draw()
@@ -3806,8 +3806,6 @@ options = { { opcode="-s", longopcode="--scenario", mandatory=false, varname="fa
 
 function fsinit() 
 
-    layout = mainLayout:new()					-- reset all windows
-
     -- cleanup in case we are already running
     if initialized then
 
@@ -3817,6 +3815,7 @@ function fsinit()
 	snapshots[2] = { s = {}, index = 1, offset = 0 }	
 	snapshots[3] = { s = {}, index = 1, offset = 0 }	
 	snapshots[4] = { s = {}, index = 1, offset = 0 }
+    	layout = mainLayout:new()				-- reset all windows
 	atlas = nil						-- remove all maps 
 	PNJTable = {}						-- remove all characters
 
@@ -3826,9 +3825,8 @@ function fsinit()
     	generateUID = UIDiterator()
 	currentWindowDraw = nil
 
+    	collectgarbage()					-- force memory cleanup before reloading 
     end
-
-    collectgarbage()					-- force memory cleanup before reloading 
 
     io.write("base directory   : " .. baseDirectory .. "\n") ; addMessage("base directory : " .. baseDirectory .. "\n")
     io.write("fading directory : " .. fadingDirectory .. "\n") ; addMessage("fading directory : " .. fadingDirectory .. "\n")
@@ -3857,7 +3855,6 @@ function fsinit()
 
 
     -- create view structure
-    yui.UI.registerEvents()
     view = yui.View(0, 0, vieww, viewh, {
         margin_top = 5,
         margin_left = 5,
@@ -3923,7 +3920,7 @@ function fsinit()
     dialogWindow = Dialog:new{w=800,h=220,x=400,y=110}
     helpWindow = Help:new{w=1000,h=480,x=500,y=240}
     dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100} 
-  
+
     layout:addWindow( combatWindow , false ) -- do not display them yet
     layout:addWindow( pWindow , false )
     layout:addWindow( snapshotWindow , false )
@@ -3987,6 +3984,7 @@ function love.load( args )
     -- GUI initializations...
     love.window.setTitle( "Fading Suns Tabletop" )
     love.keyboard.setKeyRepeat(true)
+    yui.UI.registerEvents()
 
     -- load fonts
     fontTitle = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",20)
@@ -4050,7 +4048,6 @@ function love.load( args )
     -- create window for data setup. This might be the first window to display
     if baseDirectory and baseDirectory ~= "" then
       fsinit()
-      initialized = true
     else
       dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100} 
       layout:addWindow( dataWindow , true )
