@@ -139,7 +139,7 @@ HelpLog = {
 	{"CTRL+P",170,"Pions. Sur une Map avec des pions, retire tous les pions"},
 	{"SHIFT+Mouse",170,"Sur une Map, créé une forme géométrique qui réduit le brouillard de guerre"},
 	{"CTRL+Mouse",170,"Sur une Map, définit la taille des pions"},
-	{"COMMAND+Mouse",170,"Sur une Map, définit une zone d'affichage réduite"},
+	{"ALT+Mouse",170,"Sur une Map, définit une zone d'affichage réduite"},
 	{"TAB",170,"Pour les Maps, passe du mode Rectangle au mode Cercle pour tracer les brouillards de guerre"},
 	{"ESPACE",170,"Change la catégorie de la barre de snapshots, entre images, maps et pions"},
 	{"ESC",170,"Cache toutes les fenêtres (ou les restaure)"},
@@ -627,9 +627,9 @@ function Window:drawBar( )
  if self.class == "map" and self.kind == "map" then marginForRect = 20 end
 
  -- max space for title
- local availableForTitle = self.w / self.mag - reservedForButtons - marginForRect * 2
+ local availableForTitle = self.w / self.mag - reservedForButtons - marginForRect
  if availableForTitle < 0 then availableForTitle = 0 end 
- local numChar = math.floor(availableForTitle / fontRound:getWidth("A"))
+ local numChar = math.floor(availableForTitle / fontRound:getWidth("a"))
  local title = string.sub( self.title , 1, numChar ) 
 
  -- draw bar
