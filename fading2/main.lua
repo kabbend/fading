@@ -39,6 +39,7 @@ intW			= 2 	-- interval between windows
 -- main screen size
 W, H = 1440, 800 	-- main window size default values (may be changed dynamically on some systems)
 iconSize = 20
+sep = '/'
 
 -- tcp information for network
 address, serverport	= "*", "12345"		-- server information
@@ -60,7 +61,7 @@ snapshots[1] = { s = {}, index = 1, offset = 0 } 	-- small snapshots at the bott
 snapshots[2] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for scenario & maps
 snapshots[3] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for PNJ classes 
 snapshots[4] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for pawn images
-snapText = { "Images", "Tactical Maps", "PNJ Classes", "Pawn images" }
+snapText = { "GENERAL IMAGES", "TACTICAL MAPS", "PNJ CLASSES", "PAWN IMAGES" }
 currentSnap		= 1				-- by default, we display images
 snapshotSize 		= 70 				-- w and h of each snapshot
 snapshotMargin 		= 7 				-- space between images and screen border
@@ -231,6 +232,11 @@ vec4 effect(vec4 colour, Image tex, vec2 tc, vec2 sc)
 local oldiowrite = io.write
 function io.write( data ) if debug then oldiowrite( data ) end end
 
+function splitFilename(strFilename)
+	--return string.match(strFilename, "(.-)([^\\]-([^\\%.]+))$")
+	return string.match (strFilename,"[^/]+$")
+end
+
 --
 -- Multiple inheritance mechanism
 -- call CreateClass with any number of existing classes 
@@ -287,10 +293,12 @@ function Snapshot:new( t ) -- create from filename or file object (one mandatory
 	image = loadDistantImage( new.filename )
 	new.is_local = false
 	new.baseFilename = string.gsub(new.filename,baseDirectory,"")
+	new.displayFilename = splitFilename(new.filename)
   else 
 	image = loadLocalImage( new.file )
 	new.is_local = true
-	new.baseFilename = nil
+	new.baseFilename = new.file:getFilename() 
+	new.displayFilename = splitFilename(new.file:getFilename())
   end
   local lfn = love.filesystem.newFileData
   local lin = love.image.newImageData
@@ -619,8 +627,9 @@ function Window:drawBar( )
  if self.class == "map" and self.kind == "map" then marginForRect = 20 end
 
  -- max space for title
- local availableForTitle = self.w / self.mag - reservedForButtons - marginForRect 
- local numChar = math.floor(availableForTitle / 7)
+ local availableForTitle = self.w / self.mag - reservedForButtons - marginForRect * 2
+ if availableForTitle < 0 then availableForTitle = 0 end 
+ local numChar = math.floor(availableForTitle / fontRound:getWidth("A"))
  local title = string.sub( self.title , 1, numChar ) 
 
  -- draw bar
@@ -807,13 +816,15 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
 	image = loadDistantImage( self.filename )
 	self.is_local = false
 	self.baseFilename = string.gsub(self.filename,baseDirectory,"")
+	self.displayFilename = splitFilename(self.filename)
   else 
 	self.file = t.file
 	image = loadLocalImage( self.file )
 	self.is_local = true
-	self.baseFilename = nil
+	self.baseFilename = self.file:getFilename() 
+	self.displayFilename = splitFilename(self.file:getFilename())
   end
-  self.title = self.baseFilename or ""
+  self.title = self.displayFilename or ""
   local lfn = love.filesystem.newFileData
   local lin = love.image.newImageData
   local lgn = love.graphics.newImage
@@ -1495,7 +1506,7 @@ end
 -- Dialog class
 -- Help class
 -- a Help is a window which displays some fixed text . it is not zoomable
-Help = Window:new{ class = "help" , title = "Help" }
+Help = Window:new{ class = "help" , title = "HELP" }
 
 function Help:new( t ) -- create from w, h, x, y
   local new = t or {}
@@ -1510,15 +1521,16 @@ function Help:click(x,y)
 
 function Help:draw()
    -- draw window frame
+   self:drawBack()
    love.graphics.setFont(fontSearch)
-   love.graphics.setColor(10,10,10,150)
    local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-   love.graphics.rectangle( "fill", zx , zy , self.w , self.h )  
+   --love.graphics.setColor(10,10,10,150)
+   --love.graphics.rectangle( "fill", zx , zy , self.w , self.h )  
    -- print current help text
-   love.graphics.setColor(255,255,255)
+   love.graphics.setColor(0,0,0)
    for i=1,#HelpLog do 
-	love.graphics.printf( HelpLog[i][1] , zx + 5, zy + (i-1)*18 , self.w )	
-	love.graphics.printf( HelpLog[i][3] , zx + HelpLog[i][2], zy + (i-1)*18 , self.w )	
+	love.graphics.printf( HelpLog[i][1] , zx + 5, zy + (i-1)*20 , self.w )	
+	love.graphics.printf( HelpLog[i][3] , zx + HelpLog[i][2], zy + (i-1)*20 , self.w )	
    end
    -- print bar
    self:drawBar()
@@ -1528,7 +1540,7 @@ function Help:update(dt) Window.update(self,dt) end
 
 -- Dialog class
 -- a Dialog is a window which displays some text and let some input. it is not zoomable
-Dialog = Window:new{ class = "dialog" , title = "Dialog" }
+Dialog = Window:new{ class = "dialog" , title = "DIALOG WITH PLAYERS" }
 
 function Dialog:new( t ) -- create from w, h, x, y
   local new = t or {}
@@ -1568,7 +1580,7 @@ function Dialog:update(dt) Window.update(self,dt) end
 
 -- projectorWindow class
 -- a projectorWindow is a window which displays images. it is not zoomable
-projectorWindow = Window:new{ class = "projector" , title = "Projector" }
+projectorWindow = Window:new{ class = "projector" , title = "PROJECTOR" }
 
 function projectorWindow:new( t ) -- create from w, h, x, y
   local new = t or {}
@@ -1608,21 +1620,26 @@ function projectorWindow:drop(o)
 --
 -- setupWindow class
 --
-setupWindow = Window:new{ class = "setup" , title = "Setup information"  }
+setupWindow = Window:new{ class = "setup" }
 
-function setupWindow:new( t ) -- create from w, h, x, y
+function setupWindow:new( t ) -- create from w, h, x, y, init
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
-  new.text1 = lineWidget:new{ x = 120, y = 5 , w = 450, text = baseDirectory }
-  new.text2 = lineWidget:new{ x = 120, y = 35, w = 450, text = fadingDirectory }
-  new.text3 = lineWidget:new{ x = 120, y = 65, w = 150, text = serverport }
-  new.save  = buttonWidget:new{ x = 440, y = new.h - 45, text = "Save", onClick = function() new:setupSave() end }
-  new.load  = buttonWidget:new{ x = 510, y = new.h - 45, text = "Load", onClick = function() new:setupLoad() end }
+  if t.init then new.title = "CONFIGURATION DATA" else new.title = "PLEASE PROVIDE MANDATORY INFORMATION" end
+  new.text1 = lineWidget:new{ x = 150, y = 25 , w = 450, text = baseDirectory }
+  new.text2 = lineWidget:new{ x = 150, y = 55, w = 450, text = fadingDirectory }
+  new.text3 = lineWidget:new{ x = 150, y = 85, w = 150, text = serverport }
+  if t.init then 
+	new.save  = buttonWidget:new{ x = 440, y = new.h - 45, text = "Save", onClick = function() new:setupSave() end }
+  	new:addWidget(new.save)
+  	new.load  = buttonWidget:new{ x = 515, y = new.h - 45, text = "Restart", w=70,onClick = function() new:setupLoad() end }
+  else
+  	new.load  = buttonWidget:new{ x = 510, y = new.h - 45, text = "Start", onClick = function() new:setupLoad() end }
+  end
   new:addWidget(new.text1)
   new:addWidget(new.text2)
   new:addWidget(new.text3)
-  new:addWidget(new.save)
   new:addWidget(new.load)
   return new
 end
@@ -1654,19 +1671,19 @@ function setupWindow:draw()
   love.graphics.setFont(fontRound)
   love.graphics.setColor( color.black )
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-  love.graphics.print("Base directory", zx + 5, zy + 5 )
-  love.graphics.print("Scenario", zx + 5, zy + 35 )
-  love.graphics.print("Server IP port", zx + 5, zy + 65 )
+  love.graphics.print("BASE DIRECTORY *", zx + 5, zy + 25 )
+  love.graphics.print("SCENARIO", zx + 5, zy + 55 )
+  love.graphics.print("SERVER IP PORT *", zx + 5, zy + 85 )
   self:drawBar()
   end
 
 function setupWindow:click(x,y)
-  Window.click(self,x,y)
+  if self.init then Window.click(self,x,y) end
   if self.text1:isInside(x,y) then self.text1:select() else self.text1:unselect() end 
   if self.text2:isInside(x,y) then self.text2:select() else self.text2:unselect() end 
   if self.text3:isInside(x,y) then self.text3:select() else self.text3:unselect() end 
   if self.load:isInside(x,y) then self.load:click() end 
-  if self.save:isInside(x,y) then self.save:click() end 
+  if self.save then if self.save:isInside(x,y) then self.save:click() end end
   end
 
 function setupWindow:update(dt)
@@ -1677,7 +1694,7 @@ function setupWindow:update(dt)
 -- Combat class
 -- a Combat is a window which displays PNJ list and buttons 
 --
-Combat = Window:new{ class = "combat" , title = "Combat tracker" , wResizable = true, hResizable = true }
+Combat = Window:new{ class = "combat" , title = "COMBAT TRACKER" , wResizable = true, hResizable = true }
 
 function Combat:new( t ) -- create from w, h, x, y
   local new = t or {}
@@ -1929,14 +1946,14 @@ function snapshotBar:draw()
    			love.graphics.setColor(0,0,0)
 			love.graphics.print( RpgClasses[index].class , px, y-20 )
 		else
-			if snapshots[currentSnap].s[index].baseFilename then
-			  local size = fontRound:getWidth( snapshots[currentSnap].s[index].baseFilename )
+			if snapshots[currentSnap].s[index].displayFilename then
+			  local size = fontRound:getWidth( snapshots[currentSnap].s[index].displayFilename )
 			  local px = x + 5
 			  if px + size > W then px = px - size end
    			  love.graphics.setColor(255,255,255)
 			  love.graphics.rectangle("fill",px,y-20,size,fontRound:getHeight())
    			  love.graphics.setColor(0,0,0)
-			  love.graphics.print( snapshots[currentSnap].s[index].baseFilename, px, y-20 )
+			  love.graphics.print( snapshots[currentSnap].s[index].displayFilename, px, y-20 )
 			end
 		end
 	end
@@ -3188,7 +3205,7 @@ function love.mousepressed( x, y , button )
 		-- not clicking a pawn, it's either a map move or an rect/circle mask...
 		elseif button == 1 then --Left click
 	  		if not love.keyboard.isDown("lshift") and not love.keyboard.isDown("lctrl") 
-				and not love.keyboard.isDown("lgui") then 
+				and not love.keyboard.isDown("lalt") then 
 				-- want to move map
 	   			mouseMove = true
 	   			arrowMode = false
@@ -3202,7 +3219,7 @@ function love.mousepressed( x, y , button )
 	   			arrowStartX, arrowStartY = x, y
 	   			mouseMove = false 
 				arrowModeMap = nil 
-			elseif love.keyboard.isDown("lgui") then
+			elseif love.keyboard.isDown("lalt") then
 				-- want to create a quad, but only if none already
 				if not map.quad then
 				  arrowMode = true
@@ -3786,47 +3803,7 @@ function parseDirectory( t )
 end
 
 
---[[
-options = { { opcode="-s", longopcode="--scenario", mandatory=false, varname="fadingDirectory", value=true, default="." , 
-		desc="Path to scenario directory" },
-	    { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false , 
-		desc="Run in debug mode"},
-	    { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false , 
-		desc="Log to file (fading.log) instead of stdout"},
-	    { opcode="-a", longopcode="--ack", mandatory=false, varname="acknowledge", value=false, default=false ,
-		desc="With FS mobile: Send an automatic acknowledge reply for each message received"},
-	    { opcode="-p", longopcode="--port", mandatory=false, varname="port", value=true, default=serverport,
-		desc="Specify server local port, by default 12345" },
-	    { opcode="-y", longopcode="--binary", mandatory=false, varname="binary", value=false, default=false,
-		desc="Systematically send binary files to the projector, instead of filesystem references" },
-	    { opcode="", mandatory=true, varname="baseDirectory" , desc="Path to global directory"} }	    
-
---]]
-
-
-function fsinit() 
-
-    -- cleanup in case we are already running
-    if initialized then
-
-    	leave()							-- close some ressources (eg. tcp) 
-	templateArray = {}					-- remove all  RPG classes
-	snapshots[1] = { s = {}, index = 1, offset = 0 } 	-- remove all snapshots	
-	snapshots[2] = { s = {}, index = 1, offset = 0 }	
-	snapshots[3] = { s = {}, index = 1, offset = 0 }	
-	snapshots[4] = { s = {}, index = 1, offset = 0 }
-    	layout = mainLayout:new()				-- reset all windows
-	atlas = nil						-- remove all maps 
-	PNJTable = {}						-- remove all characters
-
-	-- reset some values
-	mapOpeningXY = 250
-	messages = {}
-    	generateUID = UIDiterator()
-	currentWindowDraw = nil
-
-    	collectgarbage()					-- force memory cleanup before reloading 
-    end
+function init() 
 
     io.write("base directory   : " .. baseDirectory .. "\n") ; addMessage("base directory : " .. baseDirectory .. "\n")
     io.write("fading directory : " .. fadingDirectory .. "\n") ; addMessage("fading directory : " .. fadingDirectory .. "\n")
@@ -3919,7 +3896,7 @@ function fsinit()
     notifWindow = notificationWindow:new{ w=300, h=100, x=-W/2,y=H/2-50} 
     dialogWindow = Dialog:new{w=800,h=220,x=400,y=110}
     helpWindow = Help:new{w=1000,h=480,x=500,y=240}
-    dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100} 
+    dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100, init=true} 
 
     layout:addWindow( combatWindow , false ) -- do not display them yet
     layout:addWindow( pWindow , false )
@@ -3945,7 +3922,6 @@ function fsinit()
       scenarioWindow.startupX, scenarioWindow.startupY, scenarioWindow.startupMag = scenarioWindow.x, scenarioWindow.y, scenarioWindow.mag
     end
 
-    initialized = true
  
 end
 
@@ -3959,38 +3935,19 @@ function love.load( args )
     -- main window layout
     layout = mainLayout:new()
 
-    -- parse arguments
-    --local parse = doParse( args )
+    -- load config file
     dofile( "fading2/fsconf.lua" )    
 
-    -- get images & scenario directory, provided at command line
-    --[[
-    fadingDirectory = parse.fadingDirectory 
-    baseDirectory = parse.arguments[1]
-    debug = parse.debug
-    serverport = parse.port
-    fullBinary = parse.binary
-    ack = parse.acknowledge
-    --]]
-    sep = '/'
-
-    -- log file
-    --[[if parse.log then
-      logFile = io.open("fading.log","w")
-      io.output(logFile)
-    end
-    --]]
-    --
     -- GUI initializations...
     love.window.setTitle( "Fading Suns Tabletop" )
     love.keyboard.setKeyRepeat(true)
     yui.UI.registerEvents()
 
     -- load fonts
-    fontTitle = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",20)
-    fontDice = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",90)
-    fontRound = love.graphics.newFont("yui/yaoui/fonts/OpenSans-Bold.ttf",12)
-    fontSearch = love.graphics.newFont("yui/yaoui/fonts/OpenSans-ExtraBold.ttf",16)
+    fontTitle 		= love.graphics.newFont("yui/yaoui/fonts/georgia.ttf",20)
+    fontDice 		= love.graphics.newFont("yui/yaoui/fonts/georgia.ttf",90)
+    fontRound 		= love.graphics.newFont("yui/yaoui/fonts/georgia.ttf",12)
+    fontSearch 		= love.graphics.newFont("yui/yaoui/fonts/georgia.ttf",16)
    
     -- base images
     backgroundImage 	= love.graphics.newImage( "images/background.jpg" )
@@ -4005,9 +3962,6 @@ function love.load( args )
     iconOnTopActive 	= love.graphics.newImage( "icons/ontop16x16red.png" )
     iconReduce	 	= love.graphics.newImage( "icons/reduce16x16.png" )
     iconExpand	 	= love.graphics.newImage( "icons/expand16x16.png" )
-
-    -- adjust number of rows in screen
-    --PNJmax = math.floor( viewh / 42 )
 
     -- some adjustments on different systems
     if love.system.getOS() == "Windows" then
@@ -4029,27 +3983,15 @@ function love.load( args )
     viewh = HC 		-- view height
     vieww = W - 260	-- view width
 
-    -- some small differences in windows: separator is not the same, and some weird completion
-    -- feature in command line may add an unexpected doublequote char at the end of the path (?)
-    -- that we want to remove
-		--[[
-    if love.system.getOS() == "Windows" then
-	    local n = string.len(fadingDirectory)
-	    if string.sub(fadingDirectory,1,1) ~= '"' and 
-		    string.sub(fadingDirectory,n,n) == '"' then
-		    fadingDirectory=string.sub(fadingDirectory,1,n-1)
-	    end 
-    end
-    --]]
-
     -- some initialization stuff
     generateUID = UIDiterator()
 
-    -- create window for data setup. This might be the first window to display
+    -- launch further init procedure if possible or display setup window to require mandatory information. 
     if baseDirectory and baseDirectory ~= "" then
-      fsinit()
+      init()
+      initialized = true
     else
-      dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100} 
+      dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100, init=false} 
       layout:addWindow( dataWindow , true )
       initialized = false
     end
