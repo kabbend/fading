@@ -72,7 +72,7 @@ WC = 1290 - 2 * intW
 viewh = HC 		-- view height
 vieww = W - 260		-- view width
 size = 19 		-- base font size
-margin = 20		-- screen margin in map mode
+screenMargin = 40	-- screen margin in map mode
 
 -- various mouse movements
 mouseMove		= false
@@ -3409,10 +3409,10 @@ elseif mouseMove then
 	local newy = w.y - dy * w.mag 
 
 	-- check we are still within margins of the screen
-  	local zx,zy = -( w.x * 1/w.mag - W / 2), -( w.y * 1/w.mag - H / 2)
+  	local zx,zy = -( newx * 1/w.mag - W / 2), -( newy * 1/w.mag - H / 2)
 	
-	if zx > W - margin or zx + w.w / w.mag < margin then newx = oldx end	-- FIXME: what margin ?
-	if zy > H - margin or zy + w.h / w.mag < margin then newy = oldy end	
+	if zx > W - screenMargin or zx + w.w / w.mag < screenMargin then newx = oldx end	
+	if zy > H - screenMargin or zy + w.h / w.mag < screenMargin then newy = oldy end	
 
 	local deltax, deltay = newx - oldx, newy - oldy
 
