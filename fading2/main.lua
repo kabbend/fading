@@ -122,7 +122,8 @@ ack			= false			-- automatic acknowledge when message received ?
 -- current text input
 textActiveCallback		= nil			-- if set, function to call with keyboard input (argument: one char)
 textActiveBackspaceCallback	= nil			-- if set, function to call on a backspace (suppress char)
-textActivePasteCallback		= nil			-- if set, function to call on a paste (argument: string)
+textActivePasteCallback		= nil			-- if set, function to call on a paste 
+textActiveCopyCallback		= nil			-- if set, function to call on a copy clipboard 
 textActiveLeftCallback		= nil			
 textActiveRightCallback		= nil			
 
@@ -392,6 +393,8 @@ function textWidget:new( t )
   -- text is splitted in 2, so we can place cursor
   new.head = t.text or ""
   new.trail = ""
+  new.textSelected = ""
+  new.textSelectedPosition = 0
   new.xOffset = 0
   new:setCursorPosition() 
   return new
@@ -422,6 +425,11 @@ function textWidget:select()
 				self.xOffset = self.xOffset + fontRound:getWidth(remove)
 			end
 		end
+		end
+
+	textActiveCopyCallback = function() 
+		love.system.setClipboardText(self.textSelected)
+		self.textSelected = ""; self.textSelectedPosition = 0
 		end
 
 	textActivePasteCallback = function() 
@@ -457,6 +465,12 @@ function textWidget:select()
 			self.trail = string.sub(self.trail, byteoffset) 
 		end 
 		self.head = self.head .. remove 
+		if love.keyboard.isDown("lshift") then
+			if self.textSelected == "" then self.textSelectedPosition = self.cursorPosition end
+			self.textSelected = self.textSelected .. remove
+		else
+			self.textSelected = "" ; self.textSelectedPosition = 0
+		end
 		self:setCursorPosition()
 		if self.cursorPosition + self.xOffset > self.w then
 			self.xOffset = self.xOffset - fontRound:getWidth(remove)
@@ -471,6 +485,7 @@ function textWidget:unselect()
 		textActiveCallback = nil 
 		textActiveBackspaceCallback = nil 
 		textActivePasteCallback = nil 
+		textActiveCopyCallback = nil 
 		textActiveLeftCallback = nil 
 		textActiveRightCallback = nil 
 	end 
@@ -500,6 +515,11 @@ function textWidget:draw()
   love.graphics.setFont( fontRound )
   love.graphics.setScissor(x+zx,y+zy,self.w,self.h)
   love.graphics.print(self.head..self.trail,x+zx+self.xOffset,y+zy)
+  if self.textSelected ~= "" then
+    love.graphics.setColor(155,155,155,155)
+    local w = self.cursorPosition - self.textSelectedPosition
+    love.graphics.rectangle("fill",x+zx+self.textSelectedPosition,y+zy,w,self.h)
+  end
   love.graphics.setScissor()
   end
 
@@ -3439,6 +3459,7 @@ if textActiveBackspaceCallback and key == "backspace" then textActiveBackspaceCa
 if textActiveLeftCallback and key == "left" then textActiveLeftCallback(); return end
 if textActiveRightCallback and key == "right" then textActiveRightCallback(); return end
 if textActivePasteCallback and key == "v" and love.keyboard.isDown(keyPaste) then textActivePasteCallback(); return end
+if textActiveCopyCallback and key == "c" and love.keyboard.isDown(keyPaste) then textActiveCopyCallback(); return end
 
 if not initialized then return end
 
