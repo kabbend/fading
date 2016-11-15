@@ -110,6 +110,8 @@ mapOpeningSize		= 400			-- approximate width size at opening
 mapOpeningXY		= 250			-- position to open next map, will increase with maps opened
 mapOpeningStep		= 100			-- increase x,y at each map opening
 
+keyPaste		= 'lgui'		-- on mac only
+
 -- dialog stuff
 dialogBase		= "Message: "
 dialog 			= dialogBase		-- text printed on the screen when typing dialog 
@@ -371,15 +373,15 @@ function buttonWidget:isInside(x,y)
   end
 
 --
--- lineWidget class
+-- textWidget class
 --
-lineWidget = { 	x=0, y=0,	-- relative to the parent object
+textWidget = { 	x=0, y=0,	-- relative to the parent object
 		w=200, h=20,
 	 	parent = nil, selected = false,
 		text = "" 
 	     }
 
-function lineWidget:new( t ) 
+function textWidget:new( t ) 
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
@@ -395,7 +397,7 @@ function lineWidget:new( t )
   return new
   end
 
-function lineWidget:select() 
+function textWidget:select() 
 	self.selected = true; 
 	self.cursorTimer = 0
 
@@ -422,7 +424,13 @@ function lineWidget:select()
 		end
 		end
 
-	textActivePasteCallback = function(s) 
+	textActivePasteCallback = function() 
+		local t = love.system.getClipboardText( )
+		self.head = self.head .. t
+		self:setCursorPosition()
+		if self.cursorPosition + self.xOffset > self.w then
+			self.xOffset = - self.cursorPosition + self.w
+		end
 		end 
 
 	textActiveLeftCallback = function() 
@@ -448,8 +456,6 @@ function lineWidget:select()
 			remove = string.sub(self.trail,1,byteoffset-1)
 			self.trail = string.sub(self.trail, byteoffset) 
 		end 
-		--self.trail = remove .. self.trail
-		--self.trail = string.sub(self.trail,2)
 		self.head = self.head .. remove 
 		self:setCursorPosition()
 		if self.cursorPosition + self.xOffset > self.w then
@@ -459,7 +465,7 @@ function lineWidget:select()
 
 	end
 
-function lineWidget:unselect() 
+function textWidget:unselect() 
 	if self.selected then 
 		self.selected = false
 		textActiveCallback = nil 
@@ -470,15 +476,15 @@ function lineWidget:unselect()
 	end 
 	end
 
-function lineWidget:setCursorPosition()
+function textWidget:setCursorPosition()
   self.cursorPosition = fontRound:getWidth( self.head ) 
   end
 
-function lineWidget:getText() return self.head .. self.trail end
+function textWidget:getText() return self.head .. self.trail end
 
-function lineWidget:click() self:select() end
+function textWidget:click() self:select() end
 
-function lineWidget:draw()
+function textWidget:draw()
   local x,y = self.x, self.y
   local zx , zy = 0 , 0
   if self.parent then zx, zy = self.parent:WtoS(0,0) end
@@ -497,14 +503,14 @@ function lineWidget:draw()
   love.graphics.setScissor()
   end
 
-function lineWidget:update(dt)
+function textWidget:update(dt)
   if self.selected then 
     self.cursorTimer = self.cursorTimer + dt
     if self.cursorTimer > self.cursorTimerLimit then self.cursorDraw = not self.cursorDraw ; self.cursorTimer = 0 end
   end 
   end
 
-function lineWidget:isInside(x,y)
+function textWidget:isInside(x,y)
   local lx,ly = self.x, self.y
   local zx , zy = 0 , 0
   if self.parent then zx, zy = self.parent:WtoS(0,0) end
@@ -1336,7 +1342,7 @@ function notificationWindow:draw()
   love.graphics.rectangle( "fill", zx, zy, self.w, self.h, 10, 10 ) 
   love.graphics.setColor(0,0,0)
   love.graphics.setFont(fontRound)
-  if self.text then love.graphics.printf( self.text, zx + 10, zy, self.w - 20 ) end
+  if self.text then love.graphics.printf( self.text, zx + 10, zy + 5, self.w - 20 ) end
   end
 
 function notificationWindow:update(dt)
@@ -1627,9 +1633,9 @@ function setupWindow:new( t ) -- create from w, h, x, y, init
   setmetatable( new , self )
   self.__index = self
   if t.init then new.title = "CONFIGURATION DATA" else new.title = "PLEASE PROVIDE MANDATORY INFORMATION" end
-  new.text1 = lineWidget:new{ x = 150, y = 25 , w = 450, text = baseDirectory }
-  new.text2 = lineWidget:new{ x = 150, y = 55, w = 450, text = fadingDirectory }
-  new.text3 = lineWidget:new{ x = 150, y = 85, w = 150, text = serverport }
+  new.text1 = textWidget:new{ x = 150, y = 25 , w = 440, text = baseDirectory }
+  new.text2 = textWidget:new{ x = 150, y = 55, w = 440, text = fadingDirectory }
+  new.text3 = textWidget:new{ x = 150, y = 85, w = 150, text = serverport }
   if t.init then 
 	new.save  = buttonWidget:new{ x = 440, y = new.h - 45, text = "Save", onClick = function() new:setupSave() end }
   	new:addWidget(new.save)
@@ -3432,6 +3438,7 @@ function love.keypressed( key, isrepeat )
 if textActiveBackspaceCallback and key == "backspace" then textActiveBackspaceCallback(); return end
 if textActiveLeftCallback and key == "left" then textActiveLeftCallback(); return end
 if textActiveRightCallback and key == "right" then textActiveRightCallback(); return end
+if textActivePasteCallback and key == "v" and love.keyboard.isDown(keyPaste) then textActivePasteCallback(); return end
 
 if not initialized then return end
 
@@ -3806,7 +3813,7 @@ end
 function init() 
 
     io.write("base directory   : " .. baseDirectory .. "\n") ; addMessage("base directory : " .. baseDirectory .. "\n")
-    io.write("fading directory : " .. fadingDirectory .. "\n") ; addMessage("fading directory : " .. fadingDirectory .. "\n")
+    io.write("scenario directory : " .. fadingDirectory .. "\n") ; addMessage("scenario : " .. fadingDirectory .. "\n")
 
     -- create socket and listen to any client
     server = socket.tcp()
@@ -3967,6 +3974,7 @@ function love.load( args )
     if love.system.getOS() == "Windows" then
 	keyZoomIn, keyZoomOut = ':', '!'
     	sep = '\\'
+	keyPaste = 'lctrl'
     end
 
     -- get actual screen size
