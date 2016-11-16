@@ -1,13 +1,24 @@
 
 -- interface import
-local utf8 	= require 'utf8'
-local yui 	= require 'yui.yaoui' 	-- graphical library on top of Love2D
-local socket 	= require 'socket'	-- general networking
-local parser    = require 'parse'	-- parse command line arguments
-local tween	= require 'tween'	-- tweening library (manage transition states)
+local utf8 		= require 'utf8'
+local socket 		= require 'socket'	-- general networking
+local parser    	= require 'parse'	-- parse command line arguments
+local tween		= require 'tween'	-- tweening library (manage transition states)
+local yui 		= require 'yui.yaoui' 	-- graphical library on top of Love2D
+local scenario 		= require 'scenario'	-- read scenario file and perform text search
+local rpg 		= require 'rpg'		-- code related to the RPG itself
+local mainLayout 	= require 'layout'	-- global layout to manage windows
+local Window 		= require 'window'	-- Window class & system
+local theme		= require 'theme'	-- global theme
+local widget		= require 'widget'	-- widgets components
 
-require 'scenario'			-- read scenario file and perform text search
-require 'rpg'				-- code related to the RPG itself
+-- specific window classes
+local Help			= require 'help'		-- Help window
+local notificationWindow 	= require 'notificationWindow'	-- notifications
+local iconWindow		= require 'iconWindow'		-- grouped 'Action'/'Histoire' icons
+local Dialog			= require 'dialog'		-- dialog with players 
+
+layout = mainLayout:new()
 
 -- dice3d code
 require	'fading2/dice/base'
@@ -26,19 +37,13 @@ require 'fading2/dice/default/config'
 
 debug = true 
 
--- sink motion
-sinkTime = 1 		-- in seconds
-sinkTimerLimit = 0.1 	-- timelapse between steps
-sinkSteps = sinkTime / sinkTimerLimit
-
 -- main layout
-layout 			= nil
 currentWindowDraw 	= nil
 intW			= 2 	-- interval between windows
 
 -- main screen size
 W, H = 1440, 800 	-- main window size default values (may be changed dynamically on some systems)
-iconSize = 20
+local iconSize = theme.iconSize 
 sep = '/'
 
 -- tcp information for network
@@ -112,12 +117,14 @@ mapOpeningStep		= 100			-- increase x,y at each map opening
 
 keyPaste		= 'lgui'		-- on mac only
 
+--[[
 -- dialog stuff
 dialogBase		= "Message: "
 dialog 			= dialogBase		-- text printed on the screen when typing dialog 
 dialogActive		= false
 dialogLog		= {}			-- store all dialogs for complete display
 ack			= false			-- automatic acknowledge when message received ?
+--]]
 
 -- current text input
 textActiveCallback		= nil			-- if set, function to call with keyboard input (argument: one char)
@@ -126,39 +133,6 @@ textActivePasteCallback		= nil			-- if set, function to call on a paste
 textActiveCopyCallback		= nil			-- if set, function to call on a copy clipboard 
 textActiveLeftCallback		= nil			
 textActiveRightCallback		= nil			
-
--- Help stuff
-HelpLog = {
-	{"",0,""},
-	{"CTRL+H",170,"Help. Ouvre cette fenêtre"},
-	{"CTRL+X",170,"Ferme la fenêtre courante"},
-	{"CTRL+D",170,"Dialog. Ouvre la fenêtre de dialogue (communication avec les joueurs)"},
-	{"CTRL+C",170,"Center. Recentre la fenêtre au milieu de l'écran"},
-	{"CTRL+TAB",170,"Passe à la fenêtre suivante"},
-	{"CTRL+V",170,"Visible. Rend la Map sélectionnée visible/invisible des joueurs, sur le projecteur"},
-	{"CTRL+S",170,"Stick. Active le mode 'sticky' sur la Map sélectionnée, si elle est visible"},
-	{"CTRL+U",170,"Unstick. Retire le mode 'sticky' de la Map sélectionnée"},
-	{"CTRL+Z",170,"Zoom. Active la maximization/minimization de la Map sélectionnée"},
-	{"CTRL+P",170,"Pions. Sur une Map avec des pions, retire tous les pions"},
-	{"SHIFT+Mouse",170,"Sur une Map, créé une forme géométrique qui réduit le brouillard de guerre"},
-	{"CTRL+Mouse",170,"Sur une Map, définit la taille des pions"},
-	{"ALT+Mouse",170,"Sur une Map, définit une zone d'affichage réduite"},
-	{"TAB",170,"Pour les Maps, passe du mode Rectangle au mode Cercle pour tracer les brouillards de guerre"},
-	{"ESPACE",170,"Change la catégorie de la barre de snapshots, entre images, maps et pions"},
-	{"ESC",170,"Cache toutes les fenêtres (ou les restaure)"},
-	{"",0,""},
-	{": ou = (macbook pro)",300,"Sur une Map, Zoom - ou +"},
-	{": ou ! (windows)",300,"Sur une Map, Zoom - ou +"},
-	{"",0,""},
-	{"Double-click (snapshot image)",300,"L'envoie au projecteur"},
-	{"Double-click (snapshot Map)",300, "Ouvre la map"},
-	{"Double-click (Snapshot pion)",300,"Associe le pion au personnage sélectionné dans la liste"},
-	}
-
--- some basic colors
-color = {
-  masked = {210,210,210}, black = {0,0,0}, red = {250,80,80}, darkblue = {66,66,238}, purple = {127,0,255}, 
-  orange = {204,102,0},   darkgreen = {0,102,0},   white = {255,255,255} , green = {0,240,0} , darkgrey = {96,96,96} } 
 
 -- array of PJ and PNJ characters
 -- Only PJ at startup (PNJ are created upon user request)
@@ -317,477 +291,6 @@ function Snapshot:new( t ) -- create from filename or file object (one mandatory
 end
 
 --
--- buttonWidget class
---
-buttonWidget = { x=0, y=0,	-- relative to the parent object
-		 w=60, h=30,
-	 	 parent = nil, text = "button",
-		 onClick = nil,
-  		 clickTimer = 0, clickTimerLimit = 0.3, clickDraw = false,
-	       }
-
-function buttonWidget:new( t ) 
-  local new = t or {}
-  setmetatable( new , self )
-  self.__index = self
-  return new
-  end
-
-function buttonWidget:click() 
-	if self.onClick then self.onClick() end 
-	self.clickDraw = true	
-	end
-
-function buttonWidget:draw()
-  local x,y = self.x, self.y
-  local zx , zy = 0 , 0
-  if self.parent then zx, zy = self.parent:WtoS(0,0) end
-  if self.clickDraw then
-    love.graphics.setColor(255,255,255,80)
-    love.graphics.rectangle("fill",x+zx-10,y+zy-10,self.w+20,self.h+20)
-  end
-  love.graphics.setColor(color.darkblue)
-  love.graphics.rectangle("fill",x+zx,y+zy,self.w,self.h,3,3)
-  love.graphics.setColor(color.white)
-  love.graphics.setFont( fontSearch )
-  local marginx = (self.w - fontSearch:getWidth( self.text ))/2
-  local marginy = (self.h - fontSearch:getHeight())/2
-  love.graphics.print(self.text,x+zx+marginx,y+zy+marginy)
-  end
-
-function buttonWidget:update(dt) 
-	if self.clickDraw then
-	  self.clickTimer = self.clickTimer + dt
-	  if self.clickTimer > self.clickTimerLimit then self.clickDraw = false; self.clickTimer = 0 end
-	end
-	end
-
-function buttonWidget:isInside(x,y)
-  local lx,ly = self.x, self.y
-  local zx , zy = 0 , 0
-  if self.parent then zx, zy = self.parent:WtoS(0,0) end
-  if x > lx + zx and x < lx + zx + self.w and 
-	y > ly + zy and y < ly + zy + self.h then
-	return true
-  end 
-  return false
-  end
-
---
--- textWidget class
---
-textWidget = { 	x=0, y=0,	-- relative to the parent object
-		w=200, h=20,
-	 	parent = nil, selected = false,
-		text = "" 
-	     }
-
-function textWidget:new( t ) 
-  local new = t or {}
-  setmetatable( new , self )
-  self.__index = self
-  new.cursorTimer = 0
-  new.cursorTimerLimit = 0.5
-  new.cursorPosition = 0
-  new.cursorDraw = false
-  -- text is splitted in 2, so we can place cursor
-  new.head = t.text or ""
-  new.trail = ""
-  new.textSelected = ""
-  new.textSelectedPosition = 0
-  new.xOffset = 0
-  new:setCursorPosition() 
-  return new
-  end
-
-function textWidget:select() 
-	self.selected = true; 
-	self.cursorTimer = 0
-
-	textActiveCallback = function(t) 
-		self.head = self.head .. t 
-		if fontRound:getWidth( self.head .. self.trail ) > self.w - fontRound:getWidth(t) then
-			self.xOffset = self.xOffset - fontRound:getWidth(t)
-		end 
-		self:setCursorPosition() 
-		end 
-
-	textActiveBackspaceCallback = function()  
-		if self.head ~= "" then 
-			local remove = ""
-         	  	local byteoffset = utf8.offset(self.head, -1)
-         		if byteoffset then 
-				remove = string.sub(self.head,byteoffset)
-				self.head = string.sub(self.head, 1, byteoffset - 1) 
-			end 
-			self:setCursorPosition()
-			if self.cursorPosition + self.xOffset < 0 then
-				self.xOffset = self.xOffset + fontRound:getWidth(remove)
-			end
-		end
-		end
-
-	textActiveCopyCallback = function() 
-		love.system.setClipboardText(self.textSelected)
-		self.textSelected = ""; self.textSelectedPosition = 0
-		end
-
-	textActivePasteCallback = function() 
-		local t = love.system.getClipboardText( )
-		self.head = self.head .. t
-		self:setCursorPosition()
-		if self.cursorPosition + self.xOffset > self.w then
-			self.xOffset = - self.cursorPosition + self.w
-		end
-		end 
-
-	textActiveLeftCallback = function() 
-		if self.head == "" then return end
-         	local byteoffset = utf8.offset(self.head, -1)
-		local remove = ""
-         	if byteoffset then 
-			remove = string.sub(self.head,byteoffset)
-			self.head = string.sub(self.head, 1, byteoffset - 1) 
-		end 
-		self.trail = remove .. self.trail
-		self:setCursorPosition()
-		if self.cursorPosition + self.xOffset < 0 then
-			self.xOffset = self.xOffset + fontRound:getWidth(remove)
-		end
-		end 
-
-	textActiveRightCallback = function() 
-		if self.trail == "" then return end
-         	local byteoffset = utf8.offset(self.trail,2) 
-		local remove = ""
-         	if byteoffset then 
-			remove = string.sub(self.trail,1,byteoffset-1)
-			self.trail = string.sub(self.trail, byteoffset) 
-		end 
-		self.head = self.head .. remove 
-		if love.keyboard.isDown("lshift") then
-			if self.textSelected == "" then self.textSelectedPosition = self.cursorPosition end
-			self.textSelected = self.textSelected .. remove
-		else
-			self.textSelected = "" ; self.textSelectedPosition = 0
-		end
-		self:setCursorPosition()
-		if self.cursorPosition + self.xOffset > self.w then
-			self.xOffset = self.xOffset - fontRound:getWidth(remove)
-		end
-		end 
-
-	end
-
-function textWidget:unselect() 
-	if self.selected then 
-		self.selected = false
-		textActiveCallback = nil 
-		textActiveBackspaceCallback = nil 
-		textActivePasteCallback = nil 
-		textActiveCopyCallback = nil 
-		textActiveLeftCallback = nil 
-		textActiveRightCallback = nil 
-	end 
-	end
-
-function textWidget:setCursorPosition()
-  self.cursorPosition = fontRound:getWidth( self.head ) 
-  end
-
-function textWidget:getText() return self.head .. self.trail end
-
-function textWidget:click() self:select() end
-
-function textWidget:draw()
-  local x,y = self.x, self.y
-  local zx , zy = 0 , 0
-  if self.parent then zx, zy = self.parent:WtoS(0,0) end
-  if self.selected then
-    love.graphics.setColor(255,255,255)
-    love.graphics.rectangle("fill",x+zx,y+zy,self.w,self.h)
-    love.graphics.setColor(0,0,0)
-    if self.cursorDraw then 
-	love.graphics.line(self.cursorPosition + x + zx + self.xOffset, y+zy, self.cursorPosition + x + zx + self.xOffset, y+zy+self.h) 
-    end
-  end
-  love.graphics.setColor(0,0,0)
-  love.graphics.setFont( fontRound )
-  love.graphics.setScissor(x+zx,y+zy,self.w,self.h)
-  love.graphics.print(self.head..self.trail,x+zx+self.xOffset,y+zy)
-  if self.textSelected ~= "" then
-    love.graphics.setColor(155,155,155,155)
-    local w = self.cursorPosition - self.textSelectedPosition
-    love.graphics.rectangle("fill",x+zx+self.textSelectedPosition,y+zy,w,self.h)
-  end
-  love.graphics.setScissor()
-  end
-
-function textWidget:update(dt)
-  if self.selected then 
-    self.cursorTimer = self.cursorTimer + dt
-    if self.cursorTimer > self.cursorTimerLimit then self.cursorDraw = not self.cursorDraw ; self.cursorTimer = 0 end
-  end 
-  end
-
-function textWidget:isInside(x,y)
-  local lx,ly = self.x, self.y
-  local zx , zy = 0 , 0
-  if self.parent then zx, zy = self.parent:WtoS(0,0) end
-  if x > lx + zx and x < lx + zx + self.w and 
-	y > ly + zy and y < ly + zy + self.h then
-	return true
-  end 
-  return false
-  end
-
-
-
--- Window class
--- a window is here an object slightly different from common usage, because
--- * a window may have the property to be zoomable, dynamically at runtime. This
---   is not the same as resizable, as its scale then changes (not only its frame)
---   For this reason, the important information about coordinates is not the
---   classical position (x,y) associated to the upper left corner of the window 
---   within the screen coordinate-system, but the point within the window itself,
---   expressed in the window-coordinate system, which is currently displayed at
---   the center of the screen (see the difference?). This point is an invariant
---   when the window zooms in or out.
--- * w and h are respectively width and height of the window, in pixels, but
---   expressed for the window at scale 1 (no zoom in or out). These dimensions
---   are absolute and will not change during the lifetime of the window object,
---   only the scaling factor will change to reflect a bigger (or smaller) object
---   actually drawn on the screen 
--- Notes: Windows are gathered and manipulated thru the mainLayout class 
---
-Window = { 	class = "window", w = 0, h = 0, mag = 1.0, x = 0, y = 0 , title = "", 	-- base window information and shape
-		zoomable = false ,							-- can we change the zoom ?
-		movable = true ,							-- can we move the window ?
-	   	sticky = false, stickX = 0, stickY = 0, stickmag = 0 , 			-- FIXME: should be in map ?
-		markForClosure = false,							-- event to close the window
-		markForSink = false,							-- event to sink (gradually disappear)
-	        alwaysOnTop = false, alwaysBottom = false , 				-- force layering
-		wResizable = false, hResizable = false, whResizable = false, 		-- resizable for w and h
-		widgets = {}
-	  }
-
-function Window:new( t ) 
-  local new = t or {}
-  setmetatable( new , self )
-  self.__index = self
-  new.markForSink = false
-  new.markForUnsink = false
-  new.markForSinkDeltax = 0 -- absolute delta per step (in pixels)
-  new.markForSinkDeltay = 0
-  new.markForSinkDeltaMag = 0
-  new.markForSinkTimer = 0
-  new.sinkSteps = 0
-  return new
-end
-
-function Window:addWidget( widget ) table.insert( self.widgets, widget ); widget.parent = self end
- 
--- window to screen, screen to window: transform x,y coordinates within the window from point on screen
-function Window:WtoS(x,y) return (x - self.x)/self.mag + W/2, (y - self.y)/self.mag + H/2 end
-
--- translate window by dx, dy pixels on screen, with unchanged mag factor 
-function Window:translate(dx,dy) self.x = self.x - dx * self.mag; self.y = self.y - dy * self.mag end
-	
--- request the window to sink at the given target position tx, ty on the screen, and covering a window
--- of width w on the screen
-function Window:sink(tx,ty,w) 
-	self.markForSink = true
-	self.sinkFinalDisplay = false
-	self.restoreSinkX, self.restoreSinkY, self.restoreSinkMag = self.x, self.y, self.mag
-	local cx, cy = Window.WtoS(self,self.w/2, self.h/2)
-	self.markForSinkDeltax, self.markForSinkDeltay = (tx - cx)/sinkSteps, (ty - cy)/sinkSteps
-	local wratio = self.w / w
-	self.markForSinkDeltaMag = (wratio - self.mag)/sinkSteps
-	self.sinkSteps = 0
-	self.markForSinkTimer = 0
-	end
- 	
-
--- request the window to unsink from source position sx, sy at the given target (window) position x,y, with mag factor 
-function Window:unsink(sx, sy, sw, x, y, mag) 
-	self.markForSink = true
-	self.sinkFinalDisplay = true
-	local startingmag = self.w / sw
-	self.markForSinkDeltaMag = (mag - startingmag) / sinkSteps
-	-- where would be the window center on screen at the end ?
-	self.mag = mag; self.x = x; self.y = y
-	local cx, cy = Window.WtoS(self,self.w/2, self.h/2)
-	self.markForSinkDeltax, self.markForSinkDeltay = (cx - sx)/sinkSteps, (cy - sy)/sinkSteps
-	-- real starting data
-	self.mag = startingmag; 
-	self.x = self.w/2; self.y = self.h/2
-	Window.translate(self,sx-W/2, sy-H/2) -- we apply the correct translation
-	self.sinkSteps = 0
-	self.markForSinkTimer = 0
-	layout:setDisplay(self,true)
-	end
-
-function Window:cx( zx ) return (-zx + W/2)*self.mag end
-function Window:cy( zy ) return (-zy + H/2)*self.mag - iconSize end
-
--- return true if the point (x,y) (expressed in layout coordinates system,
--- typically the mouse), is inside the window frame (whatever the display or
--- layer value, managed at higher-level)
-function Window:isInside(x,y)
-  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-  return x >= zx and x <= zx + self.w / self.mag and 
-  	 y >= zy - iconSize and y <= zy + self.h / self.mag -- iconSize needed to take window bar into account
-end
-
-function Window:zoom( mag ) if self.zoomable then self.mag = mag end end
-function Window:move( x, y ) if self.movable then self.x = x; self.y = y end end
-function Window:setTitle( title ) self.title = title end
-
--- drawn upper button bar
-function Window:drawBar( )
- 
- -- reserve space for 3 buttons (today 2 used)
- local reservedForButtons = iconSize*3
- -- reserve space on maps for mask symbol (circle or rect)
- local marginForRect = 0
- if self.class == "map" and self.kind == "map" then marginForRect = 20 end
-
- -- max space for title
- local availableForTitle = self.w / self.mag - reservedForButtons - marginForRect
- if availableForTitle < 0 then availableForTitle = 0 end 
- local numChar = math.floor(availableForTitle / fontRound:getWidth("a"))
- local title = string.sub( self.title , 1, numChar ) 
-
- -- draw bar
- if self == layout:getFocus() then love.graphics.setColor(160,160,160) else love.graphics.setColor(224,224,224) end
- local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
- love.graphics.rectangle( "fill", zx , zy - iconSize , self.w / self.mag , iconSize )
-
- -- draw icons
- love.graphics.setFont(fontRound)
- if not self.alwaysVisible then -- close
-   love.graphics.draw( iconClose, zx + self.w / self.mag - iconSize + 3, zy - iconSize + 3)
- end
- if self.alwaysOnTop then -- always on top
- 	love.graphics.draw( iconOnTopActive, zx + self.w / self.mag - 2*iconSize+3 , zy - iconSize+3)
- else
- 	love.graphics.draw( iconOnTopInactive, zx + self.w / self.mag - 2*iconSize+3 , zy - iconSize+3)
- end
- if self.class == "map" and self.quad then -- expand
-   love.graphics.draw( iconExpand, zx + self.w / self.mag - 3 * iconSize + 3, zy - iconSize + 3)
- end
-
- -- print title
- if self == layout:getFocus() then love.graphics.setColor(255,255,255) else love.graphics.setColor(0,0,0) end
- love.graphics.print( title , zx + 3 + marginForRect , zy - iconSize + 3 )
-
-  -- draw small circle or rectangle in upper corner, to show which mode we are in
- love.graphics.setColor(255,0,0)
- if self.class == "map" and self.kind == "map" then
-    if maskType == "RECT" then love.graphics.rectangle("line",zx + 5, zy - 16 ,12, 12) end
-       if maskType == "CIRC" then love.graphics.circle("line",zx + 10, zy - 10, 5) end
- end
-
-end
-
-function Window:drawResize()
-   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-   love.graphics.draw( iconResize, zx + self.w / self.mag - iconSize + 3, zy + self.h/self.mag - iconSize + 3)
-end
-
-function Window:drawBack()
-  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-  local alpha = 200
-  love.graphics.setColor(255,255,255,alpha)
-  love.graphics.rectangle( "fill", zx , zy , self.w / self.mag, self.h / self.mag )  
-end
-
--- click in the window. Check some rudimentary behaviour (quit...)
-function Window:click(x,y)
- 	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
- 	local mx,my = self:WtoS(self.w, self.h) 
- 	local tx, ty = mx - iconSize, zy + 3
-	tx, ty = math.min(tx,W-iconSize), math.max(ty,0) + iconSize
-
-	-- click on Close 
-	if x >= zx + self.w / self.mag - iconSize and x <= zx + self.w / self.mag and
-		y >= zy - iconSize and y <= zy then
-		self.markForClosure = true
-		-- mark the window for a future closure. We don't close it right now, because
-		-- there might be another object clickable just below that would be wrongly
-		-- activated ( a yui button ). So we wait for the mouse release to perform
-		-- the actual closure
-		return self
-	end
-
-	-- click on Always On Top 
-	if x >= zx + self.w / self.mag - 2 * iconSize and x <= zx + self.w / self.mag - iconSize and
-		y >= zy - iconSize and y <= zy then
-		self.alwaysOnTop = not self.alwaysOnTop 
-		layout:setOnTop(self, self.alwaysOnTop)
-	end
-
-	-- click on Expand (for maps with quad)
-	if self.class == "map" and self.quad and x >= zx + self.w / self.mag - 3 * iconSize and x <= zx + self.w / self.mag - 2 * iconSize and
-		y >= zy - iconSize and y <= zy then
-		-- remove the quad. restore to initial size
-		self:setQuad()
-	end
-	
-	if x >= mx - iconSize and y >= my - iconSize then
-		-- click on Resize at bottom right corner 
-		if self.wResizable or self.hResizable or self.whResizable then mouseResize = true end
-	elseif x >= tx and y >= zy and y <= ty and self.class == "map" then 
-		-- click on Maximize/Minimize at upper right corner 
-		self:maximize()	
-	elseif self.movable then
-		-- clicking elsewhere, wants to move
-		mouseMove = true
-		arrowMode = false
-		arrowStartX, arrowStartY = x, y
-		arrowModeMap = nil
-	end
-
-	return nil
-	end
-
-function Window:update(dt) 
-
-	if self.markForSink then 
-			self.markForSinkTimer = 0
-			self.sinkSteps = self.sinkSteps + 1
-		
-			-- we translate the window
-			Window.translate(self,self.markForSinkDeltax, self.markForSinkDeltay)
-			-- where is the center on screen now ?
-			local cx, cy = Window.WtoS(self,self.w/2,self.h/2)
-			-- we want the scale to change, but keeping the window center unchanged
-			self.mag = self.mag + self.markForSinkDeltaMag
-			local tx,ty = Window.WtoS(self,self.w/2,self.h/2) -- if doing nothing, we would be there
-			Window.translate(self,cx-tx, cy-ty) -- we apply the correct translation
-		
-			if self.sinkSteps >= sinkSteps then 
-				self.markForSink = false -- finish sink movement
-				-- disappear eventually
-				if not self.sinkFinalDisplay then 
-					layout:setDisplay(self, false) 
-					self.minimized = true
-				else
-					self.minimized = false
-				end	
-			end
-	end
-	end
-
-function Window:drawWidgets() for i=1,#self.widgets do self.widgets[i]:draw() end end 
-
--- to be redefined in inherited classes
-function Window:draw() for i=1,#self.widgets do self.widgets[i]:draw() end end 
-function Window:getFocus() end
-function Window:looseFocus() end
-function Window:drop() end
-
---
 --  Pawn object 
 --  A pawn holds the image, with proper scale defined at pawn creation on the map,
 --  along with the ID of the corresponding PJ/PNJ.
@@ -813,7 +316,7 @@ function Pawn:new( id, snapshot, width , x, y )
   new.offsetx = (new.sizex + 3*2 - w * new.f ) / 2
   new.offsety = (new.sizey + 3*2 - h * new.f ) / 2
   new.PJ = false
-  new.color = color.white
+  new.color = theme.color.white
   return new
   end
 
@@ -833,6 +336,7 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   local t = t or {}
   if not t.kind then self.kind = "map" else self.kind = t.kind end 
   self.class = "map"
+  self.layout = t.layout
  
   -- snapshot part of the object
   assert( t.filename or t.file )
@@ -1065,7 +569,7 @@ function Map:draw()
 		     	if map.pawns[i].snapshot.im then
   		       		local zx,zy = (map.pawns[i].x - map.translateQuadX) * 1/map.mag + x , (map.pawns[i].y - map.translateQuadY) * 1/map.mag + y
 				-- color is different depending on PJ/PNJ, and if the character has played this round or not, or has the focus
-		       		if PNJTable[index].done then love.graphics.setColor(unpack(color.green))
+		       		if PNJTable[index].done then love.graphics.setColor(unpack(theme.color.green))
 				elseif PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
 		       		love.graphics.rectangle( "fill", zx, zy, (map.pawns[i].sizex+6) / map.mag, (map.pawns[i].sizey+6) / map.mag)
 		       		if dead then 
@@ -1139,7 +643,7 @@ function Map:update(dt)
 			local p = self.pawns[i]
 			if p.timer then p.timer:update(dt) end
 			if p.x == p.moveToX and p.y == p.moveToY then p.timer = nil end -- remove timer in the end
-			p.color = color.white
+			p.color = theme.color.white
 		end	
 	end
 
@@ -1336,273 +840,6 @@ function iconRollWindow:click(x,y)
 
 	end
 
---
--- notificationWindow class
--- a notificationWindow is a window which displays a temporary message in the background . it is not zoomable, movable, no window bar
--- and always at bottom
---
-
-notificationWindow = Window:new{ class = "notification", alwaysOnTop = true, zoomable = false, movable = false }
-
-function notificationWindow:new( t ) -- create from w, h, x, y
-  local new = t or {}
-  setmetatable( new , self )
-  self.__index = self
-  new.opening = false
-  new.closing = false
-  new.pause   = false
-  new.maxX = t.x + t.w - 10 
-  new.minX = t.x 
-  return new
-end
-
-function notificationWindow:draw()
-  local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
-  love.graphics.setColor(255,255,255)
-  love.graphics.rectangle( "fill", zx, zy, self.w, self.h, 10, 10 ) 
-  love.graphics.setColor(0,0,0)
-  love.graphics.setFont(fontRound)
-  if self.text then love.graphics.printf( self.text, zx + 10, zy + 5, self.w - 20 ) end
-  end
-
-function notificationWindow:update(dt)
-  if not self.text and #messages ~= 0 then
-	self.text = messages[1].text
-	table.remove(messages,1)
- 	self.opening = true 
-	layout:setDisplay(self,true)
-  end
-  if self.opening and self.x <= self.maxX then 
-	self.x = self.x + 3 
-	if self.x > self.maxX then self.opening = false; self.pause = true; self.closing = false; self.pauseTimer = 3  end
-  end
-  if self.pause then
-	self.pauseTimer = self.pauseTimer - dt
-	if self.pauseTimer < 0 then self.pause = false; self.closing = true end
-  end
-  if self.closing and self.x >= self.minX then 
-	self.x = self.x - 3 
-	if self.x < self.minX then self.closing = false; self.text = nil ; layout:setDisplay(self,false) end
-  end
-  end
-
-function notificationWindow:click(x,y)
-  self.opening = false
-  self.pause = false
-  self.closing = true
-  end
-
---
--- iconWindow class
--- a Icon is a window which displays a fixed image on the background . it is not zoomable, movable, no window bar
--- and always at bottom
---
-
-iconWindow = Window:new{ class = "icon", alwaysBottom = true, alwaysVisible = true, zoomable = false }
-
-function iconWindow:new( t ) -- create from w, h, x, y + text, image, windows, mag
-  local new = t or {}
-  setmetatable( new , self )
-  self.__index = self
-  new.open = false 
-  new.shader = love.graphics.newShader( glowCode ) 
-  return new
-end
-
-function iconWindow:draw()
-  local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
-  love.graphics.setColor(255,255,255)
-  if self.open then
-  	love.graphics.setShader(self.shader)
-  	self.shader:send("size",{100,100})
-  end
-  love.graphics.draw( self.image, zx, zy , 0, 1/self.mag, 1/self.mag)
-  if self.open then
-  	love.graphics.setShader()
-  end
-  love.graphics.setFont(fontTitle)
-  local size = fontTitle:getWidth(self.text)
-  love.graphics.print( self.text, zx + (self.w/self.mag - size)/2, zy + 90  ) 
-end
-
-function decideOpenWindow(window,cx,cy,w)
-	if not window then return end
-	if window.minimized then
-		window:unsink(cx,cy,w,window.restoreSinkX, window.restoreSinkY, window.restoreSinkMag)
-	elseif not layout:getDisplay(window) then
-		window:unsink(cx,cy,w,window.startupX, window.startupY, window.startupMag)
-	else
-		layout:restoreBase(window)
-	end 
-	end
-
-function decideCloseWindow(window,cx,cy,w)
-	if window.minimized or not layout:getDisplay(window) or window.alwaysVisible or 
-		window.class == "dialog" or window.class == "help" or window.class == "setup" then
-	  -- nothing to do 
-	else
-		window:sink(cx,cy,w)
-	end
-	end
-
-function iconWindow:click(x,y)
-
-  	local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
-	if y < zy then 
-		-- we click on (invisible) button bar. This moves the window as well
-		mouseMove = true
-		arrowMode = false
-		arrowStartX, arrowStartY = x, y
-		arrowModeMap = nil
-		return
-	end
-
-  	local cx,cy = Window.WtoS(self,self.w/2,self.h/2) 
-	self.open = not self.open
-	if self.open then -- only one opened at a time
-	  if self == storyWindow then
-		actionWindow.open = false
-	  else
-		storyWindow.open = false
-	  end
-	end
-	if self.text == "L'Action" then
-		if self.open then
-			decideOpenWindow(combatWindow,cx,cy,0.3*self.w/self.mag)
-	 		currentSnap = 2 -- tactical maps			
-			snapshotWindow:setTitle( snapText[currentSnap] )
-			decideOpenWindow(snapshotWindow,cx,cy,0.3*self.w/self.mag)
-			decideOpenWindow(pWindow,cx,cy,0.3*self.w/self.mag)
-			-- sink all other windows
-			for i=1,#layout.sorted do
-				if layout.sorted[i].w.class == "map" and layout.sorted[i].w.kind == "map" and layout.sorted[i].w.minimized then
-					decideOpenWindow(layout.sorted[i].w,cx,cy,0.3*self.w/self.mag)
-				elseif layout.sorted[i].w ~= combatWindow and 
-				   layout.sorted[i].w ~= pWindow and 
-				   layout.sorted[i].w ~= snapshotWindow and
-				   layout.sorted[i].w.class ~= "dialog" and
-				   layout.sorted[i].w.class ~= "setup" and
-				   layout.sorted[i].w.class ~= "help" and
-				   layout.sorted[i].d and 
-				   not layout.sorted[i].w.alwaysVisible then
-
-				  	layout.sorted[i].w:sink(cx,cy,0.3*self.w/self.mag)	
-
-				end
-
-			end
-		else
-			-- sink all windows
-			for i=1,#layout.sorted do
-				decideCloseWindow(layout.sorted[i].w,cx,cy,0.3*self.w/self.mag)
-			end
-		end
-	elseif self.text == "L'Histoire" then
-		if self.open then
-	 		currentSnap = 1 -- images			
-			snapshotWindow:setTitle( snapText[currentSnap] )
-			decideOpenWindow(snapshotWindow,cx,cy,0.3*self.w/self.mag)
-			decideOpenWindow(pWindow,cx,cy,0.3*self.w/self.mag)
-			decideOpenWindow(scenarioWindow,cx,cy,0.3*self.w/self.mag)
-			-- sink all other windows
-			for i=1,#layout.sorted do
-				if layout.sorted[i].w ~= pWindow and 
-				   layout.sorted[i].w ~= snapshotWindow and
-				   layout.sorted[i].w ~= scenarioWindow and
-				   layout.sorted[i].w.class ~= "dialog" and
-				   layout.sorted[i].w.class ~= "setup" and
-				   layout.sorted[i].w.class ~= "help" and
-				   layout.sorted[i].d and 
-				   not layout.sorted[i].w.alwaysVisible then
-
-				  	layout.sorted[i].w:sink(cx,cy,0.3*self.w/self.mag)	
-
-				end
-
-			end
-		else
-			-- sink all windows
-			for i=1,#layout.sorted do
-				decideCloseWindow(layout.sorted[i].w,cx,cy,0.3*self.w/self.mag)
-			end
-		end
-	end
-end
-
--- Dialog class
--- Help class
--- a Help is a window which displays some fixed text . it is not zoomable
-Help = Window:new{ class = "help" , title = "HELP" }
-
-function Help:new( t ) -- create from w, h, x, y
-  local new = t or {}
-  setmetatable( new , self )
-  self.__index = self
-  return new
-end
-
-function Help:click(x,y)
-  	Window.click(self,x,y)
-	end
-
-function Help:draw()
-   -- draw window frame
-   self:drawBack()
-   love.graphics.setFont(fontSearch)
-   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-   --love.graphics.setColor(10,10,10,150)
-   --love.graphics.rectangle( "fill", zx , zy , self.w , self.h )  
-   -- print current help text
-   love.graphics.setColor(0,0,0)
-   for i=1,#HelpLog do 
-	love.graphics.printf( HelpLog[i][1] , zx + 5, zy + (i-1)*20 , self.w )	
-	love.graphics.printf( HelpLog[i][3] , zx + HelpLog[i][2], zy + (i-1)*20 , self.w )	
-   end
-   -- print bar
-   self:drawBar()
-end
-
-function Help:update(dt) Window.update(self,dt) end
-
--- Dialog class
--- a Dialog is a window which displays some text and let some input. it is not zoomable
-Dialog = Window:new{ class = "dialog" , title = "DIALOG WITH PLAYERS" }
-
-function Dialog:new( t ) -- create from w, h, x, y
-  local new = t or {}
-  setmetatable( new , self )
-  self.__index = self
-  return new
-end
-
-function Dialog:click(x,y)
-  	Window.click(self,x,y)
-	end
-
-function Dialog:draw()
-   -- draw window frame
-   love.graphics.setFont(fontSearch)
-   love.graphics.setColor(10,10,10,150)
-   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-   love.graphics.rectangle( "fill", zx , zy , self.w , self.h )  
-   -- print current log text
-   local start
-   if #dialogLog > 10 then start = #dialogLog - 10 else start = 1 end
-   love.graphics.setColor(255,255,255)
-   for i=start,#dialogLog do 
-	love.graphics.printf( dialogLog[i] , zx , zy + (i-start)*18 , self.w )	
-   end
-   -- print MJ input eventually
-   love.graphics.setColor(200,200,255)
-   love.graphics.printf(dialog, zx , zy + self.h - 22 , self.w )
-
-   -- print bar
-   self:drawBar()
-end
-
-function Dialog:getFocus() dialogActive = true end
-function Dialog:looseFocus() dialogActive = false end
-function Dialog:update(dt) Window.update(self,dt) end
 
 -- projectorWindow class
 -- a projectorWindow is a window which displays images. it is not zoomable
@@ -1653,15 +890,15 @@ function setupWindow:new( t ) -- create from w, h, x, y, init
   setmetatable( new , self )
   self.__index = self
   if t.init then new.title = "CONFIGURATION DATA" else new.title = "PLEASE PROVIDE MANDATORY INFORMATION" end
-  new.text1 = textWidget:new{ x = 150, y = 25 , w = 440, text = baseDirectory }
-  new.text2 = textWidget:new{ x = 150, y = 55, w = 440, text = fadingDirectory }
-  new.text3 = textWidget:new{ x = 150, y = 85, w = 150, text = serverport }
+  new.text1 = widget.textWidget:new{ x = 150, y = 25 , w = 440, text = baseDirectory }
+  new.text2 = widget.textWidget:new{ x = 150, y = 55, w = 440, text = fadingDirectory }
+  new.text3 = widget.textWidget:new{ x = 150, y = 85, w = 150, text = serverport }
   if t.init then 
-	new.save  = buttonWidget:new{ x = 440, y = new.h - 45, text = "Save", onClick = function() new:setupSave() end }
+	new.save  = widget.buttonWidget:new{ x = 440, y = new.h - 45, text = "Save", onClick = function() new:setupSave() end }
   	new:addWidget(new.save)
-  	new.load  = buttonWidget:new{ x = 515, y = new.h - 45, text = "Restart", w=70,onClick = function() new:setupLoad() end }
+  	new.load  = widget.buttonWidget:new{ x = 515, y = new.h - 45, text = "Restart", w=70,onClick = function() new:setupLoad() end }
   else
-  	new.load  = buttonWidget:new{ x = 510, y = new.h - 45, text = "Start", onClick = function() new:setupLoad() end }
+  	new.load  = widget.buttonWidget:new{ x = 510, y = new.h - 45, text = "Start", onClick = function() new:setupLoad() end }
   end
   new:addWidget(new.text1)
   new:addWidget(new.text2)
@@ -1695,7 +932,7 @@ function setupWindow:draw()
   self:drawBack()
   self:drawWidgets()
   love.graphics.setFont(fontRound)
-  love.graphics.setColor( color.black )
+  love.graphics.setColor( theme.color.black )
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
   love.graphics.print("BASE DIRECTORY *", zx + 5, zy + 25 )
   love.graphics.print("SCENARIO", zx + 5, zy + 55 )
@@ -1758,7 +995,7 @@ function Combat:draw()
 			  love.graphics.setColor(0,0,0,120)
 		  	  love.graphics.rectangle("line",PNJtext[index].x+743,PNJtext[index].y-3, 26,39) 
 		  end
-		  PNJtext[index].def.color = { unpack(color.white) }
+		  PNJtext[index].def.color = { unpack(theme.color.white) }
     		  love.graphics.setColor(204,102,0,alpha)
 	  end
         end
@@ -1891,12 +1128,6 @@ function Combat:drop( o )
 	end
 
 --
--- mainLayout class
--- store all windows, with their display status (displayed or not) and layer value
---
-mainLayout = {}
-
---
 -- snapshotBarclass
 -- a snapshotBar is a window which displays images
 --
@@ -1921,7 +1152,7 @@ function snapshotBar:draw()
 	if x >= zx - snapshotSize then 
   		love.graphics.setScissor( zx, zy, self.w / self.mag, self.h / self.mag ) 
 		if snapshots[currentSnap].s[i].selected then
-  			love.graphics.setColor(unpack(color.red))
+  			love.graphics.setColor(unpack(theme.color.red))
 			love.graphics.rectangle("line", 
 				zx + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1),
 				zy + 5, 
@@ -2091,169 +1322,6 @@ function snapshotBar:click(x,y)
 
   end
 
---
--- mainLayout class
--- store all windows, with their display status (displayed or not) and layer value
---
-mainLayout = {}
-function mainLayout:new()
-  local new = { windows= {}, maxWindowLayer = 1 , focus = nil, sorted = {} }
-  setmetatable( new , self )
-  self.__index = self
-  self.globalDisplay = true
-  return new
-end
-
-function mainLayout:addWindow( window, display ) 
-	if window.alwaysBottom then
-		self.windows[window] = { w=window , l=1 , d=display }
-	elseif window.alwaysOnTop then
-		self.windows[window] = { w=window , l=10e10 , d=display }
-	else
-		self.maxWindowLayer = self.maxWindowLayer + 1
-		self.windows[window] = { w=window , l=self.maxWindowLayer , d=display }
-	end
-	-- sort windows by layer (ascending) value
-	table.insert( self.sorted , self.windows[window] )
-	table.sort( self.sorted , function(a,b) return a.l < b.l end )
-	window.startupX, window.startupY, window.startupMag = window.x, window.y, window.mag
-	end
-
--- restore a window to its default value
-function mainLayout:restoreBase(window)
-	window.x, window.y, window.mag = window.startupX, window.startupY, window.startupMag
-	self.windows[window].d = true
-	end
-
-function mainLayout:removeWindow( window ) 
-	if self.focus == window then self:setFocus( nil ) end
-	for i=1,#self.sorted do if self.sorted[i].w == window then table.remove( self.sorted , i ); break; end end
-	self.windows[window] = nil
-	end
-
--- request a window to be on top, or restore it to its standard mode
-function mainLayout:setOnTop( window , onTop )
-	if not onTop then 
-		layout.windows[window].l = layout.maxWindowLayer+1
-	else 
-		layout.windows[window].l = 10e5
-	end
-	table.sort( self.sorted , function(a,b) return a.l < b.l end )
-	end
-
--- manage display status of a window
-function mainLayout:setDisplay( window, display ) 
-	if self.windows[window] then 
-		self.windows[window].d = display
-		if not display and self.focus == window then self:setFocus(nil) end -- looses the focus as well
-	end
-	end 
-	
-function mainLayout:getDisplay( window ) if self.windows[window] then return self.windows[window].d else return false end end
-
--- we can set a global value to display, or hide, all windows in one shot
-function mainLayout:toggleDisplay() 
-	self.globalDisplay = not self.globalDisplay 
- 	if not self.globalDisplay then self:setFocus(nil) end -- no more window focus	
-	end
-
-function mainLayout:toggleWindow(w)
-	self.windows[w].d = not self.windows[w].d
-	end
-
-function mainLayout:hideAll()
-	for i=1,#self.sorted do if not self.sorted[i].w.alwaysVisible then self.sorted[i].d = false end end
-	end
-
--- return (if there is one) or set the window with focus 
--- if we set focus, the window automatically gets in front layer
-function mainLayout:getFocus() return self.focus end
-
--- set the focus on the given window. if window is nil, remove existing focus if any
-function mainLayout:setFocus( window ) 
-	if window then
-		if window == self.focus then return end -- this window was already in focus. nothing happens
-		if not window.alwaysBottom and not window.alwaysOnTop then
-			self.maxWindowLayer = self.maxWindowLayer + 1
-			self.windows[window].l = self.maxWindowLayer
-			table.sort( self.sorted , function(a,b) return a.l < b.l end )
-		end
-		window:getFocus()
-		if self.focus then self.focus:looseFocus() end
-	end
-	if not window and self.focus then self.focus:looseFocus() end
-	self.focus = window
-	end 
-
--- when ctrl+tab is pressed, select the next window to put focus on
-function mainLayout:nextWindow()
- 	local t = {}
-	local index = nil
-	if not self.globalDisplay then return end
-	for i=1,#self.sorted do if self.sorted[i].d and self.sorted[i].w.class ~= "icon" then 
-		table.insert( t , self.sorted[i].w ) 
-		if self.sorted[i].w == self:getFocus() then index = i end
-		end end
-	if not index then
-		if #t >= 1 then index = 1
-		else return end
-	end
- 	index = index + 1
-	if index > #t then index = 1 end	
-	self:setFocus( t[index] )	
-	end
-
--- check if there is (and return) a window present at the given position in the screen
--- this takes into account the fact that a window is displayed or not (of course) but
--- also the layer value (the window with highest layer is selected).
--- If a window is actually clicked, it automatically gets focus and will get in front.
--- If no window is clicked, they all loose the focus
-function mainLayout:click( x , y )
-	local layer = 0
-	local result = nil
-	for k,l in pairs( self.windows ) do
-		-- in ESC mode, no window at all excepts icons
-		if self.globalDisplay or l.w.alwaysVisible then 
-			if l.d and l.w:isInside(x,y) and l.l > layer then result = l.w ; layer = l.l end  
-		end
-	end
-	if result then
-		-- a window was actually clicked. Call corresponding click() function 
-		-- this gives opportunity to the window to react, and potentially to close itself
-		-- if the close button is pressed. 
-		result:click(x,y)
-		if not result.markForClosure then self:setFocus( result ) end -- this gives focus
-	else
-		self:setFocus(nil)
-	end
-	return result
-	end
-
--- same as click function, except that no click is actually performed, so focus does not change
-function mainLayout:getWindow( x , y )
-	local layer = 0
-	local result = nil
-	for k,l in pairs( self.windows ) do
-		-- in ESC mode, no window at all excepts icons
-		if self.globalDisplay or l.w.alwaysVisible then 
-			if l.d and l.w:isInside(x,y) and l.l > layer then result = l.w ; layer = l.l end  
-		end
-	end
-	return result
-	end
-
-function mainLayout:draw() 
-	for k,v in ipairs( self.sorted ) do 
-		if self.globalDisplay or v.w.alwaysVisible then
-			if self.sorted[k].d then self.sorted[k].w:draw() end 
-		end
-	end
-	end 
-
-function mainLayout:update(dt)
-	for k,v in pairs(self.windows) do v.w:update(dt) end
-	end
-
 -- insert a new message to display
 function addMessage( text, time , important )
   if not time then time = 5 end
@@ -2304,24 +1372,12 @@ function tcpsendBinary( t )
  c:close()
  end
 
--- send dialog message to player
-function doDialog( text )
-  local _,_,playername,rest = string.find(text,"(%a+)%A?(.*)")
-  io.write("send message '" .. text .. "': player=" .. tostring(playername) .. ", text=" .. tostring(rest) .. "\n")
-  local tcp = findClientByName( playername )
-  if not tcp then io.write("player not found or not connected\n") return end
-  tcpsend( tcp, rest ) 
-  table.insert( dialogLog , "MJ: " .. string.upper(text) .. "(" .. os.date("%X") .. ")" )
-  end
-
 -- capture text input (for text search)
 function love.textinput(t)
-	if (not searchActive) and (not dialogActive) and (not textActiveCallback) then return end
+	if (not searchActive) and (not textActiveCallback) then return end
 	if ignoreLastChar then ignoreLastChar = false; return end
 	if searchActive then
 		text = text .. t
-	elseif dialogActive then
-		dialog = dialog .. t
 	else
 		textActiveCallback( t )
 	end
@@ -2402,7 +1458,7 @@ function love.filedropped(file)
 
 	  elseif is_a_map then  -- add map to the atlas
 	    local m = Map:new()
-	    m:load{ file=file } -- no filename, and file object means local 
+	    m:load{ file=file, layout=layout } -- no filename, and file object means local 
 	    --atlas:addMap( m )  
 	    layout:addWindow( m , false )
 	    table.insert( snapshots[2].s , m )
@@ -2483,7 +1539,8 @@ function love.update(dt)
 	       string.lower(command) == "gui " or
 	       string.lower(command) == "gay " then
 		addMessage( string.upper(data) , 8 , true ) 
-		table.insert( dialogLog , string.upper(data) .. " (" .. os.date("%X") .. ")" )
+		layout.dialogWindow:addLine(string.upper(data) .. " (" .. os.date("%X") .. ")" )
+		--table.insert( dialogLog , string.upper(data) .. " (" .. os.date("%X") .. ")" )
 		local index = findPNJByClass( command )
 		--PNJTable[index].ip, PNJTable[index].port = lip, lport -- we store the ip,port for further communications 
 		clients[i].id = command
@@ -2497,7 +1554,7 @@ function love.update(dt)
 	    if clients[i].id ~= projectorId then
 		-- this is a player calling us, from a known device. We answer
 		addMessage( string.upper(clients[i].id) .. " : " .. string.upper(data) , 8 , true ) 
-		table.insert( dialogLog , string.upper(clients[i].id) .. " : " .. string.upper(data) .. " (" .. os.date("%X") .. ")" )
+		layout.dialogWindow:addLine(string.upper(clients[i].id) .. " : " .. string.upper(data) .. " (" .. os.date("%X") .. ")" )
 		if ack then	
 			tcpsend( clients[i].tcp, "(ack. " .. os.date("%X") .. ")" )
 		end
@@ -2577,7 +1634,7 @@ function love.update(dt)
 
 		if target and target ~= pawnMove then
 			-- we are targeting someone, draw the target in red color !
-			target.color = color.red
+			target.color = theme.color.red
 		end
 	end
 
@@ -2680,18 +1737,18 @@ function love.update(dt)
 
 		-- sort and reprint screen after 3 s. an INIT value has been modified
     		if PNJTable[i].initTimerLaunched then
-      			PNJtext[i].init.color = color.red
+      			PNJtext[i].init.color = theme.color.red
       			PNJTable[i].lastinit = PNJTable[i].lastinit + dt
       			if (PNJTable[i].lastinit >= 3) then
         			-- end of timing for this PNJ
         			PNJTable[i].initTimerLaunched = false
         			PNJTable[i].lastinit = 0
-        			PNJtext[i].init.color = color.darkblue
+        			PNJtext[i].init.color = theme.color.darkblue
         			sortAndDisplayPNJ()
       			end
     		end
 
-    		if (PNJTable[i].acceptDefLoss) then PNJtext[i].def.color = color.darkblue else PNJtext[i].def.color = { 240, 10, 10 } end
+    		if (PNJTable[i].acceptDefLoss) then PNJtext[i].def.color = theme.color.darkblue else PNJtext[i].def.color = { 240, 10, 10 } end
 
   	end
 
@@ -2699,7 +1756,7 @@ function love.update(dt)
   	if (newRound) then
     		roundTimer = roundTimer + dt
     		if (roundTimer >= 5) then
-      			view.s.t.round.color = color.black
+      			view.s.t.round.color = theme.color.black
       			view.s.t.round.text = tostring(roundNumber)
       			newRound = false
       			roundTimer = 0
@@ -2826,7 +1883,7 @@ function love.draw()
   if arrowMode then
 
       -- draw arrow and arrow head
-      love.graphics.setColor(unpack(color.red))
+      love.graphics.setColor(unpack(theme.color.red))
       love.graphics.line( arrowStartX, arrowStartY, arrowX, arrowY )
       local x3, y3, x4, y4 = computeTriangle( arrowStartX, arrowStartY, arrowX, arrowY)
       if x3 then
@@ -2912,7 +1969,7 @@ function love.draw()
 
     -- draw number if needed
     if drawDicesResult then
-      love.graphics.setColor(unpack(color.white))
+      love.graphics.setColor(unpack(theme.color.white))
       love.graphics.setFont(fontDice)
       love.graphics.print(diceSum,650,4*viewh/5)
     end
@@ -3471,7 +2528,7 @@ if not initialized then return end
 -- 'lctrl + tab' : give focus to the next window if any
 -- 'escape' : hide or restore all windows 
 if key == "d" and love.keyboard.isDown("lctrl") then
-  layout:toggleWindow( dialogWindow )
+  layout:toggleWindow( layout.dialogWindow )
   return
 end
 if key == "h" and love.keyboard.isDown("lctrl") then 
@@ -3528,10 +2585,11 @@ else
 	-- 'backspace'
 	-- any other key is treated as a message input
   	if (key == "return") then
-	  doDialog( string.gsub( dialog, dialogBase, "" , 1) )
-	  dialog = dialogBase
+	  --doDialog( string.gsub( dialog, dialogBase, "" , 1) )
+	  --dialog = dialogBase
+	  doDialog()
   	end
-
+--[[
   	if (key == "backspace") and (dialog ~= dialogBase) then
          -- get the byte offset to the last UTF-8 character in the string.
          local byteoffset = utf8.offset(dialog, -1)
@@ -3541,6 +2599,7 @@ else
             dialog = string.sub(dialog, 1, byteoffset - 1)
          end
   	end
+--]]
 	
   elseif window.class == "snapshot" then
   
@@ -3779,7 +2838,7 @@ function parseDirectory( t )
       elseif f == 'scenario.jpg' then
 
 	local s = Map:new()
-	s:load{ kind="scenario", filename=path .. sep .. f }
+	s:load{ kind="scenario", filename=path .. sep .. f , layout=layout}
 	layout:addWindow( s , false )
 	atlas.scenario = s
 	io.write("Loaded scenario image file at " .. path .. sep .. f .. "\n")
@@ -3805,7 +2864,7 @@ function parseDirectory( t )
 	elseif string.sub(f,1,3) == 'map' then
 
 	  local s = Map:new()
-	  s:load{ filename=path .. sep .. f } 
+	  s:load{ filename=path .. sep .. f , layout=layout} 
 	  layout:addWindow( s , false )
 	  table.insert( snapshots[2].s, s ) 
 
@@ -3915,28 +2974,30 @@ function init()
     parseDirectory{ path = baseDirectory .. sep .. "pawns" , kind = "pawns" }
 
     -- create basic windows
-    combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(intW), y=Window:cy(intW)}
-    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*iconSize - snapshotSize - 2*intW - H1 - 2 ) }
-    snapshotWindow = snapshotBar:new{ w=W-2*intW, h=snapshotSize+2, x=Window:cx(intW), y=Window:cy(H-snapshotSize-2*iconSize) }
-    storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = storyImage, w=storyImage:getWidth(), h=storyImage:getHeight() , x=-1220, y=400}
-    actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1220,y=700} 
-    rollWindow = iconRollWindow:new{ mag=3.5, image = dicesImage, w=dicesImage:getWidth(), h=dicesImage:getHeight(), x=-2074,y=133} 
-    notifWindow = notificationWindow:new{ w=300, h=100, x=-W/2,y=H/2-50} 
-    dialogWindow = Dialog:new{w=800,h=220,x=400,y=110}
-    helpWindow = Help:new{w=1000,h=480,x=500,y=240}
-    dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100, init=true} 
+    combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(intW), y=Window:cy(intW),layout=layout}
+    pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*iconSize - snapshotSize - 2*intW - H1 - 2 ) ,layout=layout}
+    snapshotWindow = snapshotBar:new{ w=W-2*intW, h=snapshotSize+2, x=Window:cx(intW), y=Window:cy(H-snapshotSize-2*iconSize),layout=layout }
+    storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = storyImage, w=storyImage:getWidth(), h=storyImage:getHeight() , x=-1220, y=400,layout=layout}
+    actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1220,y=700,layout=layout} 
+    rollWindow = iconRollWindow:new{ mag=3.5, image = dicesImage, w=dicesImage:getWidth(), h=dicesImage:getHeight(), x=-2074,y=133,layout=layout} 
+    notifWindow = notificationWindow:new{ w=300, h=100, x=-W/2,y=H/2-50,layout=layout, messages=messages } 
+    dialogWindow = Dialog:new{w=800,h=220,x=400,y=110,layout=layout}
+    helpWindow = Help:new{w=1000,h=480,x=500,y=240,layout=layout}
+    dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100, init=true,layout=layout} 
 
-    layout:addWindow( combatWindow , false ) -- do not display them yet
-    layout:addWindow( pWindow , false )
-    layout:addWindow( snapshotWindow , false )
-    layout:addWindow( notifWindow , false )
-    layout:addWindow( dialogWindow , false )
-    layout:addWindow( helpWindow , false ) 
-    layout:addWindow( dataWindow , false )
+    -- do not display them yet
+    -- basic windows (as opposed to maps, for instance) are also stored by name, so we can retrieve them easily elsewhere in the code
+    layout:addWindow( combatWindow , false, "combatWindow" ) 
+    layout:addWindow( pWindow , false, "pWindow" )
+    layout:addWindow( snapshotWindow , false , "snapshotWindow" )
+    layout:addWindow( notifWindow , false , "notifWindow" )
+    layout:addWindow( dialogWindow , false , "dialogWindow" )
+    layout:addWindow( helpWindow , false , "helpWindow" ) 
+    layout:addWindow( dataWindow , false , "dataWindow" )
 
-    layout:addWindow( storyWindow , true )
-    layout:addWindow( actionWindow , true )
-    layout:addWindow( rollWindow , true )
+    layout:addWindow( storyWindow , true , "storyWindow" )
+    layout:addWindow( actionWindow , true , "actionWindow" )
+    layout:addWindow( rollWindow , true , "rollWindow" )
 
     -- check if we have a scenario loaded. Reference it for direct access. Update size and mag factor to fit screen
     scenarioWindow = atlas:getScenario()
@@ -3959,9 +3020,6 @@ end
 -- Load PNJ class file, print (empty) GUI, then go on
 --
 function love.load( args )
-
-    -- main window layout
-    layout = mainLayout:new()
 
     -- load config file
     dofile( "fading2/fsconf.lua" )    
@@ -4020,8 +3078,8 @@ function love.load( args )
       init()
       initialized = true
     else
-      dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100, init=false} 
-      layout:addWindow( dataWindow , true )
+      dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100, init=false,layout=layout} 
+      layout:addWindow( dataWindow , true, "dataWindow" )
       initialized = false
     end
 

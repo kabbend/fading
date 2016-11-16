@@ -1,4 +1,6 @@
 
+local theme = require 'theme'
+
 --
 -- code related to the RPG itself (here, Fading Suns)
 -- how do we roll dices, how to we inflict damages, etc.
@@ -358,48 +360,48 @@ function PNJConstructor( template )
 -- GUI function: set the color for the ith-line ( = ith PNJ)
 function updateLineColor( i )
 
-  PNJtext[i].init.color 			= color.darkblue
-  PNJtext[i].def.color 				= color.darkblue
+  PNJtext[i].init.color 			= theme.color.darkblue
+  PNJtext[i].def.color 				= theme.color.darkblue
 
   if not PNJTable[i].PJ then
     if not PNJTable[i].roll:isSuccess() then 
-      PNJtext[i].roll.color 			= color.red
-      PNJtext[i].dmg.color 			= color.red
+      PNJtext[i].roll.color 			= theme.color.red
+      PNJtext[i].dmg.color 			= theme.color.red
     elseif not PNJTable[i].roll:isPassDefense() then
-      PNJtext[i].roll.color 			= color.darkgrey
-      PNJtext[i].dmg.color 			= color.darkgrey
+      PNJtext[i].roll.color 			= theme.color.darkgrey
+      PNJtext[i].dmg.color 			= theme.color.darkgrey
     else 
-      PNJtext[i].roll.color 			= color.darkgreen
-      PNJtext[i].dmg.color 			= color.darkgreen
+      PNJtext[i].roll.color 			= theme.color.darkgreen
+      PNJtext[i].dmg.color 			= theme.color.darkgreen
     end
   else
-    PNJtext[i].roll.color 			= color.purple
-    PNJtext[i].dmg.color 			= color.purple
+    PNJtext[i].roll.color 			= theme.color.purple
+    PNJtext[i].dmg.color 			= theme.color.purple
   end
 
   if (PNJTable[i].done) then
-    PNJtext[i].id.color 			= color.masked
-    PNJtext[i].class.color 			= color.masked
-    PNJtext[i].endfordexfight.color 		= color.masked
-    PNJtext[i].weapon.color 			= color.masked
-    PNJtext[i].goal.color 			= color.masked
-    PNJtext[i].armor.color 			= color.masked
-    PNJtext[i].roll.color 			= color.masked
-    PNJtext[i].dmg.color 			= color.masked
+    PNJtext[i].id.color 			= theme.color.masked
+    PNJtext[i].class.color 			= theme.color.masked
+    PNJtext[i].endfordexfight.color 		= theme.color.masked
+    PNJtext[i].weapon.color 			= theme.color.masked
+    PNJtext[i].goal.color 			= theme.color.masked
+    PNJtext[i].armor.color 			= theme.color.masked
+    PNJtext[i].roll.color 			= theme.color.masked
+    PNJtext[i].dmg.color 			= theme.color.masked
   elseif PNJTable[i].PJ then
-    PNJtext[i].id.color 			= color.purple
-    PNJtext[i].class.color 			= color.purple
-    PNJtext[i].endfordexfight.color 		= color.purple
-    PNJtext[i].weapon.color 			= color.purple
-    PNJtext[i].goal.color 			= color.purple
-    PNJtext[i].armor.color 			= color.purple
+    PNJtext[i].id.color 			= theme.color.purple
+    PNJtext[i].class.color 			= theme.color.purple
+    PNJtext[i].endfordexfight.color 		= theme.color.purple
+    PNJtext[i].weapon.color 			= theme.color.purple
+    PNJtext[i].goal.color 			= theme.color.purple
+    PNJtext[i].armor.color 			= theme.color.purple
   else
-    PNJtext[i].id.color 			= color.black
-    PNJtext[i].class.color 			= color.black
-    PNJtext[i].endfordexfight.color 		= color.black
-    PNJtext[i].weapon.color 			= color.black
-    PNJtext[i].goal.color 			= color.black
-    PNJtext[i].armor.color 			= color.black
+    PNJtext[i].id.color 			= theme.color.black
+    PNJtext[i].class.color 			= theme.color.black
+    PNJtext[i].endfordexfight.color 		= theme.color.black
+    PNJtext[i].weapon.color 			= theme.color.black
+    PNJtext[i].goal.color 			= theme.color.black
+    PNJtext[i].armor.color 			= theme.color.black
   end
 end
 
@@ -574,7 +576,7 @@ function createPNJGUIFrame()
 
         yui.Text({name="id",text="", w=35, bold=1, size=size, center = 1 }),
         yui.Text({name="class",text="", w=width*2.5, bold=1, size=size, center=false}),
-        yui.Text({name="init",text="", w=40, bold=1, size=size, center = 1, color = color.darkblue}),
+        yui.Text({name="init",text="", w=40, bold=1, size=size, center = 1, color = theme.color.darkblue}),
 
         yui.Button({name="initm", text = '-', size=size-4,
             onClick = function(self) 
@@ -602,10 +604,10 @@ function createPNJGUIFrame()
         yui.Text({name="endfordexfight", text = "", bold=1, w=width*2, size=size-4, center = 1}),
         yui.Text({name="weapon",text="", w=width*2, bold=1, size=size, center = 1}),
         yui.Text({name="goal",text="", w=width, bold=1, size=size+4, center = 1}),
-        yui.Text({name="roll",text="", w=width-20, bold=1, size=size+4, center=1, color = color.darkblue}),
+        yui.Text({name="roll",text="", w=width-20, bold=1, size=size+4, center=1, color = theme.color.darkblue}),
         yui.Text({name="dmg",text="", text2 = "", text3 = "", w=width+25, bold=1, size=size+4, center = 1}),
 
-        yui.Text({name="def", text="", w=40, bold=1, size=size+4, color = color.darkblue , center = 1}),
+        yui.Text({name="def", text="", w=40, bold=1, size=size+4, color = theme.color.darkblue , center = 1}),
 
         yui.Button({name="minusd", text = '-', size=size,
             onClick = function(self) 
@@ -615,7 +617,7 @@ function createPNJGUIFrame()
             end}),
 
         yui.Text({name="armor",text="", w=width, bold=1, size=size, center = 1}),
-        yui.Text({name="hits", text="", w=40, bold=1, size=size+8, color = color.orange, center = 1}),
+        yui.Text({name="hits", text="", w=40, bold=1, size=size+8, color = theme.color.orange, center = 1}),
 
         yui.Button({name="minus", text = '-1', size=size-2,
             onClick = function(self) 
@@ -1009,7 +1011,7 @@ function nextRound()
     -- increase round
     roundNumber = roundNumber + 1
     view.s.t.round.text = tostring(roundNumber)
-    view.s.t.round.color= color.red
+    view.s.t.round.color= theme.color.red
 
     -- set timer
     nextFlash = false
