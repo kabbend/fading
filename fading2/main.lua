@@ -18,6 +18,7 @@ local notificationWindow 	= require 'notificationWindow'	-- notifications
 local iconWindow		= require 'iconWindow'		-- grouped 'Action'/'Histoire' icons
 local Dialog			= require 'dialog'		-- dialog with players 
 local setupWindow		= require 'setup'		-- setup/configuration information 
+local iconRollWindow		= require 'iconRoll'		-- dice icon and launching 
 
 layout = mainLayout:new()
 
@@ -583,7 +584,7 @@ function Map:draw()
 				local s = f / 22 
 		       		love.graphics.rectangle( "fill", zx, zy, f / map.mag, 2 * f / map.mag)
 		       		love.graphics.setColor(255,255,255) 
-        			love.graphics.setFont(fontSearch)
+        			love.graphics.setFont(theme.fontSearch)
 				love.graphics.print( PNJTable[index].hits , zx, zy , 0, s/map.mag, s/map.mag )
 				love.graphics.print( PNJTable[index].id , zx, zy + f/map.mag , 0, s/map.mag, s/map.mag )
 	     	     	end
@@ -596,14 +597,14 @@ function Map:draw()
 	local char = "V" -- a priori
 	if map.sticky then char = "S" end -- stands for S(tuck)
         love.graphics.setColor(200,0,0,180)
-        love.graphics.setFont(fontDice)
+        love.graphics.setFont(theme.fontDice)
 	love.graphics.print( char , x + 5 , y + (40 / map.mag) , 0, 2/map.mag, 2/map.mag) -- bigger letters
      end
 
      -- print search zone if scenario
      if self.kind == "scenario" then
       	love.graphics.setColor(0,0,0)
-      	love.graphics.setFont(fontSearch)
+      	love.graphics.setFont(theme.fontSearch)
       	love.graphics.printf(text, 800, H - 60, 400)
       	-- print number of the search result is needed
       	if searchIterator then love.graphics.printf( "( " .. searchIndex .. " [" .. string.format("%.2f", searchPertinence) .. "] out of " .. 
@@ -619,7 +620,7 @@ function Map:draw()
     -- print minimize/maximize icon
     local tx, ty = x + self.w / self.mag - iconSize , y + 3 
     tx, ty = math.min(tx,W-iconSize), math.max(ty,0)
-    love.graphics.draw( iconReduce, tx, ty )
+    love.graphics.draw( theme.iconReduce, tx, ty )
     
 end
 
@@ -788,50 +789,6 @@ function Map:isInsidePawn(x,y)
 	if indexWithMaxLayer == 0 then return nil else return self.pawns[ indexWithMaxLayer ] end
   end
 end
-
---
--- iconRollWindow class
--- 
-iconRollWindow = Window:new{ class = "roll", alwaysOnTop = true, alwaysVisible = true, zoomable = false }
-
-function iconRollWindow:new( t ) -- create from w, h, x, y, image, mag
-  local new = t or {}
-  setmetatable( new , self )
-  self.__index = self
-  return new
-end
-
-function iconRollWindow:draw()
-  	local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
-  	love.graphics.setColor(255, 255, 255, 255);
-  	love.graphics.draw( self.image, zx, zy , 0, 1/self.mag, 1/self.mag)
-	end
-
-function iconRollWindow:click(x,y)
-
-  	local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
-	if y < zy then 
-		-- we click on (invisible) button bar. This moves the window as well
-		mouseMove = true
-		arrowMode = false
-		arrowStartX, arrowStartY = x, y
-		arrowModeMap = nil
-	else 
-	  	if focus then 
-			drawDicesKind = "d6" 
-			local n = rollAttack("attack") 
-			if n == 0 then -- no attack to roll, so we roll a d20 instead...
-				drawDicesKind = "d20" 
-				launchDices("d20",1) 
-			end	
-		else 
-			drawDicesKind = "d20" 
-			launchDices("d20",1) 
-		end	
-	end
-
-	end
-
 
 -- projectorWindow class
 -- a projectorWindow is a window which displays images. it is not zoomable
@@ -1104,7 +1061,7 @@ function snapshotBar:draw()
 
    -- print over text eventually
  
-   love.graphics.setFont(fontRound)
+   love.graphics.setFont(theme.fontRound)
    local x,y = love.mouse.getPosition()
    local left = math.max(zx,0)
    local right = math.min(zx+self.w,W)
@@ -1114,20 +1071,20 @@ function snapshotBar:draw()
     	local index = math.floor(((x-zx) - snapshots[currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
     	if index >= 1 and index <= #snapshots[currentSnap].s then
 		if currentSnap == 3 then
-			local size = fontRound:getWidth( RpgClasses[index].class )
+			local size = theme.fontRound:getWidth( RpgClasses[index].class )
 			local px = x + 5
 			if px + size > W then px = px - size end
    			love.graphics.setColor(255,255,255)
-			love.graphics.rectangle("fill",px,y-20,size,fontRound:getHeight())
+			love.graphics.rectangle("fill",px,y-20,size,theme.fontRound:getHeight())
    			love.graphics.setColor(0,0,0)
 			love.graphics.print( RpgClasses[index].class , px, y-20 )
 		else
 			if snapshots[currentSnap].s[index].displayFilename then
-			  local size = fontRound:getWidth( snapshots[currentSnap].s[index].displayFilename )
+			  local size = theme.fontRound:getWidth( snapshots[currentSnap].s[index].displayFilename )
 			  local px = x + 5
 			  if px + size > W then px = px - size end
    			  love.graphics.setColor(255,255,255)
-			  love.graphics.rectangle("fill",px,y-20,size,fontRound:getHeight())
+			  love.graphics.rectangle("fill",px,y-20,size,theme.fontRound:getHeight())
    			  love.graphics.setColor(0,0,0)
 			  love.graphics.print( snapshots[currentSnap].s[index].displayFilename, px, y-20 )
 			end
@@ -1706,7 +1663,7 @@ function drawRound( x, y, kind, id )
   	if kind == "danger" then love.graphics.setColor(66,66,238,180) end 
   	love.graphics.circle ( "fill", x , y , 15 ) 
   	love.graphics.setColor(0,0,0)
-  	love.graphics.setFont(fontRound)
+  	love.graphics.setFont(theme.fontRound)
   	love.graphics.print ( id, x - string.len(id)*3 , y - 9 )
 	end
 
@@ -1738,7 +1695,7 @@ function love.draw()
   local alpha = 80
 
   love.graphics.setColor(255,255,255)
-  love.graphics.draw( backgroundImage , 0, 0, 0, W / backgroundImage:getWidth(), H / backgroundImage:getHeight() )
+  love.graphics.draw( theme.backgroundImage , 0, 0, 0, W / theme.backgroundImage:getWidth(), H / theme.backgroundImage:getHeight() )
 
   love.graphics.setLineWidth(2)
 
@@ -1828,43 +1785,6 @@ function love.draw()
  
  end  
 
- -- print messages zone in any case 
- --[[
- love.graphics.setColor(255,255,255)
- love.graphics.rectangle( "fill", 0, messagesH, W, 22 )
- --]]
-
- -- bottom applicative message
- --[[
- local appmessage = "" 
- if not layout.globalDisplay then appmessage = appmessage .. " -- ESC mode is ON" end 	
- local m = layout:getFocus() 
- if m and atlas:isVisible(m) then 
-	appmessage = appmessage .. " -- Map is VISIBLE"  	
-	if m.sticky then appmessage = appmessage .. " and STICKY"  end
- end
- love.graphics.setColor(170,5,255)
- love.graphics.setFont(fontRound)
- love.graphics.print( appmessage, 5, messagesH )
- love.graphics.setColor(255,255,255)
- --]]
-
- -- print messages eventually
- --[[
- if messages[1] then
-        if messages[1].important then 
-		love.graphics.setColor(255,0,0)
-	else
-		love.graphics.setColor(10,60,220)
-	end
-	local wi = string.len(messages[1].text) * 6
-        love.graphics.setFont(fontRound)
-	love.graphics.setScissor( 0, messagesH, W , 22 )
-	love.graphics.printf( messages[1].text, W - wi - 15 , messagesH - messages[1].offset ,W)
-	love.graphics.setScissor()
- end
- --]]
-
  -- draw dices if needed
  if drawDices then
 
@@ -1889,7 +1809,7 @@ function love.draw()
     -- draw number if needed
     if drawDicesResult then
       love.graphics.setColor(unpack(theme.color.white))
-      love.graphics.setFont(fontDice)
+      love.graphics.setFont(theme.fontDice)
       love.graphics.print(diceSum,650,4*viewh/5)
     end
 
@@ -2469,14 +2389,14 @@ end
 if key == "r" and love.keyboard.isDown("lctrl") then
 	if actionWindow.open then
 		layout:hideAll()	
-		layout:restoreBase(pWindow)
-		layout:restoreBase(snapshotWindow)
-		layout:restoreBase(combatWindow)
+		layout:restoreBase(layout.pWindow)
+		layout:restoreBase(layout.snapshotWindow)
+		layout:restoreBase(layout.combatWindow)
 	elseif storyWindow.open then
 		layout:hideAll()	
-		layout:restoreBase(pWindow)
-		layout:restoreBase(snapshotWindow)
-		layout:restoreBase(scenarioWindow)
+		layout:restoreBase(layout.pWindow)
+		layout:restoreBase(layout.snapshotWindow)
+		layout:restoreBase(layout.scenarioWindow)
 	end
 end
 
@@ -2896,9 +2816,11 @@ function init()
     combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(intW), y=Window:cy(intW),layout=layout}
     pWindow = projectorWindow:new{ w=W1, h=H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*iconSize - snapshotSize - 2*intW - H1 - 2 ) ,layout=layout}
     snapshotWindow = snapshotBar:new{ w=W-2*intW, h=snapshotSize+2, x=Window:cx(intW), y=Window:cy(H-snapshotSize-2*iconSize),layout=layout }
-    storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = storyImage, w=storyImage:getWidth(), h=storyImage:getHeight() , x=-1220, y=400,layout=layout}
-    actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = actionImage, w=actionImage:getWidth(), h=actionImage:getHeight(), x=-1220,y=700,layout=layout} 
-    rollWindow = iconRollWindow:new{ mag=3.5, image = dicesImage, w=dicesImage:getWidth(), h=dicesImage:getHeight(), x=-2074,y=133,layout=layout} 
+    storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = theme.storyImage, w=theme.storyImage:getWidth(), 
+				  h=theme.storyImage:getHeight() , x=-1220, y=400,layout=layout}
+    actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = theme.actionImage, w=theme.actionImage:getWidth(), 
+				   h=theme.actionImage:getHeight(), x=-1220,y=700,layout=layout} 
+    rollWindow = iconRollWindow:new{ mag=3.5, image = theme.dicesImage, w=theme.dicesImage:getWidth(), h=theme.dicesImage:getHeight(), x=-2074,y=133,layout=layout} 
     notifWindow = notificationWindow:new{ w=300, h=100, x=-W/2,y=H/2-50,layout=layout, messages=messages } 
     dialogWindow = Dialog:new{w=800,h=220,x=400,y=110,layout=layout}
     helpWindow = Help:new{w=1000,h=480,x=500,y=240,layout=layout}
@@ -2921,6 +2843,7 @@ function init()
     -- check if we have a scenario loaded. Reference it for direct access. Update size and mag factor to fit screen
     scenarioWindow = atlas:getScenario()
     if scenarioWindow then
+      layout.scenarioWindow = scenarioWindow
       local w,h = scenarioWindow.w, scenarioWindow.h
       local f1,f2 = w/WC, h/HC
       scenarioWindow.mag = math.max(f1,f2)
@@ -2948,6 +2871,7 @@ function love.load( args )
     love.keyboard.setKeyRepeat(true)
     yui.UI.registerEvents()
 
+--[[
     -- load fonts
     fontTitle 		= love.graphics.newFont("yui/yaoui/fonts/georgia.ttf",20)
     fontDice 		= love.graphics.newFont("yui/yaoui/fonts/georgia.ttf",90)
@@ -2967,6 +2891,7 @@ function love.load( args )
     iconOnTopActive 	= love.graphics.newImage( "icons/ontop16x16red.png" )
     iconReduce	 	= love.graphics.newImage( "icons/reduce16x16.png" )
     iconExpand	 	= love.graphics.newImage( "icons/expand16x16.png" )
+--]]
 
     -- some adjustments on different systems
     if love.system.getOS() == "Windows" then

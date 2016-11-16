@@ -127,7 +127,7 @@ function Window:drawBar( )
  love.graphics.rectangle( "fill", zx , zy - theme.iconSize , self.w / self.mag , theme.iconSize )
 
  -- draw icons
- love.graphics.setFont(fontRound)
+ love.graphics.setFont(theme.fontRound)
  if not self.alwaysVisible then -- close
    love.graphics.draw( theme.iconClose, zx + self.w / self.mag - theme.iconSize + 3, zy - theme.iconSize + 3)
  end
