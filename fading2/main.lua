@@ -21,6 +21,7 @@ local setupWindow		= require 'setup'		-- setup/configuration information
 local iconRollWindow		= require 'iconRoll'		-- dice icon and launching 
 local projectorWindow		= require 'projector'		-- project images to players 
 local snapshotBar		= require 'snapshot'		-- all kinds of images 
+local Snapshot			= require 'snapshotClass'	-- store and display one image 
 
 layout = mainLayout:new()
 
@@ -65,21 +66,14 @@ messages 		= {}
 messagesH		= H 
 
 
--- snapshots 
---[[
-snapshots    = {}
-snapshots[1] = { s = {}, index = 1, offset = 0 } 	-- small snapshots at the bottom, for general images
-snapshots[2] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for scenario & maps
-snapshots[3] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for PNJ classes 
-snapshots[4] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for pawn images
-snapText = { "GENERAL IMAGES", "TACTICAL MAPS", "PNJ CLASSES", "PAWN IMAGES" }
-currentSnap		= 1				-- by default, we display images
---]]
-snapshotSize 		= 70 				-- w and h of each snapshot
-snapshotMargin 		= 7 				-- space between images and screen border
-snapshotH 		= messagesH - snapshotSize - snapshotMargin
+-- projector snapshot size
+layout.H1, layout.W1 	= 140, 140
+layout.snapshotSize 	= 70 				-- w and h of each snapshot
 
-HC = H - 4 * intW - 3 * iconSize - snapshotSize
+snapshotMargin 		= 7 				-- space between images and screen border
+snapshotH 		= messagesH - layout.snapshotSize - snapshotMargin
+
+HC = H - 4 * intW - 3 * iconSize - layout.snapshotSize
 WC = 1290 - 2 * intW
 viewh = HC 		-- view height
 vieww = W - 260		-- view width
@@ -96,9 +90,6 @@ pawnMove 		= nil		-- pawn currently moved by mouse movement
 defaultPawnSnapshot	= nil		-- default image to be used for pawns
 pawnMaxLayer		= 1
 pawnMovingTime		= 2		-- how many seconds to complete a movement on the map ?
-
--- projector snapshot size
-layout.H1, layout.W1 = 140, 140
 
 -- some GUI buttons whose color will need to be changed at runtime
 attButton	= nil		-- button Roll Attack
@@ -249,6 +240,7 @@ function loadLocalImage( file )
   return image
 end
 
+--[[
 -- Snapshot class
 -- a snapshot holds an image, displayed in the bottom part of the screen.
 -- Snapshots are used for general images, and for pawns. For maps, use the
@@ -287,6 +279,7 @@ function Snapshot:new( t ) -- create from filename or file object (one mandatory
   new.selected = false
   return new
 end
+--]]
 
 --
 --  Pawn object 
@@ -367,7 +360,7 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   end
   self.im = img
   self.w, self.h = self.im:getDimensions()
-  local f1, f2 = snapshotSize / self.w, snapshotSize / self.h
+  local f1, f2 = self.layout.snapshotSize / self.w, self.layout.snapshotSize / self.h
   self.snapmag = math.min( f1, f2 )
   self.selected = false
   
@@ -399,7 +392,7 @@ function Map:setQuad(x1,y1,x2,y2)
 		self.quad = nil 
 		self.translateQuadX, self.translateQuadY = 0,0
 		self.w, self.h = self.im:getDimensions()
-  		local f1, f2 = snapshotSize / self.w, snapshotSize / self.h
+  		local f1, f2 = self.layout.snapshotSize / self.w, self.layout.snapshotSize / self.h
   		self.snapmag = math.min( f1, f2 )
 		self.restoreX, self.restoreY, self.restoreMag = nil, nil, nil
 		return
@@ -419,7 +412,7 @@ function Map:setQuad(x1,y1,x2,y2)
 	self.w, self.h = w, h
 	local nx,ny = self:WtoS(0,0)
 	self:translate(px-nx,py-ny)
-  	local f1, f2 = snapshotSize / self.w, snapshotSize / self.h
+  	local f1, f2 = self.layout.snapshotSize / self.w, self.layout.snapshotSize / self.h
   	self.snapmag = math.min( f1, f2 )
 	self.restoreX, self.restoreY, self.restoreMag = self.x, self.y, self.mag
 	end
@@ -1073,7 +1066,7 @@ function love.filedropped(file)
 
 	  if not is_a_map then -- load image 
 
-		local snap = Snapshot:new{ file = file }
+		local snap = Snapshot:new{ file = file, size=layout.snapshotSize }
 		if is_a_pawn then 
 			table.insert( layout.snapshotWindow.snapshots[4].s , snap )
 			snap.kind = "pawn"	
@@ -2400,7 +2393,7 @@ function parseDirectory( t )
 	-- all (image) files are considered as pawn images
 	if string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
-		local s = Snapshot:new{ filename = path .. sep .. f }
+		local s = Snapshot:new{ filename = path .. sep .. f, size=layout.snapshotSize }
 		local store = true
 
         	if string.sub(f,1,4) == 'pawn' then
@@ -2456,14 +2449,14 @@ function parseDirectory( t )
 
       elseif f == 'pawnDefault.jpg' then
 
-	defaultPawnSnapshot = Snapshot:new{ filename = path .. sep .. f }
+	defaultPawnSnapshot = Snapshot:new{ filename = path .. sep .. f , size=layout.snapshotSize }
 	table.insert( layout.snapshotWindow.snapshots[4].s, defaultPawnSnapshot ) 
 
       elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
         if string.sub(f,1,4) == 'pawn' then
 
-		local s = Snapshot:new{ filename = path .. sep .. f }
+		local s = Snapshot:new{ filename = path .. sep .. f , size=layout.snapshotSize }
 		table.insert( layout.snapshotWindow.snapshots[4].s, s ) 
 		
 		local pjname = string.sub(f,5, f:len() - 4 )
@@ -2480,7 +2473,7 @@ function parseDirectory( t )
 
  	else
 	  
-	  local s = Snapshot:new{ filename = path .. sep .. f } 
+	  local s = Snapshot:new{ filename = path .. sep .. f , size=layout.snapshotSize } 
 	  table.insert( layout.snapshotWindow.snapshots[1].s, s ) 
 	  
         end
@@ -2581,8 +2574,8 @@ function init()
 
     -- create basic windows
     combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(intW), y=Window:cy(intW),layout=layout}
-    pWindow = projectorWindow:new{ w=layout.W1, h=layout.H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*iconSize - snapshotSize - 2*intW - layout.H1 - 2 ) ,layout=layout}
-    snapshotWindow = snapshotBar:new{ w=W-2*intW, h=snapshotSize+2, x=Window:cx(intW), y=Window:cy(H-snapshotSize-2*iconSize),layout=layout }
+    pWindow = projectorWindow:new{ w=layout.W1, h=layout.H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*iconSize - layout.snapshotSize - 2*intW - layout.H1 - 2 ) ,layout=layout}
+    snapshotWindow = snapshotBar:new{ w=W-2*intW, h=layout.snapshotSize+2, x=Window:cx(intW), y=Window:cy(H-layout.snapshotSize-2*iconSize),layout=layout }
     storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = theme.storyImage, w=theme.storyImage:getWidth(), 
 				  h=theme.storyImage:getHeight() , x=-1220, y=400,layout=layout}
     actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = theme.actionImage, w=theme.actionImage:getWidth(), 
@@ -2679,8 +2672,8 @@ function love.load( args )
 
     -- adjust some windows accordingly
     messagesH	= H 
-    snapshotH = messagesH - snapshotSize - snapshotMargin
-    HC = H - 4 * intW - 3 * iconSize - snapshotSize
+    snapshotH = messagesH - layout.snapshotSize - snapshotMargin
+    HC = H - 4 * intW - 3 * iconSize - layout.snapshotSize
     WC = 1290 - 2 * intW
     viewh = HC 		-- view height
     vieww = W - 260	-- view width
