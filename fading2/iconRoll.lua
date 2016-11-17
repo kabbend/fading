@@ -1,6 +1,7 @@
 
 local Window 		= require 'window'	-- Window class & system
 local theme		= require 'theme'	-- global theme
+local rpg		= require 'rpg'	
 
 --
 -- iconRollWindow class
@@ -30,9 +31,9 @@ function iconRollWindow:click(x,y)
 		arrowStartX, arrowStartY = x, y
 		arrowModeMap = nil
 	else 
-	  	if focus then 
+	  	if self.layout.combatWindow.focus then 
 			drawDicesKind = "d6" 
-			local n = rollAttack("attack") 
+			local n = rpg.rollAttack("attack") 
 			if n == 0 then -- no attack to roll, so we roll a d20 instead...
 				drawDicesKind = "d20" 
 				launchDices("d20",1) 

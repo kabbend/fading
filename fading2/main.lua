@@ -21,6 +21,7 @@ local iconRollWindow		= require 'iconRoll'		-- dice icon and launching
 local projectorWindow		= require 'projector'		-- project images to players 
 local snapshotBar		= require 'snapshot'		-- all kinds of images 
 local Map			= require 'map'			-- maps 
+local Combat			= require 'combat'		-- main combat window (with PNJ list) 
 
 -- specific object classes
 local Snapshot			= require 'snapshotClass'	-- store and display one image 
@@ -91,13 +92,6 @@ defaultPawnSnapshot	= nil		-- default image to be used for pawns
 pawnMaxLayer		= 1
 pawnMovingTime		= 2		-- how many seconds to complete a movement on the map ?
 
--- some GUI buttons whose color will need to be changed at runtime
-attButton	= nil		-- button Roll Attack
-armButton	= nil		-- button Roll Armor
-nextButton	= nil		-- button Next Round
-clnButton	= nil		-- button Cleanup
-thereIsDead	= false		-- is there a dead character in the list ? (if so, cleanup button is clickable)
-
 -- maps & scenario stuff
 textBase		= "Search: "
 text 			= textBase		-- text printed on the screen when typing search keywords
@@ -135,22 +129,6 @@ PNJmax   	= 13		-- Limit in the number of PNJs (and the GUI frame size as well)
 -- this corresponds to the i-th PNJ as stored in PNJTable[i]
 PNJtext 	= {}		
 
--- Round information
-roundTimer	= 0
-roundNumber 	= 1			
-newRound	= true
-
--- flash flag and timer when 'next round' is available
-flashTimer	= 0
-nextFlash	= false
-flashSequence	= false
-
--- in combat mode, a given PNJ line may have the focus
-focus	        = nil   -- Index (in PNJTable) of the current PNJ with focus (or nil if no one)
-focusTarget     = nil   -- unique ID (and not index) of the corresponding target
-focusAttackers  = {}    -- List of unique IDs of the corresponding attackers
-lastFocus	= nil	-- store last focus value
-
 -- flag and timer to draw d6 dices in combat mode
 dice 		    = {}	-- list of d6 dices
 drawDicesTimer      = 0
@@ -179,188 +157,6 @@ function splitFilename(strFilename)
 	return string.match (strFilename,"[^/]+$")
 end
 
---
--- Combat class
--- a Combat is a window which displays PNJ list and buttons 
---
-Combat = Window:new{ class = "combat" , title = "COMBAT TRACKER" , wResizable = true, hResizable = true }
-
-function Combat:new( t ) -- create from w, h, x, y
-  local new = t or {}
-  setmetatable( new , self )
-  self.__index = self
-  return new
-end
-
-function Combat:draw()
-
-  local alpha = 80
-  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-
-  -- draw background
-  self:drawBack()
-
-  love.graphics.setScissor(zx,zy,self.w/self.mag,self.h/self.mag) 
-  view:draw()
- 
-
-  -- draw FOCUS if applicable
-  love.graphics.setColor(0,102,0,alpha)
-  if focus then love.graphics.rectangle("fill",PNJtext[focus].x+2,PNJtext[focus].y-5,WC - 5,42) end
-
-  -- draw ATTACKERS if applicable
-  love.graphics.setColor(174,102,0,alpha)
-    if focusAttackers then
-      for i,v in pairs(focusAttackers) do
-        if v then
-          local index = findPNJ(i)
-          if index then 
-		  love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,WC - 5,42) 
-		  -- emphasize defense value, but only for PNJ
-    		  if not PNJTable[index].PJ then
-			  love.graphics.setColor(0,0,0,120)
-		  	  love.graphics.rectangle("line",PNJtext[index].x+743,PNJtext[index].y-3, 26,39) 
-		  end
-		  PNJtext[index].def.color = { unpack(theme.color.white) }
-    		  love.graphics.setColor(204,102,0,alpha)
-	  end
-        end
-      end
-    end 
-
-    -- draw TARGET if applicable
-    love.graphics.setColor(250,60,60,alpha*1.5)
-    local index = findPNJ(focusTarget)
-    if index then love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,WC - 5,42) end
-
-    -- draw PNJ snapshot if applicable
-    for i=1,#PNJTable do
-      if PNJTable[i].snapshot then
-       	    love.graphics.setColor(255,255,255)
-	    local s = PNJTable[i].snapshot
-	    local xoffset = s.w * s.snapmag * 0.5 / 2
-	    love.graphics.draw( s.im , zx + 210 - xoffset , PNJtext[i].y - 2 , 0 , s.snapmag * 0.5, s.snapmag * 0.5 ) 
-      end
-    end
-
-  if nextFlash then
-    -- draw a blinking rectangle until Next button is pressed
-    if flashSequence then
-      love.graphics.setColor(250,80,80,alpha*1.5)
-    else
-      love.graphics.setColor(0,0,0,alpha*1.5)
-    end
-    love.graphics.rectangle("fill",PNJtext[1].x+1010,PNJtext[1].y-5,400,(#PNJTable)*43)
-  end
-  love.graphics.setScissor() 
-
-  -- print bar
-  self:drawBar()
-  self:drawResize()
-
-end
-
-function Combat:update(dt)
-	
-	Window.update(self,dt)
-
-  	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-	view:setElementPosition( view.layout[1], zx + 5, zy + 5 )
-  	view:update(dt)
-  	yui.update({view})
-
-	end
-
-function Combat:click(x,y)
-
-  	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-
-	if (y - zy) >= 40 then -- clicking on buttons does not change focus
-
-  	-- we assume that the mouse was pressed outside PNJ list, this might change below
-  	lastFocus = focus
-  	focus = nil
-  	focusTarget = nil
-  	focusAttackers = nil
-
-  	-- check which PNJ was selected, depending on position on y-axis
-  	  for i=1,#PNJTable do
-    	  if (y >= PNJtext[i].y -5 and y < PNJtext[i].y + 42 - 5) then
-      		PNJTable[i].focus = true
-      		lastFocus = focus
-      		focus = i
-      		focusTarget = PNJTable[i].target
-      		focusAttackers = PNJTable[i].attackers
-      		-- this starts the arrow mode or the drag&drop mode, depending on x
-	    	local s = PNJTable[i].snapshot
-	    	local xoffset = s.w * s.snapmag * 0.5 / 2
-		if x >= zx + 210 - xoffset and x <= zx + 210 + xoffset  then
-		 dragMove = true
-		 dragObject = { originWindow = self, 
-				object = { class = "pnjtable", id = PNJTable[i].id },
-				snapshot = PNJTable[i].snapshot
-				}	
-		else
-        	 arrowMode = true
-        	 arrowStartX = x
-        	 arrowStartY = y
-        	 arrowStartIndex = i
-		end	
-    	  else
-      		PNJTable[i].focus = false
-    	  end
-
-	  end
-
-	end
-
-  	Window.click(self,x,y)		-- the general click function may set mouseMove, but we want
-					-- to move only in certain circumstances, so we override this below
-
-	-- resize supersedes focus
-	if mouseResize then 
-		focus = nil 
-  		focusTarget = nil
-  		focusAttackers = nil
-	end
-
-	if not focus and not mouseResize then
-		-- want to move window 
-		mouseMove = true
-		arrowMode = false
-		arrowStartX, arrowStartY = x, y
-		arrowModeMap = nil
-	elseif focus and not dragMove then
-		mouseMove = false
-        	arrowMode = true
-	else
-		mouseMove = false
-        	arrowMode = false
-	end
-	
-	if (y - zy) < 40 then 
-        	arrowMode = false
-	end
-
-  	end
-
-function Combat:drop( o )
-
-	if o.object.class == "pnj" then
-		generateNewPNJ( o.object.rpgClass.class )
-		sortAndDisplayPNJ()
-	end
-
-	end
-
---[[
--- insert a new message to display
-function addMessage( text, time , important )
-  if not time then time = 5 end
-  table.insert( messages, { text=text , time=time, offset=0, important=important } )
-end
---]]
- 
 -- send a command or data to the projector over the network
 function tcpsend( tcp, data , verbose )
   if not tcp then return end -- no client connected yet !
@@ -594,7 +390,9 @@ function love.update(dt)
                   local _,_,id1,id2 = string.find( str, "(%a+) (%a+)" )
 		  local indexP = findPNJ( id1 )
 		  local indexT = findPNJ( id2 )
-		  updateTargetByArrow( indexP, indexT )
+		  rpg.updateTargetByArrow( indexP, indexT )
+		  layout.combatWindow:setFocus(indexP)
+		  --layout.combatWindow:updateLineColor(indexP)
 		else
 		  io.write("inconsistent TARG command received while no map or no pawns\n")
 		end
@@ -632,10 +430,6 @@ function love.update(dt)
 
 	end -- end of client loop
 
-  	--view:update(dt)
-  	--yui.update({view})
-
-
   	-- store current mouse position in arrow mode
   	if arrowMode then 
 		arrowX, arrowY = love.mouse.getPosition() 
@@ -654,34 +448,6 @@ function love.update(dt)
 			-- we are targeting someone, draw the target in red color !
 			target.color = theme.color.red
 		end
-	end
-
-	-- change some button behaviour when needed
-	nextButton.button.black = not nextFlash 
-	if not nextButton.button.black then 
-		nextButton.button.timer:tween('color', 0.25, nextButton.button, {color = { 80, 110, 180}}, 'linear') 
-	else
-		nextButton.button.timer:tween('color', 0.25, nextButton.button, {color = { 20, 20, 20}}, 'linear') 
-	end
-
-	if isAttorArm( focus ) then
-	  attButton.button.black = false 
-	  attButton.button.timer:tween('color', 0.25, attButton.button, {color = { 80, 110, 180}}, 'linear') 
-	  armButton.button.black = false 
-	  armButton.button.timer:tween('color', 0.25, armButton.button, {color = { 80, 110, 180}}, 'linear') 
-	else
-	  attButton.button.black = true 
-	  attButton.button.timer:tween('color', 0.25, attButton.button, {color = { 20, 20, 20}}, 'linear') 
-	  armButton.button.black = true 
-	  armButton.button.timer:tween('color', 0.25, armButton.button, {color = { 20, 20, 20}}, 'linear') 
-	end
-
-	if thereIsDead then
-	  clnButton.button.black = false 
-	  clnButton.button.timer:tween('color', 0.25, clnButton.button, {color = { 80, 110, 180}}, 'linear') 
-	else
-	  clnButton.button.black = true
-	  clnButton.button.timer:tween('color', 0.25, clnButton.button, {color = { 20, 20, 20}}, 'linear') 
 	end
 
   	-- draw dices if requested
@@ -739,61 +505,6 @@ function love.update(dt)
 		end
 
   	end
-
-	-- check PNJ-related timers
-  	for i=1,#PNJTable do
-
-  		-- temporarily change color of DEF (defense) value for each PNJ attacked within the last 3 seconds, 
-    		if not PNJTable[i].acceptDefLoss then
-      			PNJTable[i].lasthit = PNJTable[i].lasthit + dt
-      			if (PNJTable[i].lasthit >= 3) then
-        			-- end of timer for this PNJ
-        			PNJTable[i].acceptDefLoss = true
-        			PNJTable[i].lasthit = 0
-      			end
-    		end
-
-		-- sort and reprint screen after 3 s. an INIT value has been modified
-    		if PNJTable[i].initTimerLaunched then
-      			PNJtext[i].init.color = theme.color.red
-      			PNJTable[i].lastinit = PNJTable[i].lastinit + dt
-      			if (PNJTable[i].lastinit >= 3) then
-        			-- end of timing for this PNJ
-        			PNJTable[i].initTimerLaunched = false
-        			PNJTable[i].lastinit = 0
-        			PNJtext[i].init.color = theme.color.darkblue
-        			sortAndDisplayPNJ()
-      			end
-    		end
-
-    		if (PNJTable[i].acceptDefLoss) then PNJtext[i].def.color = theme.color.darkblue else PNJtext[i].def.color = { 240, 10, 10 } end
-
-  	end
-
-  	-- change color of "Round" value after a certain amount of time (5 s.)
-  	if (newRound) then
-    		roundTimer = roundTimer + dt
-    		if (roundTimer >= 5) then
-      			view.s.t.round.color = theme.color.black
-      			view.s.t.round.text = tostring(roundNumber)
-      			newRound = false
-      			roundTimer = 0
-    		end
-  	end
-
-  	-- the "next round zone" is blinking (with frequency 400 ms) until "Next Round" is pressed
-  	if (nextFlash) then
-    		flashTimer = flashTimer + dt
-    		if (flashTimer >= 0.4) then
-      			flashSequence = not flashSequence
-      			flashTimer = 0
-    		end
-  	else
-    		-- reset flash, someone has pressed the button
-    		flashSequence = 0
-    		flashTimer = 0
-  	end
-
 
 	end
 
@@ -1088,7 +799,9 @@ function love.mousereleased( x, y )
 			-- we have a target
 			local indexP = findPNJ( pawnMove.id )
 			local indexT = findPNJ( target.id )
-			updateTargetByArrow( indexP, indexT )
+			rpg.updateTargetByArrow( indexP, indexT )
+		  	layout.combatWindow:setFocus(indexP)
+		  	--layout.combatWindow:updateLineColor(indexP)
 			
 		  else
 
@@ -1234,7 +947,10 @@ function love.mousereleased( x, y )
       			arrowStopIndex = i
       			-- set new target
       			if arrowStartIndex ~= arrowStopIndex then 
-        			updateTargetByArrow(arrowStartIndex, arrowStopIndex) 
+        			rpg.updateTargetByArrow(arrowStartIndex, arrowStopIndex) 
+		  		layout.combatWindow:setFocus(arrowStartIndex)
+		  		--layout.combatWindow:updateLineColor(arrowStartIndex)
+
       			end
     		  end
 		end	
@@ -1491,24 +1207,24 @@ else
   	end
 
   elseif window.class == "combat" then
-  
+ 
   	-- 'up', 'down' within the PNJ list
-  	if focus and key == "down" then
-    		if focus < #PNJTable then 
-      			lastFocus = focus
-      			focus = focus + 1
-      			focusAttackers = PNJTable[ focus ].attackers
-      			focusTarget  = PNJTable[ focus ].target
+  	if window.focus and key == "down" then
+    		if window.focus < #PNJTable then 
+      			window.lastFocus = window.focus
+      			window.focus = window.focus+1
+      			window.focusAttackers = PNJTable[ window.focus ].attackers
+      			window.focusTarget  = PNJTable[ window.focus ].target
     		end
     		return
   	end
   
-  	if focus and key == "up" then
-    		if focus > 1 then 
-      			lastFocus = focus
-      			focus = focus - 1
-      			focusAttackers = PNJTable[ focus ].attackers
-      			focusTarget  = PNJTable[ focus ].target
+  	if window.focus and key == "up" then
+    		if window.focus > 1 then 
+      			window.lastFocus = window.focus
+      			window.focus = window.focus - 1
+      			window.focusAttackers = PNJTable[ window.focus ].attackers
+      			window.focusTarget  = PNJTable[ window.focus ].target
     		end
     		return
   	end
@@ -1817,61 +1533,15 @@ function init()
     -- initialize class template list  and dropdown list (opt{}) at the same time
     -- later on, we might attach some images to these classes if we find them
     -- try 2 locations to find data. Merge results if 2 files 
-    opt, RpgClasses = loadClasses{ baseDirectory .. sep .. "data" , 
-				   baseDirectory .. sep .. fadingDirectory .. sep .. "data" } 
+    _, RpgClasses = rpg.loadClasses{ 	baseDirectory .. sep .. "data" , 
+			         	baseDirectory .. sep .. fadingDirectory .. sep .. "data" } 
 
-    if not opt or #opt == 0 then error("sorry, need at least one data file") end
+    if not RpgClasses or #RpgClasses == 0 then error("sorry, need at least one data file") end
 
-    local current_class = opt[1]
-
-
-    -- create view structure
-    view = yui.View(0, 0, vieww, viewh, {
-        margin_top = 5,
-        margin_left = 5,
-	yui.Stack({name="s",
-            yui.Flow({name="t",
-                yui.HorizontalSpacing({w=10}),
-                yui.Button({name="nextround", text="  Next Round  ", size=size, black = true, 
-			onClick = function(self) if self.button.black then return end 
-				 		 if checkForNextRound() then nextRound() end end }),
-                yui.Text({text="Round #", size=size, bold=1, center = 1}),
-                yui.Text({name="round", text=tostring(roundNumber), size=32, w = 50, bold=1, color={0,0,0} }),
-                yui.FlatDropdown({options = opt, size=size-2, onSelect = function(self, option) current_class = option end}),
-                yui.HorizontalSpacing({w=10}),
-                yui.Button({text=" Create ", size=size, 
-			onClick = function(self) return generateNewPNJ(current_class) and sortAndDisplayPNJ() end }),
-                yui.HorizontalSpacing({w=50}),
-                yui.Button({name = "rollatt", text="     Roll Attack     ", size=size, black = true,
-			onClick = function(self) if self.button.black then return end rollAttack("attack") end }), 
-		yui.HorizontalSpacing({w=10}),
-                yui.Button({name = "rollarm", text="     Roll  Armor     ", size=size, black = true,
-			onClick = function(self) if self.button.black then return end rollAttack("armor") end }),
-                yui.HorizontalSpacing({w=150}),
-                yui.Button({name="cleanup", text="       Cleanup       ", size=size, 
-			onClick = function(self) return removeDeadPNJ() and sortAndDisplayPNJ() end }),
-                --yui.HorizontalSpacing({w=270}),
-                --yui.Button({text="    Quit    ", size=size, onClick = function(self) leave(); love.event.quit() end }),
-              }), -- end of Flow
-            createPNJGUIFrame(),
-           }) -- end of Stack
-        --})
-      })
-
-
-    nextButton = view.s.t.nextround
-    attButton = view.s.t.rollatt
-    armButton = view.s.t.rollarm
-    clnButton = view.s.t.cleanup
-
-    nextButton.button.black = true
-    attButton.button.black = true
-    armButton.button.black = true
-    clnButton.button.black = true
-    
     -- create PJ automatically (1 instance of each!)
     -- later on, an image might be attached to them, if we find one
-    createPJ()
+    rpg.createPJ()
+    layout.combatWindow:sortAndDisplayPNJ()
 
     -- create a new empty atlas (an array of maps), and tell him where to project
     atlas = Atlas.new( layout.pWindow )

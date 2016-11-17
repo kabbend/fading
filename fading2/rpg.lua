@@ -11,10 +11,12 @@ local yui       = require 'yui.yaoui'   -- graphical library on top of Love2D
 -- array of PNJ templates (loaded from data file)
 templateArray   = {}
 
+local rpg = {}
+
 -- load PNJ templates from data file, return a list of names (to be used in dropdown listbox) 
 -- and an (number-sorted) array of classes
 -- argument t is a table (list) of paths to try
-function loadClasses( paths )
+function rpg.loadClasses( paths )
 
    local opt = {}
    local array = {}
@@ -41,7 +43,7 @@ function loadClasses( paths )
 
 -- for a given PNJ at index i, return true if Attack or Armor button should be clickable
 -- false otherwise
-function isAttorArm( i )
+function rpg.isAttorArm( i )
          if not i then return false end
          if not PNJTable[ i ] then return false end
          -- when a PJ is selected, we do not roll for him but for it's enemy, provided
@@ -66,7 +68,9 @@ function isAttorArm( i )
  -- draw()
  -- return the number of dices actually sent (may be zero)
  -- 
- function rollAttack( rollType )
+ function rpg.rollAttack( rollType )
+
+	 local focus = layout.combatWindow.focus
 
          if not focus then return 0 end -- no one with focus, cannot roll
 
@@ -147,7 +151,7 @@ function launchDices( kind, num )
 
 	 
 --[[ d20 Roll object --]]
-Roll = {}
+local Roll = {}
 Roll.__index = Roll
 function Roll:getRoll() return self.roll; end
 function Roll:isSuccess() return self.success; end
@@ -260,7 +264,7 @@ end
 
 -- return a new PNJ object, based on a given template. 
 -- Give him a new unique ID 
-function PNJConstructor( template ) 
+local function PNJConstructor( template ) 
 
   aNewPNJ = {}
 
@@ -357,58 +361,9 @@ function PNJConstructor( template )
   
   end 
 
--- GUI function: set the color for the ith-line ( = ith PNJ)
-function updateLineColor( i )
-
-  PNJtext[i].init.color 			= theme.color.darkblue
-  PNJtext[i].def.color 				= theme.color.darkblue
-
-  if not PNJTable[i].PJ then
-    if not PNJTable[i].roll:isSuccess() then 
-      PNJtext[i].roll.color 			= theme.color.red
-      PNJtext[i].dmg.color 			= theme.color.red
-    elseif not PNJTable[i].roll:isPassDefense() then
-      PNJtext[i].roll.color 			= theme.color.darkgrey
-      PNJtext[i].dmg.color 			= theme.color.darkgrey
-    else 
-      PNJtext[i].roll.color 			= theme.color.darkgreen
-      PNJtext[i].dmg.color 			= theme.color.darkgreen
-    end
-  else
-    PNJtext[i].roll.color 			= theme.color.purple
-    PNJtext[i].dmg.color 			= theme.color.purple
-  end
-
-  if (PNJTable[i].done) then
-    PNJtext[i].id.color 			= theme.color.masked
-    PNJtext[i].class.color 			= theme.color.masked
-    PNJtext[i].endfordexfight.color 		= theme.color.masked
-    PNJtext[i].weapon.color 			= theme.color.masked
-    PNJtext[i].goal.color 			= theme.color.masked
-    PNJtext[i].armor.color 			= theme.color.masked
-    PNJtext[i].roll.color 			= theme.color.masked
-    PNJtext[i].dmg.color 			= theme.color.masked
-  elseif PNJTable[i].PJ then
-    PNJtext[i].id.color 			= theme.color.purple
-    PNJtext[i].class.color 			= theme.color.purple
-    PNJtext[i].endfordexfight.color 		= theme.color.purple
-    PNJtext[i].weapon.color 			= theme.color.purple
-    PNJtext[i].goal.color 			= theme.color.purple
-    PNJtext[i].armor.color 			= theme.color.purple
-  else
-    PNJtext[i].id.color 			= theme.color.black
-    PNJtext[i].class.color 			= theme.color.black
-    PNJtext[i].endfordexfight.color 		= theme.color.black
-    PNJtext[i].weapon.color 			= theme.color.black
-    PNJtext[i].goal.color 			= theme.color.black
-    PNJtext[i].armor.color 			= theme.color.black
-  end
-end
-
-
 -- set the target of i to j (i attacks j)
 -- then update roll results accordingly (but does not reroll)
-function updateTargetByArrow( i, j )
+function rpg.updateTargetByArrow( i, j )
 
   -- check that the characters have not been removed from the list at some point in time...
   if (not PNJTable[i]) or (not PNJTable[j]) then return end
@@ -438,13 +393,13 @@ function updateTargetByArrow( i, j )
     PNJtext[i].dmg.text2 		= PNJTable[i].roll:getVPText()
     PNJtext[i].dmg.text3 		= PNJTable[i].roll:getDamageText()
 
-    updateLineColor(i)
-
+    --updateLineColor(i)
+    --[[
     lastFocus = focus
     focus = i
     focusAttackers = PNJTable[i].attackers
     focusTarget = PNJTable[i].target
-    
+    --]] 
 end
 
 
@@ -452,7 +407,7 @@ end
 -- an "average touch" value ( a number of hits ) which is an average
 -- number of damage points weighted with an average probability to hit
 -- in this round
-function averageTouch( i, k )
+function rpg.averageTouch( i, k )
   if PNJTable[k].PJ then return 0 end -- we compute only for PNJ
   local dicemin = PNJTable[i].final_defense*2 - 1
   if dicemin < 0 then dicemin = 0 end
@@ -469,7 +424,7 @@ function averageTouch( i, k )
 -- represents an estimated (and averaged) number of rounds before dying.
 -- Return the dangerosity value (an integer), or -1 if cannot be computed 
 -- (eg. no opponent )
-function computeDangerosity( i )
+function rpg.computeDangerosity( i )
   local potentialTouch = 0
   for k,v in pairs(PNJTable[i].attackers) do
     if v then
@@ -481,7 +436,7 @@ function computeDangerosity( i )
   end
 
 -- compute dangerosity for the whole group
-function computeGlobalDangerosity()
+function rpg.computeGlobalDangerosity()
   local potentialTouch = 0
   local hits = 0
   for i=1,#PNJTable do
@@ -503,7 +458,7 @@ function computeGlobalDangerosity()
 -- This will result in 2 effects:
 -- a) alter the current total DEFENSE of the character
 -- b) if another character is targeting this one, then modify damage roll result accordingly
-function changeDefense( i, n, m )
+function rpg.changeDefense( i, n, m )
 
   -- lower defense
   PNJTable[i].defmalus = PNJTable[i].defmalus + n
@@ -527,237 +482,13 @@ function changeDefense( i, n, m )
         PNJtext[j].dmg.text2 		= PNJTable[j].roll:getVPText()
         PNJtext[j].dmg.text3 		= PNJTable[j].roll:getDamageText()
 
-        updateLineColor(j)
+        layout.combatWindow:updateLineColor(j)
 
       end
     end
 
   end
 
-end
-
--- create and return the PNJ list GUI frame 
--- (with blank values at that time)
-function createPNJGUIFrame()
-
-  local t = {name="pnjlist"}
-  local width = 60;
-  t[1] = yui.Flow({ name="headline",
-      yui.Text({text="Done", w=40, size=size-2, bold=1, center = 1 }),
-      yui.Text({text="ID", w=35, size=size, bold=1, center = 1 }),
-      yui.Text({text="CLASS", w=width*2.5, bold=1, size=size, center = 1}),
-      yui.Text({text="INIT", w=90, bold=1, size=size, center = 1}),
-      yui.Text({text="INT/END/FOR\nDEX/FIGHT/PER", bold=1, w=125, size=size-2, center = 1}),
-      yui.Text({text="WEAPON", w=width*2, bold=1, size=size, center = 1 }),
-      yui.Text({text="GOAL", w=width, bold=1, size=size, center = 1}),
-      yui.Text({text="ROLL", w=width, bold=1, size=size, center = 1}),
-      yui.Text({text="DMG", w=width, bold=1, size=size, center = 1}),
-      yui.Text({text="DEF", w=75, bold=1, size=size }),
-      yui.Text({text="ARM", w=width, bold=1, size=size, center = 1}),
-      yui.Text({text="HITS", w=80, bold=1, size=size}),
-      yui.HorizontalSpacing({w=30}),
-      yui.Text({name="stance", text="STANCE (Agress., Neutre, Def.)", w=220, size=size, center=1}),
-      --yui.Text({text="OPPONENTS", w=40, bold=1, size=size}),
-    }) 
-
-  for i=1,PNJmax do
-    t[i+1] = 
-    yui.Flow({ name="PNJ"..i,
-
-        yui.HorizontalSpacing({w=10}),
-        yui.Checkbox({name = "done", text = '', w = 30, 
-            onClick = function(self) 
-              if (PNJTable[i]) then 
-                PNJTable[i].done = self.checkbox.checked; 
-                updateLineColor(i)
-                checkForNextRound() 
-              end  
-            end}),
-
-        yui.Text({name="id",text="", w=35, bold=1, size=size, center = 1 }),
-        yui.Text({name="class",text="", w=width*2.5, bold=1, size=size, center=false}),
-        yui.Text({name="init",text="", w=40, bold=1, size=size, center = 1, color = theme.color.darkblue}),
-
-        yui.Button({name="initm", text = '-', size=size-4,
-            onClick = function(self) 
-              if (i>#PNJTable) then return end
-              if (PNJTable[i].is_dead) then return end
-              if (PNJTable[i].PJ) then 
-                if (PNJTable[i].final_initiative >= 1) then PNJTable[i].final_initiative = PNJTable[i].final_initiative - 1 end
-                self.parent.init.text = PNJTable[i].final_initiative
-                PNJTable[i].initTimerLaunched = true 
-              end
-            end}),
-
-        yui.HorizontalSpacing({w=3}),
-        yui.Button({name="initp", text = '+', size=size-4,
-            onClick = function(self) 
-              if (i>#PNJTable) then return end
-              if (PNJTable[i].is_dead) then return end
-              if (PNJTable[i].PJ) then 
-                PNJTable[i].final_initiative = PNJTable[i].final_initiative + 1
-                self.parent.init.text = PNJTable[i].final_initiative
-                PNJTable[i].initTimerLaunched = true 
-              end
-            end}),
-
-        yui.Text({name="endfordexfight", text = "", bold=1, w=width*2, size=size-4, center = 1}),
-        yui.Text({name="weapon",text="", w=width*2, bold=1, size=size, center = 1}),
-        yui.Text({name="goal",text="", w=width, bold=1, size=size+4, center = 1}),
-        yui.Text({name="roll",text="", w=width-20, bold=1, size=size+4, center=1, color = theme.color.darkblue}),
-        yui.Text({name="dmg",text="", text2 = "", text3 = "", w=width+25, bold=1, size=size+4, center = 1}),
-
-        yui.Text({name="def", text="", w=40, bold=1, size=size+4, color = theme.color.darkblue , center = 1}),
-
-        yui.Button({name="minusd", text = '-', size=size,
-            onClick = function(self) 
-              if (i>#PNJTable) then return end
-              if (PNJTable[i].is_dead) then return end
-              changeDefense(i,-1,nil)
-            end}),
-
-        yui.Text({name="armor",text="", w=width, bold=1, size=size, center = 1}),
-        yui.Text({name="hits", text="", w=40, bold=1, size=size+8, color = theme.color.orange, center = 1}),
-
-        yui.Button({name="minus", text = '-1', size=size-2,
-            onClick = function(self) 
-              if (i>#PNJTable) then return end
-              if (PNJTable[i].is_dead) then return end
-              PNJTable[i].hits = PNJTable[i].hits - 1
-              -- remove DEF if allowed
-              if PNJTable[i].acceptDefLoss then
-                changeDefense(i,-1,nil)
-                PNJTable[i].lasthit = 0
-                PNJTable[i].acceptDefLoss = false
-              end
-              if (PNJTable[i].hits == 0) then 
-                PNJTable[i].is_dead = true; 
-
-		tcpsend( projector, "KILL " .. PNJTable[i].id )
-
-                self.parent.done.checkbox.set = true -- a dead character is done
-                PNJTable[i].done = true
-                self.parent.stance.text = "--"; 
-                self.parent.roll.text = "--"; 
-                self.parent.hits.text = "--"; 
-                self.parent.goal.text = "--"; 
-                self.parent.armor.text = "--"; 
-                self.parent.dmg.text = "--"; 
-                self.parent.weapon.text = "--"; 
-                self.parent.endfordexfight.text = "--"; 
-                self.parent.def.text = "--"; 
-                self.parent.dmg.text2 = "";
-                self.parent.dmg.text3 = "";
-		thereIsDead = true
-                checkForNextRound()
-                return
-              end
-
-              if (PNJTable[i].hits >0 and PNJTable[i].hits <= 5) then
-                PNJTable[i].malus = -12 + (2 * PNJTable[i].hits)
-              end
-              PNJTable[i].final_goal = PNJTable[i].goal + PNJTable[i].malus + PNJTable[i].goalstancebonus
-              self.parent.goal.text = PNJTable[i].final_goal
-              self.parent.hits.text = PNJTable[i].hits 
-            end}),
-
-        yui.HorizontalSpacing({w=3}),
-        yui.Button({name="shot", text = '0', size=size-2,
-            onClick = function(self) 
-              if (i>#PNJTable) then return end
-              if (PNJTable[i].is_dead) then return end
-              -- remove DEF if allowed
-              if PNJTable[i].acceptDefLoss then
-                changeDefense(i,-1,nil)
-                PNJTable[i].lasthit = 0
-                PNJTable[i].acceptDefLoss = false
-              end
-              PNJTable[i].final_goal = PNJTable[i].goal + PNJTable[i].malus + PNJTable[i].goalstancebonus
-            end}),
-
-        yui.HorizontalSpacing({w=3}),
-        yui.Button({name="kill", text = 'kill', size=size-2, 
-            onClick = function(self)
-              if (i>#PNJTable) then return end
-              if (PNJTable[i].is_dead) then return end
-              PNJTable[i].hits = 0
-              PNJTable[i].is_dead = true 
-
-	      tcpsend( projector, "KILL " .. PNJTable[i].id )
-
-              self.parent.done.checkbox.set = true -- a dead character is done
-              PNJTable[i].done = true
-              self.parent.stance.text = "--"; 
-              self.parent.hits.text = "--"; 
-              self.parent.roll.text = "--";
-              self.parent.goal.text = "--"; 
-              self.parent.armor.text = "--"; 
-              self.parent.dmg.text = "--"; 
-              self.parent.weapon.text = "--"; 
-              self.parent.endfordexfight.text = "--"; 
-              self.parent.def.text = "--"; 
-              self.parent.dmg.text2 = "";
-              self.parent.dmg.text3 = "";
-	      thereIsDead = true
-              checkForNextRound()
-            end }),
-
-        yui.HorizontalSpacing({w=12}),
-        yui.Text({name="stance",text="", w=100, size=size, center = 1}),
-        yui.Button({name="agressive", text = 'A', size=size,
-            onClick = function(self)
-              if (i>#PNJTable) then return end
-              if (PNJTable[i].is_dead) then return end
-              PNJTable[i].goalstancebonus = 3;
-              PNJTable[i].final_goal = PNJTable[i].goal + PNJTable[i].malus + PNJTable[i].goalstancebonus;
-              changeDefense(i,0,-2)
-              PNJTable[i].stance = "agress."
-              self.parent.stance.text = "agress."; 
-              self.parent.def.text = PNJTable[i].final_defense; 
-              self.parent.goal.text = PNJTable[i].final_goal; 
-              -- if PNJ has not played yet, reroll
-              if not PNJTable[i].done then reroll(i) end
-            end }),
-
-        yui.HorizontalSpacing({w=3}),
-        yui.Button({name="neutral", text = 'N', size=size,
-            onClick = function(self)
-              if (i>#PNJTable) then return end
-              if (PNJTable[i].is_dead) then return end
-              PNJTable[i].goalstancebonus = 0;
-              PNJTable[i].final_goal = PNJTable[i].goal + PNJTable[i].malus + PNJTable[i].goalstancebonus;
-              changeDefense(i,0,0)
-              PNJTable[i].stance = "neutral"
-              self.parent.stance.text = "neutral" 
-              self.parent.def.text = PNJTable[i].final_defense; 
-              self.parent.goal.text = PNJTable[i].final_goal; 
-              -- if PNJ has not played yet, reroll
-              if not PNJTable[i].done then reroll(i) end
-            end }),
-
-        yui.HorizontalSpacing({w=3}),
-        yui.Button({name="defense", text = 'D', size=size,
-            onClick = function(self)
-              if (i>#PNJTable) then return end
-              if (PNJTable[i].is_dead) then return end
-              PNJTable[i].goalstancebonus = -3;
-              PNJTable[i].final_goal = PNJTable[i].goal + PNJTable[i].malus + PNJTable[i].goalstancebonus;
-              changeDefense(i,0,2)
-              PNJTable[i].stance = "defense"
-              self.parent.stance.text = "defense" 
-              self.parent.def.text = PNJTable[i].final_defense; 
-              self.parent.goal.text = PNJTable[i].final_goal; 
-              -- if PNJ has not played yet, reroll
-              if not PNJTable[i].done then reroll(i) end
-            end }),
-
-        yui.HorizontalSpacing({w=10})
-        
-      })
-    PNJtext[i] = t[i+1] 
-  end 
-
-  return yui.Stack(t)
 end
 
 -- return an iterator which generates new unique ID, 
@@ -790,7 +521,7 @@ function UIDiterator()
 --
 -- The newly created PNJ is stored at the end of the PNJTable{} for
 -- the moment
-function generateNewPNJ(current_class)
+function rpg.generateNewPNJ(current_class)
 
   -- cannot generate too many PNJ...
   if (#PNJTable >= PNJmax) then return nil end
@@ -837,127 +568,18 @@ function generateNewPNJ(current_class)
 end
 
 
--- The PNJ are not displayed in the order they were generated: they are always 
--- sorted first by descending initiative value, then ascending ID value.
--- After a PNJ generation, this function sorts the PNJTable{} properly, then
--- re-print the GUI PNJ list completely.
--- Dead PNJs are not removed, and are still sorted and displayed
--- in the slot they were when alive.
--- returns nothing.
-function sortAndDisplayPNJ()
-
-  -- sort PNJ by descending initiative value, then ascending ID value
-  table.sort( PNJTable, 
-    function (a,b)
-      if (a.final_initiative ~= b.final_initiative) then return (a.final_initiative > b.final_initiative) 
-      else return (a.id < b.id) end
-    end)
-
-  -- then display PNJ table completely	
-  for i=1,PNJmax do  
-
-    if (i>#PNJTable) then
-
-      -- erase unused slots (at the end of the list)
-      PNJtext[i].done.checkbox.reset = true
-      PNJtext[i].id.text = ""
-      PNJtext[i].class.text = ""
-      PNJtext[i].init.text = ""
-      PNJtext[i].roll.text = "";
-      PNJtext[i].dmg.text = "";
-      PNJtext[i].armor.text = "";
-      PNJtext[i].hits.text = "";
-      PNJtext[i].endfordexfight.text = ""
-      PNJtext[i].def.text = ""
-      PNJtext[i].goal.text = ""
-      PNJtext[i].stance.text = ""
-      PNJtext[i].weapon.text = ""
-      PNJtext[i].dmg.text2 = ""
-      PNJtext[i].dmg.text3 = ""
-
-    else
-
-      pnj = PNJTable[i]
-      PNJtext[i].class.text = pnj.class;
-
-      -- cosmetic: do not display an init value if equal to previous one
-      if (i==1) then PNJtext[i].init.text = math.floor( pnj.final_initiative ); end
-      if (i>=2) then
-        if ( math.floor( pnj.final_initiative ) ~= math.floor( PNJTable[i-1].final_initiative ) )
-        then PNJtext[i].init.text = math.floor( pnj.final_initiative )
-        else PNJtext[i].init.text = ""
-        end
-      end
-
-      if (pnj.is_dead) then
-        PNJtext[i].done.checkbox.set = true
-        PNJtext[i].id.text = pnj.id
-        PNJtext[i].roll.text = "--";
-        PNJtext[i].dmg.text = "--";
-        PNJtext[i].armor.text = "--";
-        PNJtext[i].hits.text = "--";
-        PNJtext[i].endfordexfight.text = "--"
-        PNJtext[i].def.text = "--"
-        PNJtext[i].goal.text = "--"
-        PNJtext[i].stance.text = "--"
-        PNJtext[i].weapon.text = "--"
-        PNJtext[i].dmg.text2 = ""
-        PNJtext[i].dmg.text3 = ""
-        
-      else
-
-        if (PNJTable[i].done) then PNJtext[i].done.checkbox.set = true else PNJtext[i].done.checkbox.reset = true end
-
-        PNJtext[i].id.text = pnj.id
-        PNJtext[i].dmg.text = pnj.dmg .. "D";
-
-        -- display roll for PNJ (not for PJ)
-        if not pnj.PJ then
-          PNJtext[i].roll.text = pnj.roll:getRoll();
-          PNJtext[i].dmg.text2 = pnj.roll:getVPText();
-          PNJtext[i].dmg.text3 = pnj.roll:getDamageText();
-        else
-          PNJtext[i].roll.text = ""
-          PNJtext[i].dmg.text2 = ""
-          PNJtext[i].dmg.text3 = ""
-        end
-
-        -- PJ are displayed in a different color
-        updateLineColor(i)
-
-        if (pnj.armor==0) then PNJtext[i].armor.text = "-" else PNJtext[i].armor.text = pnj.armor .. "D"; end
-        PNJtext[i].hits.text = pnj.hits;
-        PNJtext[i].endfordexfight.text = pnj.intelligence .." ".. pnj.endurance .." ".. pnj.force .. "\n" .. pnj.dex .." ".. pnj.fight .. " " .. pnj.perception;
-        PNJtext[i].def.text = pnj.final_defense;
-        PNJtext[i].goal.text = pnj.final_goal;
-        PNJtext[i].stance.text = pnj.stance;
-        PNJtext[i].weapon.text = pnj.weapon or "";
-        
-      end
-    end
-
-    -- all this resets the current focus
-    lastFocus 		= focus
-    focus     		= nil
-    focusTarget   	= nil
-    focusAttackers  	= {}
-
-  end 
-
-end
-
 -- remove dead PNJs from the PNJTable{}, but keeps all other PNJs
 -- in the same order. 
 -- return true if a dead PNJ was actually removed, false if none was found.
 -- Does not re-print the PNJ list on the screen. 
-function removeDeadPNJ()
+function rpg.removeDeadPNJ()
 
   local has_removed =  false
   local initialSize = #PNJTable
   local new = {}
   for i=1,#PNJTable do if not PNJTable[i].is_dead then table.insert( new, PNJTable[i] ) end end
   PNJTable = new
-  thereIsDead = false
+  --thereIsDead = false
   return initialSize ~= #PNJTable 
 end
 
@@ -965,22 +587,21 @@ end
 -- including dead PNJs as well)
 -- If so, calls the nextRound() function.
 -- Return true or false depending on what was done 
-function checkForNextRound()
+function rpg.checkForNextRound()
   	local goNextRound = true -- a priori, might change below
   	for i=1,#PNJTable do if not PNJTable[i].done then goNextRound = false end end
-  	nextFlash = goNextRound
   	return goNextRound
 	end
 
 -- roll a d20 dice for the ith-PNJ and display the result in the grid
-function reroll(i)
+function rpg.reroll(i)
 
     -- do not roll for PJs....
     if PNJTable[i].PJ then 
     PNJtext[i].roll.text 	= ""
     PNJtext[i].dmg.text2 	= ""
     PNJtext[i].dmg.text3 	= ""
-    updateLineColor(i)
+    --updateLineColor(i)
     return 
     end
 
@@ -996,63 +617,19 @@ function reroll(i)
     PNJtext[i].roll.text 		= PNJTable[i].roll:getRoll()
     PNJtext[i].dmg.text2 		= PNJTable[i].roll:getVPText()
     PNJtext[i].dmg.text3 		= PNJTable[i].roll:getDamageText()
-    updateLineColor(i)
+    --updateLineColor(i)
   
     end
 
 
--- Increase and display round number, reset all "done" checkboxes (except for
--- dead PNJs which are considered as "done" by default), and reset DEFENSE values. 
--- Returns nothing.
-function nextRound()
-
-    math.randomseed( os.time() )
-
-    -- increase round
-    roundNumber = roundNumber + 1
-    view.s.t.round.text = tostring(roundNumber)
-    view.s.t.round.color= theme.color.red
-
-    -- set timer
-    nextFlash = false
-    roundTimer = 0
-    newRound = true
-
-    -- reset defense & done checkbox
-    for i=1,#PNJTable do
-
-      if (not PNJTable[i].is_dead) then
-
-        PNJTable[i].done = false
-        PNJtext[i].done.checkbox.reset = true
-
-        PNJTable[i].defmalus = 0
-        PNJTable[i].final_defense = PNJTable[i].defense + PNJTable[i].defstancemalus
-        PNJtext[i].def.text = PNJTable[i].final_defense;
-
-        if (not PNJTable[i].PJ) then reroll (i) end
-
-      else
-
-        PNJTable[i].done = true 				-- a dead character is done
-        PNJtext[i].done.checkbox.set = true
-
-      end
-
-      updateLineColor(i)
-
-    end
-
-    end
-
 -- create one instance of each PJ
-function createPJ()
+function rpg.createPJ()
 
     for classname,t in pairs(templateArray) do
-      if t.PJ then generateNewPNJ(classname) end
+      if t.PJ then rpg.generateNewPNJ(classname) end
     end
 
-    sortAndDisplayPNJ()
-
     end
+
+return rpg
 
