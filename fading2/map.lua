@@ -82,6 +82,7 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   if not t.kind then self.kind = "map" else self.kind = t.kind end 
   self.class = "map"
   self.layout = t.layout
+  self.atlas = t.atlas
  
   -- snapshot part of the object
   assert( t.filename or t.file )
@@ -175,7 +176,7 @@ function Map:setQuad(x1,y1,x2,y2)
 -- We might send the same movement to the projector as well
 function Map:move( x, y ) 
 		self.x = x; self.y = y
-		if atlas:isVisible(self) and not self.sticky then 
+		if self.atlas:isVisible(self) and not self.sticky then 
 			tcpsend( projector, "CHXY " .. math.floor(self.x+self.translateQuadX) .. " " .. math.floor(self.y+self.translateQuadY) ) 
 		end
 	end
@@ -192,7 +193,7 @@ function Map:zoom( mag )
 		elseif self.mag <= 1 then self.mag = self.mag - 0.1 end
 		if self.mag <= 0.1 then self.mag = 0.1 end
 	end
-	if atlas:isVisible(self) and not self.sticky then tcpsend( projector, "MAGN " .. 1/self.mag ) end	
+	if self.atlas:isVisible(self) and not self.sticky then tcpsend( projector, "MAGN " .. 1/self.mag ) end	
 	end
 
 function Map:drop( o )
@@ -222,7 +223,7 @@ function Map:drop( o )
 			end
 
 		  -- send it to projector
-		  if p and atlas:isVisible(self) then	
+		  if p and self.atlas:isVisible(self) then	
 	  		local flag
 	  		if p.PJ then flag = "1" else flag = "0" end
 			local i = findPNJ( p.id )
@@ -345,7 +346,7 @@ function Map:draw()
      end
 
      -- print visible 
-     if atlas:isVisible( map ) then
+     if self.atlas:isVisible( map ) then
 	local char = "V" -- a priori
 	if map.sticky then char = "S" end -- stands for S(tuck)
         love.graphics.setColor(200,0,0,180)
@@ -485,7 +486,7 @@ function Map:createPawns( sx, sy, requiredSize , id )
 	  if id then uniquepawn = p end
 
 	  -- send to projector...
-	  if not id and atlas:isVisible(map) then
+	  if not id and self.atlas:isVisible(map) then
 	  	local flag
 	  	if p.PJ then flag = "1" else flag = "0" end
 		-- send over the socket

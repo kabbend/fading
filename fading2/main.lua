@@ -25,8 +25,10 @@ local Map			= require 'map'			-- maps
 -- specific object classes
 local Snapshot			= require 'snapshotClass'	-- store and display one image 
 local Pawn			= require 'pawn'		-- store and display one pawn to display on map 
+local Atlas			= require 'atlas'		-- store some information on maps (eg. which one is visible) 
 
-layout = mainLayout:new()
+layout = mainLayout:new()		-- one instance of the global layout, FIXME: cannot be local for the moment because of yui library
+local atlas = nil 			-- will be set in init()
 
 -- dice3d code
 require	'fading2/dice/base'
@@ -487,10 +489,9 @@ function love.filedropped(file)
 			end
 		end
 
-	  elseif is_a_map then  -- add map to the atlas
+	  elseif is_a_map then 
 	    local m = Map:new()
-	    m:load{ file=file, layout=layout } -- no filename, and file object means local 
-	    --atlas:addMap( m )  
+	    m:load{ file=file, layout=layout, atlas=atlas } -- no filename, and file object means local 
 	    layout:addWindow( m , false )
 	    table.insert( layout.snapshotWindow.snapshots[2].s , m )
 
@@ -1310,89 +1311,6 @@ function love.mousepressed( x, y , button )
 
 end
 
-
-Atlas = {}
-Atlas.__index = Atlas
-
-function Atlas:getScenario() return self.scenario end
-function Atlas:removeVisible() self.visible = nil end
-function Atlas:isVisible(map) return self.visible == map end
-function Atlas:getVisible() return self.visible end 
-function Atlas:toggleVisible( map )
-	if not map then return end
-	if map.kind == "scenario" then return end -- a scenario is never displayed to the players
-	if self.visible == map then 
-		self.visible = nil 
-		map.sticky = false
-		-- erase snapshot !
-		pWindow.currentImage = nil 
-	  	-- remove all pawns remotely !
-		tcpsend( projector, "ERAS")
-	  	-- send hide command to projector
-		tcpsend( projector, "HIDE")
-	else    
-		self.visible = map 
-		-- change snapshot !
-		pWindow.currentImage = map.im
-	  	-- remove all pawns remotely !
-		tcpsend( projector, "ERAS")
-		-- send to projector
-		if map.is_local and not fullBinary then
-		  tcpsendBinary{ file=map.file } 
- 		  tcpsend(projector,"BEOF")
-		elseif fullBinary then
-		  tcpsendBinary{ filename=map.filename } 
- 		  tcpsend(projector,"BEOF")
-		else 
-  		  tcpsend( projector, "OPEN " .. map.baseFilename )
-		end
-  		-- send mask if applicable
-  		if map.mask then
-			for k,v in pairs( map.mask ) do
-				tcpsend( projector, v )
-			end
-  		end
-		-- send pawns if any
-		for i=1,#map.pawns do
-			local p = map.pawns[i]
-			-- check the pawn state before sending it: 
-			-- * it might happen that the character has been removed from the list
-			-- * don't send dead pawns (what for?)
-			local index = findPNJ( p.id )
-			if index and (not PNJTable[index].is_dead) then
-				local flag = 0
-				if p.PJ then flag = 1 end
-				-- send over the socket
-				if p.snapshot.is_local then
-					tcpsendBinary{ file=p.snapshot.file }
-	  				tcpsend( projector, "PEOF " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. math.floor(p.sizex) .. " " .. flag )
-				elseif fullBinary then
-					tcpsendBinary{ filename=p.snapshot.filename }
-	  				tcpsend( projector, "PEOF " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. math.floor(p.sizex) .. " " .. flag )
-				else
-	  				local f = p.snapshot.filename
-	  				f = string.gsub(f,baseDirectory,"")
-	  				tcpsend( projector, "PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. math.floor(p.sizex) .. " " .. flag .. " " .. f)
-				end
-			end
-		end
-		-- set map frame
-  		tcpsend( projector, "MAGN " .. 1/map.mag)
-  		tcpsend( projector, "CHXY " .. math.floor(map.x+map.translateQuadX) .. " " .. math.floor(map.y+map.translateQuadY) )
-  		tcpsend( projector, "DISP")
-
-	end
-	end
-
-function Atlas.new() 
-  local new = {}
-  setmetatable(new,Atlas)
-  --new.maps = {}
-  new.visible = nil -- map currently visible (or nil if none)
-  new.scenario = nil -- reference the scenario window if any
-  return new
-  end
-
 function trim(s)
   return (s:gsub("^%s*(.-)%s*$", "%1"))
 end
@@ -1799,7 +1717,7 @@ function parseDirectory( t )
       elseif f == 'scenario.jpg' then
 
 	local s = Map:new()
-	s:load{ kind="scenario", filename=path .. sep .. f , layout=layout}
+	s:load{ kind="scenario", filename=path .. sep .. f , layout=layout, atlas=atlas}
 	layout:addWindow( s , false )
 	atlas.scenario = s
 	io.write("Loaded scenario image file at " .. path .. sep .. f .. "\n")
@@ -1825,7 +1743,7 @@ function parseDirectory( t )
 	elseif string.sub(f,1,3) == 'map' then
 
 	  local s = Map:new()
-	  s:load{ filename=path .. sep .. f , layout=layout} 
+	  s:load{ filename=path .. sep .. f , layout=layout, atlas=atlas} 
 	  layout:addWindow( s , false )
 	  table.insert( layout.snapshotWindow.snapshots[2].s, s ) 
 
@@ -1955,8 +1873,8 @@ function init()
     -- later on, an image might be attached to them, if we find one
     createPJ()
 
-    -- create a new empty atlas (an array of maps)
-    atlas = Atlas.new()
+    -- create a new empty atlas (an array of maps), and tell him where to project
+    atlas = Atlas.new( layout.pWindow )
 
     -- load various data files
     parseDirectory{ path = baseDirectory .. sep .. fadingDirectory }
