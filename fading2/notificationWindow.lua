@@ -8,19 +8,26 @@ local theme 	= require 'theme'
 -- and always at bottom
 --
 
+local messages = {}
+
 local notificationWindow = Window:new{ class = "notification", alwaysOnTop = true, zoomable = false, movable = false }
 
-function notificationWindow:new( t ) -- create from w, h, x, y, messages
+function notificationWindow:new( t ) -- create from w, h, x, y
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
-  new.messages = t.messages
   new.opening = false
   new.closing = false
   new.pause   = false
   new.maxX = t.x + t.w - 10 
   new.minX = t.x 
   return new
+end
+
+-- insert a new message to display
+function notificationWindow:addMessage( text, time , important )
+  if not time then time = 5 end
+  table.insert( messages, { text=text , time=time, offset=0, important=important } )
 end
 
 function notificationWindow:draw()
@@ -33,9 +40,9 @@ function notificationWindow:draw()
   end
 
 function notificationWindow:update(dt)
-  if not self.text and #self.messages ~= 0 then
-	self.text = self.messages[1].text
-	table.remove(self.messages,1)
+  if not self.text and #messages ~= 0 then
+	self.text = messages[1].text
+	table.remove(messages,1)
  	self.opening = true 
 	self.layout:setDisplay(self,true)
   end
