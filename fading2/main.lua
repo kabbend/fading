@@ -20,6 +20,7 @@ local Dialog			= require 'dialog'		-- dialog with players
 local setupWindow		= require 'setup'		-- setup/configuration information 
 local iconRollWindow		= require 'iconRoll'		-- dice icon and launching 
 local projectorWindow		= require 'projector'		-- project images to players 
+local snapshotBar		= require 'snapshot'		-- all kinds of images 
 
 layout = mainLayout:new()
 
@@ -63,7 +64,9 @@ fullBinary		= false			-- if true, the server will systematically send binary fil
 messages 		= {}
 messagesH		= H 
 
--- snapshots
+
+-- snapshots 
+--[[
 snapshots    = {}
 snapshots[1] = { s = {}, index = 1, offset = 0 } 	-- small snapshots at the bottom, for general images
 snapshots[2] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for scenario & maps
@@ -71,6 +74,7 @@ snapshots[3] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the botto
 snapshots[4] = { s = {}, index = 1, offset = 0 }	-- small snapshots at the bottom, for pawn images
 snapText = { "GENERAL IMAGES", "TACTICAL MAPS", "PNJ CLASSES", "PAWN IMAGES" }
 currentSnap		= 1				-- by default, we display images
+--]]
 snapshotSize 		= 70 				-- w and h of each snapshot
 snapshotMargin 		= 7 				-- space between images and screen border
 snapshotH 		= messagesH - snapshotSize - snapshotMargin
@@ -965,201 +969,6 @@ function Combat:drop( o )
 
 	end
 
---
--- snapshotBarclass
--- a snapshotBar is a window which displays images
---
-snapshotBar = Window:new{ class = "snapshot" , title = snapText[currentSnap] , wResizable = true }
-
-function snapshotBar:new( t ) -- create from w, h, x, y
-  local new = t or {}
-  setmetatable( new , self )
-  self.__index = self
-  return new
-end
-
-function snapshotBar:draw()
-
-  self:drawBack()
-
-  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-  love.graphics.setColor(255,255,255)
-  for i=snapshots[currentSnap].index, #snapshots[currentSnap].s do
-	local x = zx + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1) - (snapshots[currentSnap].s[i].w * snapshots[currentSnap].s[i].snapmag - snapshotSize) / 2
-	if x > zx + self.w / self.mag  + snapshotSize then break end
-	if x >= zx - snapshotSize then 
-  		love.graphics.setScissor( zx, zy, self.w / self.mag, self.h / self.mag ) 
-		if snapshots[currentSnap].s[i].selected then
-  			love.graphics.setColor(unpack(theme.color.red))
-			love.graphics.rectangle("line", 
-				zx + snapshots[currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1),
-				zy + 5, 
-				snapshotSize, 
-				snapshotSize)
-		end
-		if currentSnap == 2 and snapshots[currentSnap].s[i].kind == "scenario" then
-			-- do not draw scenario, ... 
-		else
-  			love.graphics.setColor(255,255,255)
-			if currentSnap == 2 and snapshots[currentSnap].s[i].quad then
-			love.graphics.draw( 	snapshots[currentSnap].s[i].im , 
-				snapshots[currentSnap].s[i].quad,
-				x ,
-				zy - ( snapshots[currentSnap].s[i].h * snapshots[currentSnap].s[i].snapmag - snapshotSize ) / 2 + 2, 
-			    	0 , snapshots[currentSnap].s[i].snapmag, snapshots[currentSnap].s[i].snapmag )
-			else
-			love.graphics.draw( 	snapshots[currentSnap].s[i].im , 
-				x ,
-				zy - ( snapshots[currentSnap].s[i].h * snapshots[currentSnap].s[i].snapmag - snapshotSize ) / 2 + 2, 
-			    	0 , snapshots[currentSnap].s[i].snapmag, snapshots[currentSnap].s[i].snapmag )
-			end
-		end
-  		love.graphics.setScissor() 
-	end
-  end
- 
-   -- print bar
-   self:drawBar()
-
-   -- print over text eventually
- 
-   love.graphics.setFont(theme.fontRound)
-   local x,y = love.mouse.getPosition()
-   local left = math.max(zx,0)
-   local right = math.min(zx+self.w,W)
-	
-   if x > left and x < right and y > zy and y < zy + self.h then
-	-- display text is over a class image
-    	local index = math.floor(((x-zx) - snapshots[currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
-    	if index >= 1 and index <= #snapshots[currentSnap].s then
-		if currentSnap == 3 then
-			local size = theme.fontRound:getWidth( RpgClasses[index].class )
-			local px = x + 5
-			if px + size > W then px = px - size end
-   			love.graphics.setColor(255,255,255)
-			love.graphics.rectangle("fill",px,y-20,size,theme.fontRound:getHeight())
-   			love.graphics.setColor(0,0,0)
-			love.graphics.print( RpgClasses[index].class , px, y-20 )
-		else
-			if snapshots[currentSnap].s[index].displayFilename then
-			  local size = theme.fontRound:getWidth( snapshots[currentSnap].s[index].displayFilename )
-			  local px = x + 5
-			  if px + size > W then px = px - size end
-   			  love.graphics.setColor(255,255,255)
-			  love.graphics.rectangle("fill",px,y-20,size,theme.fontRound:getHeight())
-   			  love.graphics.setColor(0,0,0)
-			  love.graphics.print( snapshots[currentSnap].s[index].displayFilename, px, y-20 )
-			end
-		end
-	end
-   end
-
-   self:drawResize()
-
-end
-
-function snapshotBar:update(dt)
-	
-	Window.update(self,dt)
-
-  	local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
-
-	-- change snapshot offset if mouse  at bottom right or left
-	local snapMax = #snapshots[currentSnap].s * (snapshotSize + snapshotMargin) - W
-	if snapMax < 0 then snapMax = 0 end
-	local x,y = love.mouse.getPosition()
-	local left = math.max(zx,0)
-	local right = math.min(zx+self.w,W)
-	
-	if x > left and x < right then
-
-	  if (x < left + snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h) then
-	  	snapshots[currentSnap].offset = snapshots[currentSnap].offset + snapshotMargin * 2
-	  	if snapshots[currentSnap].offset > 0 then snapshots[currentSnap].offset = 0  end
-	  end
-
-	  if (x > right - snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h - iconSize) then
-	  	snapshots[currentSnap].offset = snapshots[currentSnap].offset - snapshotMargin * 2
-	  	if snapshots[currentSnap].offset < -snapMax then snapshots[currentSnap].offset = -snapMax end
-	  end
-
-	
-	end
-	end
-
-function snapshotBar:click(x,y)
-
-  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
-  
-  Window.click(self,x,y)
- 
-  if y > zy then mouseMove = false end -- Window.click() above might set mouseMove improperly
- 
-    --arrowMode = false
-    -- check if there is a snapshot there
-    local index = math.floor(((x-zx) - snapshots[currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
-    -- 2 possibilities: if this image is already selected, then use it
-    -- otherwise, just select it (and deselect any other eventually)
-    if index >= 1 and index <= #snapshots[currentSnap].s then
-
-      -- this may start a drag&drop
-      dragMove = true
-      dragObject = { originWindow = self, snapshot = snapshots[currentSnap].s[index] }
-      if currentSnap == 1 then dragObject.object = { class = "image" } end
-      if currentSnap == 2 then dragObject.object = { class = "map" } end
-      if currentSnap == 3 then dragObject.object = { class = "pnj", rpgClass = RpgClasses[index] } end
-      if currentSnap == 4 then dragObject.object = { class = "pawn" } end
-
-      if snapshots[currentSnap].s[index].selected then
-	      -- already selected
-	      snapshots[currentSnap].s[index].selected = false 
-
-	      -- Three different ways to use a snapshot
-
-	      -- 1: general image, sent it to projector
-	      if currentSnap == 1 then
-	      	pWindow.currentImage = snapshots[currentSnap].s[index].im
-	      	-- remove the 'visible' flag from maps (eventually)
-	      	atlas:removeVisible()
-		tcpsend(projector,"ERAS") 	-- remove all pawns (if any) 
-    	      	-- send the filename over the socket
-		if snapshots[currentSnap].s[index].is_local then
-			tcpsendBinary{ file = snapshots[currentSnap].s[index].file } 
- 			tcpsend(projector,"BEOF")
-		elseif fullBinary then
-			tcpsendBinary{ filename = snapshots[currentSnap].s[index].filename } 
- 			tcpsend(projector,"BEOF")
-		else
-	      		tcpsend( projector, "OPEN " .. snapshots[currentSnap].s[index].baseFilename)
-		end
-	      	tcpsend( projector, "DISP") 	-- display immediately
-
-	      -- 2: map. This should open a window 
-	      elseif currentSnap == 2 then
-
-			layout:setDisplay( snapshots[currentSnap].s[index] , true )
-			layout:setFocus( snapshots[currentSnap].s[index] ) 
-	
-	      -- 3: Pawn. If focus is set, use this image as PJ/PNJ pawn image 
-	      else
-			if focus then PNJTable[ focus ].snapshot = snapshots[currentSnap].s[index] end
-
-	      end
-
-      else
-	      -- not selected, select it now
-	    for i,v in ipairs(snapshots[currentSnap].s) do
-	      if i == index then snapshots[currentSnap].s[i].selected = true
-	      else snapshots[currentSnap].s[i].selected = false end
-	    end
-
-	    -- If in pawn mode, this does NOT change the focus, so we break now !
-	    if currentSnap == 3 then return end
-      end
-  end
-
-  end
-
 -- insert a new message to display
 function addMessage( text, time , important )
   if not time then time = 5 end
@@ -1266,10 +1075,10 @@ function love.filedropped(file)
 
 		local snap = Snapshot:new{ file = file }
 		if is_a_pawn then 
-			table.insert( snapshots[4].s , snap )
+			table.insert( layout.snapshotWindow.snapshots[4].s , snap )
 			snap.kind = "pawn"	
 		else
-			table.insert( snapshots[1].s , snap )
+			table.insert( layout.snapshotWindow.snapshots[1].s , snap )
 			snap.kind = "image"	
 	  		-- set the local image
 	  		pWindow.currentImage = snap.im 
@@ -1299,7 +1108,7 @@ function love.filedropped(file)
 	    m:load{ file=file, layout=layout } -- no filename, and file object means local 
 	    --atlas:addMap( m )  
 	    layout:addWindow( m , false )
-	    table.insert( snapshots[2].s , m )
+	    table.insert( layout.snapshotWindow.snapshots[2].s , m )
 
 	  end
 
@@ -2406,9 +2215,9 @@ else
   
   	-- 'space' to change snapshot list
 	if key == 'space' then
-	  currentSnap = currentSnap + 1
-	  if currentSnap == 5 then currentSnap = 1 end
-	  window:setTitle( snapText[currentSnap] ) 
+	  window.currentSnap = window.currentSnap + 1
+	  if window.currentSnap == 5 then window.currentSnap = 1 end
+	  window:setTitle( window.snapText[window.currentSnap] ) 
 	  return
   	end
 
@@ -2606,7 +2415,7 @@ function parseDirectory( t )
 			end
 		end	
    
-		if store then table.insert( snapshots[4].s, s ) end
+		if store then table.insert( layout.snapshotWindow.snapshots[4].s, s ) end
 
 		-- check if default image 
       		if f == 'pawnDefault.jpg' then
@@ -2648,14 +2457,14 @@ function parseDirectory( t )
       elseif f == 'pawnDefault.jpg' then
 
 	defaultPawnSnapshot = Snapshot:new{ filename = path .. sep .. f }
-	table.insert( snapshots[4].s, defaultPawnSnapshot ) 
+	table.insert( layout.snapshotWindow.snapshots[4].s, defaultPawnSnapshot ) 
 
       elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
 
         if string.sub(f,1,4) == 'pawn' then
 
 		local s = Snapshot:new{ filename = path .. sep .. f }
-		table.insert( snapshots[4].s, s ) 
+		table.insert( layout.snapshotWindow.snapshots[4].s, s ) 
 		
 		local pjname = string.sub(f,5, f:len() - 4 )
 		io.write("Looking for PJ " .. pjname .. "\n")
@@ -2667,12 +2476,12 @@ function parseDirectory( t )
 	  local s = Map:new()
 	  s:load{ filename=path .. sep .. f , layout=layout} 
 	  layout:addWindow( s , false )
-	  table.insert( snapshots[2].s, s ) 
+	  table.insert( layout.snapshotWindow.snapshots[2].s, s ) 
 
  	else
 	  
 	  local s = Snapshot:new{ filename = path .. sep .. f } 
-	  table.insert( snapshots[1].s, s ) 
+	  table.insert( layout.snapshotWindow.snapshots[1].s, s ) 
 	  
         end
 
@@ -2684,7 +2493,7 @@ function parseDirectory( t )
     -- add them to snapshotBar
     for i=1,#RpgClasses do
 	if not RpgClasses[i].snapshot then RpgClasses[i].snapshot = defaultPawnSnapshot end
-	if not RpgClasses[i].PJ then table.insert( snapshots[3].s, RpgClasses[i].snapshot ) end
+	if not RpgClasses[i].PJ then table.insert( layout.snapshotWindow.snapshots[3].s, RpgClasses[i].snapshot ) end
     end
 
     
@@ -2770,10 +2579,6 @@ function init()
     -- create a new empty atlas (an array of maps)
     atlas = Atlas.new()
 
-    -- load various data files
-    parseDirectory{ path = baseDirectory .. sep .. fadingDirectory }
-    parseDirectory{ path = baseDirectory .. sep .. "pawns" , kind = "pawns" }
-
     -- create basic windows
     combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(intW), y=Window:cy(intW),layout=layout}
     pWindow = projectorWindow:new{ w=layout.W1, h=layout.H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*iconSize - snapshotSize - 2*intW - layout.H1 - 2 ) ,layout=layout}
@@ -2801,6 +2606,10 @@ function init()
     layout:addWindow( storyWindow , true , "storyWindow" )
     layout:addWindow( actionWindow , true , "actionWindow" )
     layout:addWindow( rollWindow , true , "rollWindow" )
+
+    -- load various data files
+    parseDirectory{ path = baseDirectory .. sep .. fadingDirectory }
+    parseDirectory{ path = baseDirectory .. sep .. "pawns" , kind = "pawns" }
 
     -- check if we have a scenario loaded. Reference it for direct access. Update size and mag factor to fit screen
     scenarioWindow = atlas:getScenario()

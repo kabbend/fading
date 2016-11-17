@@ -104,8 +104,8 @@ function iconWindow:click(x,y)
 	if self.text == "L'Action" then
 		if self.open then
 			decideOpenWindow(self.layout.combatWindow,cx,cy,0.3*self.w/self.mag)
-	 		currentSnap = 2 -- tactical maps			
-			self.layout.snapshotWindow:setTitle( snapText[currentSnap] )
+	 		self.layout.snapshotWindow.currentSnap = 2 -- tactical maps			
+			self.layout.snapshotWindow:setTitle( self.layout.snapshotWindow.snapText[currentSnap] )
 			decideOpenWindow(self.layout.snapshotWindow,cx,cy,0.3*self.w/self.mag)
 			decideOpenWindow(self.layout.pWindow,cx,cy,0.3*self.w/self.mag)
 			-- sink all other windows
@@ -134,8 +134,8 @@ function iconWindow:click(x,y)
 		end
 	elseif self.text == "L'Histoire" then
 		if self.open then
-	 		currentSnap = 1 -- images			
-			self.layout.snapshotWindow:setTitle( snapText[currentSnap] )
+	 		self.layout.snapshotWindow.currentSnap = 1 -- images			
+			self.layout.snapshotWindow:setTitle( self.layout.snapshotWindow.snapText[currentSnap] )
 			decideOpenWindow(self.layout.snapshotWindow,cx,cy,0.3*self.w/self.mag)
 			decideOpenWindow(self.layout.pWindow,cx,cy,0.3*self.w/self.mag)
 			decideOpenWindow(self.layout.scenarioWindow,cx,cy,0.3*self.w/self.mag)
