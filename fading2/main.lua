@@ -21,7 +21,10 @@ local setupWindow		= require 'setup'		-- setup/configuration information
 local iconRollWindow		= require 'iconRoll'		-- dice icon and launching 
 local projectorWindow		= require 'projector'		-- project images to players 
 local snapshotBar		= require 'snapshot'		-- all kinds of images 
+
+-- specific classes
 local Snapshot			= require 'snapshotClass'	-- store and display one image 
+local Pawn			= require 'pawn'		-- store and display one pawn to display on map 
 
 layout = mainLayout:new()
 
@@ -239,77 +242,6 @@ function loadLocalImage( file )
   file:close()
   return image
 end
-
---[[
--- Snapshot class
--- a snapshot holds an image, displayed in the bottom part of the screen.
--- Snapshots are used for general images, and for pawns. For maps, use the
--- specific class Map instead, which is derived from Snapshot.
--- The image itself is stored in memory in its binary form, but for purpose of
--- sending it to the projector, it is also either stored as a path on the shared 
--- filesystem, or a file object on the local filesystem
-Snapshot = { class = "snapshot" , filename = nil, file = nil }
-
-function Snapshot:new( t ) -- create from filename or file object (one mandatory), and kind 
-  local new = t or {}
-  setmetatable( new , self )
-  self.__index = self
-  assert( new.filename or new.file )
-  local image
-  if new.filename then 
-	image = loadDistantImage( new.filename )
-	new.is_local = false
-	new.baseFilename = string.gsub(new.filename,baseDirectory,"")
-	new.displayFilename = splitFilename(new.filename)
-  else 
-	image = loadLocalImage( new.file )
-	new.is_local = true
-	new.baseFilename = new.file:getFilename() 
-	new.displayFilename = splitFilename(new.file:getFilename())
-  end
-  local lfn = love.filesystem.newFileData
-  local lin = love.image.newImageData
-  local lgn = love.graphics.newImage
-  local img = lgn(lin(lfn(image, 'img', 'file')), { mipmaps=true } ) 
-  pcall( function() img:setMipmapFilter( "nearest" ) end )
-  new.im = img
-  new.w, new.h = new.im:getDimensions()
-  local f1, f2 = snapshotSize / new.w, snapshotSize / new.h
-  new.snapmag = math.min( f1, f2 )
-  new.selected = false
-  return new
-end
---]]
-
---
---  Pawn object 
---  A pawn holds the image, with proper scale defined at pawn creation on the map,
---  along with the ID of the corresponding PJ/PNJ.
---  Both sizes of the pawn image (sizex and sizey) are computed to follow the image
---  original height/width ratio. Sizex is directly defined by the MJ at pawn creation,
---  using the arrow on the map, sizey is then derived from it
--- 
-Pawn = {}
-function Pawn:new( id, snapshot, width , x, y ) 
-  local new = {}
-  setmetatable(new,self)
-  self.__index = self 
-  new.id = id
-  new.layer = pawnMaxLayer 
-  new.x, new.y = x or 0, y or 0 		-- current pawn position, relative to the map
-  new.moveToX, new.moveToY = new.x, new.y 	-- destination of a move 
-  new.snapshot = snapshot
-  new.sizex = width 				-- width size of the image in pixels, for map at scale 1
-  local w,h = new.snapshot.w, new.snapshot.h
-  new.sizey = new.sizex * (h/w) 
-  local f1,f2 = new.sizex/w, new.sizey/h
-  new.f = math.min(f1,f2)
-  new.offsetx = (new.sizex + 3*2 - w * new.f ) / 2
-  new.offsety = (new.sizey + 3*2 - h * new.f ) / 2
-  new.PJ = false
-  new.color = theme.color.white
-  return new
-  end
 
 -- Map class
 -- a Map inherits from Window and from Snapshot, and is referenced both 
@@ -2634,28 +2566,6 @@ function love.load( args )
     love.window.setTitle( "Fading Suns Tabletop" )
     love.keyboard.setKeyRepeat(true)
     yui.UI.registerEvents()
-
---[[
-    -- load fonts
-    fontTitle 		= love.graphics.newFont("yui/yaoui/fonts/georgia.ttf",20)
-    fontDice 		= love.graphics.newFont("yui/yaoui/fonts/georgia.ttf",90)
-    fontRound 		= love.graphics.newFont("yui/yaoui/fonts/georgia.ttf",12)
-    fontSearch 		= love.graphics.newFont("yui/yaoui/fonts/georgia.ttf",16)
-   
-    -- base images
-    backgroundImage 	= love.graphics.newImage( "images/background.jpg" )
-    actionImage 	= love.graphics.newImage( "images/action.jpg" )
-    storyImage 		= love.graphics.newImage( "images/histoire.jpg" )
-    dicesImage 		= love.graphics.newImage( "images/dices.png" )
-
-    -- base icons. We expect 16x16 icons
-    iconClose 		= love.graphics.newImage( "icons/close16x16red.png" )
-    iconResize 		= love.graphics.newImage( "icons/minimize16x16.png" )
-    iconOnTopInactive 	= love.graphics.newImage( "icons/ontop16x16black.png" )
-    iconOnTopActive 	= love.graphics.newImage( "icons/ontop16x16red.png" )
-    iconReduce	 	= love.graphics.newImage( "icons/reduce16x16.png" )
-    iconExpand	 	= love.graphics.newImage( "icons/expand16x16.png" )
---]]
 
     -- some adjustments on different systems
     if love.system.getOS() == "Windows" then
