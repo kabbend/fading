@@ -125,7 +125,7 @@ function readScenario( filename )
 	local stack = {}
 
 	-- insert a default position on the stack (the center of the image)
-	table.insert( stack, { level=0, xy="((".. math.floor(W / 2) .. "," .. math.floor(H / 2) .. "))" } )
+	table.insert( stack, { level=0, xy="((".. math.floor(layout.W / 2) .. "," .. math.floor(layout.H / 2) .. "))" } )
 
 	local linecount = 0
 	for line in io.lines(filename) do

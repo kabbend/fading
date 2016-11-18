@@ -3,6 +3,7 @@ local Window 		= require 'window'		-- Window class & system
 local Snapshot		= require 'snapshotClass'	-- store and display one image 
 local theme		= require 'theme'		-- global theme
 local Pawn		= require 'pawn'		-- store and display one pawn to display on map 
+local rpg		= require 'rpg'		
 
 local glowCode = [[
 extern vec2 size;
@@ -124,7 +125,7 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   self.whResizable = true
   self.mag = self.w / mapOpeningSize	-- we set ratio so we stick to the required opening size	
   self.x, self.y = self.w/2, self.h/2
-  Window.translate(self,mapOpeningXY-W/2,mapOpeningXY-H/2) -- set correct position
+  Window.translate(self,mapOpeningXY-self.layout.W/2,mapOpeningXY-self.layout.H/2) -- set correct position
  
   mapOpeningXY = mapOpeningXY + mapOpeningStep
  
@@ -142,6 +143,7 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
 end
 
 function Map:setQuad(x1,y1,x2,y2)
+        local W,H=self.layout.W,self.layout.H
 	if not x1 then 
 		-- setQuad() with no arguments removes the quad 
 		self.quad = nil 
@@ -197,6 +199,7 @@ function Map:zoom( mag )
 	end
 
 function Map:drop( o )
+        local W,H=self.layout.W,self.layout.H
 	local obj = o.object
 	if obj.class == "pnjtable" or obj.class == "pnj" then -- receiving a PNJ either from PNJ list or from snapshot PNJ Class bar 
 		if not self.basePawnSize then self.layout.notificationWindow:addMessage("No pawn size defined on this map. Please define it with Ctrl+mouse")
@@ -208,8 +211,8 @@ function Map:drop( o )
 		  -- maybe we need to create the PNJ before
 		  local id
 		  if obj.class == "pnj" then
-			id  = generateNewPNJ( obj.rpgClass.class )
-			if id then sortAndDisplayPNJ() end
+			id  = rpg.generateNewPNJ( obj.rpgClass.class )
+			if id then self.layout.combatWindow:sortAndDisplayPNJ() end
 		  else
 			id = obj.id
 		  end
@@ -266,6 +269,7 @@ function Map:draw()
      local map = self
      currentWindowDraw = self
 
+     local W,H=self.layout.W,self.layout.H
      local SX,SY,MAG = map.x, map.y, map.mag
      local x,y = -( SX * 1/MAG - W / 2), -( SY * 1/MAG - H / 2)
   
@@ -441,6 +445,7 @@ function Map:createPawns( sx, sy, requiredSize , id )
   local margin = math.floor(pawnSize / 10) -- small space between 2 pawns
 
   -- position of the upper-left corner of the map on screen
+  local W,H=self.layout.W,self.layout.H
   local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
 
   -- position of the mouse, relative to the map at scale 1 (and not to the screen)
@@ -522,6 +527,7 @@ function Map:createPawns( sx, sy, requiredSize , id )
 -- inside any pawn of the map. If several pawns at same location, return the
 -- one with highest layer value
 function Map:isInsidePawn(x,y)
+  local W,H=self.layout.W,self.layout.H
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2) -- position of the map on the screen
   if self.pawns then
 	local indexWithMaxLayer, maxlayer = 0, 0

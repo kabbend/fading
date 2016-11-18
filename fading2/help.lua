@@ -49,6 +49,7 @@ function Help:draw()
    -- draw window frame
    self:drawBack()
    love.graphics.setFont(theme.fontSearch)
+   local W,H=self.layout.W, self.layout.H
    local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
    -- print current help text
    love.graphics.setColor(0,0,0)

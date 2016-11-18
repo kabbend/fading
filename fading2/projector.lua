@@ -18,6 +18,7 @@ function projectorWindow:draw()
 
   self:drawBack()
 
+  local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
   if self.currentImage then 
     local w, h = self.currentImage:getDimensions()

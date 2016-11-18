@@ -28,7 +28,7 @@ function Dialog:draw()
    -- draw window frame
    love.graphics.setFont(theme.fontSearch)
    love.graphics.setColor(10,10,10,150)
-   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+   local zx,zy = -( self.x * 1/self.mag - self.layout.W / 2), -( self.y * 1/self.mag - self.layout.H / 2)
    love.graphics.rectangle( "fill", zx , zy , self.w , self.h )  
    -- print current log text
    local start

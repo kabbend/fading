@@ -51,7 +51,7 @@ end
 function Window:addWidget( widget ) table.insert( self.widgets, widget ); widget.parent = self end
  
 -- window to screen, screen to window: transform x,y coordinates within the window from point on screen
-function Window:WtoS(x,y) return (x - self.x)/self.mag + W/2, (y - self.y)/self.mag + H/2 end
+function Window:WtoS(x,y) local W,H=self.layout.W, self.layout.H; return (x - self.x)/self.mag + W/2, (y - self.y)/self.mag + H/2 end
 
 -- translate window by dx, dy pixels on screen, with unchanged mag factor 
 function Window:translate(dx,dy) self.x = self.x - dx * self.mag; self.y = self.y - dy * self.mag end
@@ -73,6 +73,7 @@ function Window:sink(tx,ty,w)
 
 -- request the window to unsink from source position sx, sy at the given target (window) position x,y, with mag factor 
 function Window:unsink(sx, sy, sw, x, y, mag) 
+	local W,H=self.layout.W, self.layout.H	
 	self.markForSink = true
 	self.sinkFinalDisplay = true
 	local startingmag = self.w / sw
@@ -90,13 +91,14 @@ function Window:unsink(sx, sy, sw, x, y, mag)
 	self.layout:setDisplay(self,true)
 	end
 
-function Window:cx( zx ) return (-zx + W/2)*self.mag end
-function Window:cy( zy ) return (-zy + H/2)*self.mag - theme.iconSize end
+--function Window:cx( zx ) local W,H=self.layout.W, self.layout.H; return (-zx + W/2)*self.mag end
+--function Window:cy( zy ) local W,H=self.layout.W, self.layout.H; return (-zy + H/2)*self.mag - theme.iconSize end
 
 -- return true if the point (x,y) (expressed in layout coordinates system,
 -- typically the mouse), is inside the window frame (whatever the display or
 -- layer value, managed at higher-level)
 function Window:isInside(x,y)
+  local W,H=self.layout.W, self.layout.H;
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
   return x >= zx and x <= zx + self.w / self.mag and 
   	 y >= zy - theme.iconSize and y <= zy + self.h / self.mag -- iconSize needed to take window bar into account
@@ -108,7 +110,8 @@ function Window:setTitle( title ) self.title = title end
 
 -- drawn upper button bar
 function Window:drawBar( )
- 
+
+ local W,H=self.layout.W, self.layout.H 
  -- reserve space for 3 buttons (today 2 used)
  local reservedForButtons = theme.iconSize*3
  -- reserve space on maps for mask symbol (circle or rect)
@@ -154,11 +157,13 @@ function Window:drawBar( )
 end
 
 function Window:drawResize()
+   local W,H=self.layout.W, self.layout.H
    local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
    love.graphics.draw( theme.iconResize, zx + self.w / self.mag - theme.iconSize + 3, zy + self.h/self.mag - theme.iconSize + 3)
 end
 
 function Window:drawBack()
+  local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
   local alpha = 200
   love.graphics.setColor(255,255,255,alpha)
@@ -167,6 +172,7 @@ end
 
 -- click in the window. Check some rudimentary behaviour (quit...)
 function Window:click(x,y)
+	local W,H=self.layout.W, self.layout.H
  	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
  	local mx,my = self:WtoS(self.w, self.h) 
  	local tx, ty = mx - theme.iconSize, zy + 3
@@ -216,6 +222,7 @@ function Window:click(x,y)
 
 function Window:update(dt) 
 
+	local W,H=self.layout.W, self.layout.H
 	if self.markForSink then 
 			self.markForSinkTimer = 0
 			self.sinkSteps = self.sinkSteps + 1

@@ -317,7 +317,7 @@ end
 function Combat:draw()
 
   local alpha = 80
-  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+  local zx,zy = -( self.x * 1/self.mag - self.layout.W / 2), -( self.y * 1/self.mag - self.layout.H / 2)
 
   -- draw background
   self:drawBack()
@@ -328,7 +328,7 @@ function Combat:draw()
 
   -- draw FOCUS if applicable
   love.graphics.setColor(0,102,0,alpha)
-  if self.focus then love.graphics.rectangle("fill",PNJtext[self.focus].x+2,PNJtext[self.focus].y-5,WC - 5,42) end
+  if self.focus then love.graphics.rectangle("fill",PNJtext[self.focus].x+2,PNJtext[self.focus].y-5,self.layout.WC - 5,42) end
 
   -- draw ATTACKERS if applicable
   love.graphics.setColor(174,102,0,alpha)
@@ -337,7 +337,7 @@ function Combat:draw()
         if v then
           local index = findPNJ(i)
           if index then 
-		  love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,WC - 5,42) 
+		  love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,self.layout.WC - 5,42) 
 		  -- emphasize defense value, but only for PNJ
     		  if not PNJTable[index].PJ then
 			  love.graphics.setColor(0,0,0,120)
@@ -353,7 +353,7 @@ function Combat:draw()
     -- draw TARGET if applicable
     love.graphics.setColor(250,60,60,alpha*1.5)
     local index = findPNJ(self.focusTarget)
-    if index then love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,WC - 5,42) end
+    if index then love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,self.layout.WC - 5,42) end
 
     -- draw PNJ snapshot if applicable
     for i=1,#PNJTable do
@@ -386,6 +386,7 @@ function Combat:update(dt)
 	
 	Window.update(self,dt)
 
+	local W,H=self.layout.W, self.layout.H
   	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
 	self.view:setElementPosition( self.view.layout[1], zx + 5, zy + 5 )
   	self.view:update(dt)
@@ -478,6 +479,7 @@ function Combat:update(dt)
 
 function Combat:click(x,y)
 
+	local W,H=self.layout.W, self.layout.H
   	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
 
 	if (y - zy) >= 40 then -- clicking on buttons does not change focus

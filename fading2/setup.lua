@@ -52,6 +52,7 @@ function setupWindow:setupLoad()
   end
 
 function setupWindow:draw()
+  local W,H=self.layout.W, self.layout.H
   self:drawBack()
   self:drawWidgets()
   love.graphics.setFont(theme.fontRound)

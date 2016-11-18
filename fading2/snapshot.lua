@@ -26,6 +26,7 @@ function snapshotBar:new( t ) -- create from w, h, x, y
   new.snapshots = snapshots
   new.snapText = snapText
   new.currentSnap = 1 
+  new.atlas = t.atlas
   return new
 end
 
@@ -35,7 +36,7 @@ function snapshotBar:draw()
 
   local snapshotSize = self.layout.snapshotSize
 
-  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+  local zx,zy = -( self.x * 1/self.mag - self.layout.W / 2), -( self.y * 1/self.mag - self.layout.H / 2)
   love.graphics.setColor(255,255,255)
   for i=snapshots[self.currentSnap].index, #snapshots[self.currentSnap].s do
 	local x = zx + snapshots[self.currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1) - (snapshots[self.currentSnap].s[i].w * snapshots[self.currentSnap].s[i].snapmag - snapshotSize) / 2
@@ -79,7 +80,7 @@ function snapshotBar:draw()
    love.graphics.setFont(theme.fontRound)
    local x,y = love.mouse.getPosition()
    local left = math.max(zx,0)
-   local right = math.min(zx+self.w,W)
+   local right = math.min(zx+self.w,self.layout.W)
 	
    if x > left and x < right and y > zy and y < zy + self.h then
 	-- display text is over a class image
@@ -88,7 +89,7 @@ function snapshotBar:draw()
 		if self.currentSnap == 3 then
 			local size = theme.fontRound:getWidth( RpgClasses[index].class )
 			local px = x + 5
-			if px + size > W then px = px - size end
+			if px + size > self.layout.W then px = px - size end
    			love.graphics.setColor(255,255,255)
 			love.graphics.rectangle("fill",px,y-20,size,theme.fontRound:getHeight())
    			love.graphics.setColor(0,0,0)
@@ -97,7 +98,7 @@ function snapshotBar:draw()
 			if snapshots[self.currentSnap].s[index].displayFilename then
 			  local size = theme.fontRound:getWidth( snapshots[self.currentSnap].s[index].displayFilename )
 			  local px = x + 5
-			  if px + size > W then px = px - size end
+			  if px + size > self.layout.W then px = px - size end
    			  love.graphics.setColor(255,255,255)
 			  love.graphics.rectangle("fill",px,y-20,size,theme.fontRound:getHeight())
    			  love.graphics.setColor(0,0,0)
@@ -115,15 +116,15 @@ function snapshotBar:update(dt)
 	
 	Window.update(self,dt)
 
-  	local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
+  	local zx,zy = -( self.x - self.layout.W / 2), -( self.y - self.layout.H / 2)
   	local snapshotSize = self.layout.snapshotSize
 
 	-- change snapshot offset if mouse  at bottom right or left
-	local snapMax = #snapshots[self.currentSnap].s * (snapshotSize + snapshotMargin) - W
+	local snapMax = #snapshots[self.currentSnap].s * (snapshotSize + snapshotMargin) - self.layout.W
 	if snapMax < 0 then snapMax = 0 end
 	local x,y = love.mouse.getPosition()
 	local left = math.max(zx,0)
-	local right = math.min(zx+self.w,W)
+	local right = math.min(zx+self.w,self.layout.W)
 	
 	if x > left and x < right then
 
@@ -143,7 +144,7 @@ function snapshotBar:update(dt)
 
 function snapshotBar:click(x,y)
 
-  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+  local zx,zy = -( self.x * 1/self.mag - self.layout.W / 2), -( self.y * 1/self.mag - self.layout.H / 2)
   local snapshotSize = self.layout.snapshotSize
   
   Window.click(self,x,y)
@@ -175,7 +176,7 @@ function snapshotBar:click(x,y)
 	      if self.currentSnap == 1 then
 	      	layout.pWindow.currentImage = snapshots[self.currentSnap].s[index].im
 	      	-- remove the 'visible' flag from maps (eventually)
-	      	atlas:removeVisible()
+	      	self.atlas:removeVisible()
 		tcpsend(projector,"ERAS") 	-- remove all pawns (if any) 
     	      	-- send the filename over the socket
 		if snapshots[self.currentSnap].s[index].is_local then

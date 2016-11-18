@@ -31,6 +31,7 @@ function notificationWindow:addMessage( text, time , important )
 end
 
 function notificationWindow:draw()
+  local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
   love.graphics.setColor(255,255,255)
   love.graphics.rectangle( "fill", zx, zy, self.w, self.h, 10, 10 ) 

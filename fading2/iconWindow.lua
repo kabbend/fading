@@ -45,6 +45,7 @@ function iconWindow:new( t ) -- create from w, h, x, y + text, image,  mag
 end
 
 function iconWindow:draw()
+  local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
   love.graphics.setColor(255,255,255)
   if self.open then
@@ -81,7 +82,7 @@ local function decideCloseWindow(window,cx,cy,w)
 	end
 
 function iconWindow:click(x,y)
-
+  	local W,H=self.layout.W, self.layout.H
   	local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
 	if y < zy then 
 		-- we click on (invisible) button bar. This moves the window as well
@@ -105,7 +106,7 @@ function iconWindow:click(x,y)
 		if self.open then
 			decideOpenWindow(self.layout.combatWindow,cx,cy,0.3*self.w/self.mag)
 	 		self.layout.snapshotWindow.currentSnap = 2 -- tactical maps			
-			self.layout.snapshotWindow:setTitle( self.layout.snapshotWindow.snapText[currentSnap] )
+			self.layout.snapshotWindow:setTitle( self.layout.snapshotWindow.snapText[self.layout.snapshotWindow.currentSnap] )
 			decideOpenWindow(self.layout.snapshotWindow,cx,cy,0.3*self.w/self.mag)
 			decideOpenWindow(self.layout.pWindow,cx,cy,0.3*self.w/self.mag)
 			-- sink all other windows
@@ -135,7 +136,7 @@ function iconWindow:click(x,y)
 	elseif self.text == "L'Histoire" then
 		if self.open then
 	 		self.layout.snapshotWindow.currentSnap = 1 -- images			
-			self.layout.snapshotWindow:setTitle( self.layout.snapshotWindow.snapText[currentSnap] )
+			self.layout.snapshotWindow:setTitle( self.layout.snapshotWindow.snapText[self.layout.snapshotWindow.currentSnap] )
 			decideOpenWindow(self.layout.snapshotWindow,cx,cy,0.3*self.w/self.mag)
 			decideOpenWindow(self.layout.pWindow,cx,cy,0.3*self.w/self.mag)
 			decideOpenWindow(self.layout.scenarioWindow,cx,cy,0.3*self.w/self.mag)

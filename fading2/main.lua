@@ -53,7 +53,7 @@ currentWindowDraw 	= nil
 intW			= 2 	-- interval between windows
 
 -- main screen size
-W, H = 1440, 800 	-- main window size default values (may be changed dynamically on some systems)
+--W, H = 1440, 800 	-- main window size default values (may be changed dynamically on some systems)
 local iconSize = theme.iconSize 
 sep = '/'
 
@@ -73,12 +73,15 @@ layout.snapshotSize 	= 70 			-- w and h of each snapshot
 layout.screenMargin 	= 40			-- screen margin in map mode
 
 snapshotMargin 		= 7 				-- space between images and screen border
-snapshotH 		= H - layout.snapshotSize - snapshotMargin
 
+--[[
+snapshotH 	= H - layout.snapshotSize - snapshotMargin
 HC = H - 4 * intW - 3 * iconSize - layout.snapshotSize
 WC = 1290 - 2 * intW
-viewh = HC 		-- view height
-vieww = W - 260		-- view width
+--]]
+--viewh = HC 		-- view height
+--vieww = layout.W - 260		-- view width
+
 size = 19 		-- base font size
 
 -- various mouse movements
@@ -524,7 +527,7 @@ function drawRound( x, y, kind, id )
 function myStencilFunction( )
 	local map = currentWindowDraw
 	local x,y,mag,w,h = map.x, map.y, map.mag, map.w, map.h
-        local zx,zy = -( x * 1/mag - W / 2), -( y * 1/mag - H / 2)
+        local zx,zy = -( x * 1/mag - layout.W / 2), -( y * 1/mag - layout.H / 2)
 	love.graphics.rectangle("fill",zx,zy,w/mag,h/mag)
 	for k,v in pairs(map.mask) do
 		--local _,_,shape,x,y,wm,hm = string.find( v , "(%a+) (%d+) (%d+) (%d+) (%d+)" )
@@ -548,7 +551,7 @@ function love.draw()
   local alpha = 80
 
   love.graphics.setColor(255,255,255)
-  love.graphics.draw( theme.backgroundImage , 0, 0, 0, W / theme.backgroundImage:getWidth(), H / theme.backgroundImage:getHeight() )
+  love.graphics.draw( theme.backgroundImage , 0, 0, 0, layout.W / theme.backgroundImage:getWidth(), layout.H / theme.backgroundImage:getHeight() )
 
   love.graphics.setLineWidth(2)
 
@@ -750,7 +753,7 @@ function love.mousereleased( x, y )
 				sourcemap:removePawn( pawnMove.id )
 
 				-- we consider that the mouse position is at the center of the new image
-  				local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
+  				local zx,zy = -( map.x * 1/map.mag - layout.W / 2), -( map.y * 1/map.mag - layout.H / 2)
 				local px, py = (x - zx) * map.mag - p.sizex / 2 , (y - zy) * map.mag - p.sizey / 2
 
 				-- now it is created, set it to correct position
@@ -807,7 +810,7 @@ function love.mousereleased( x, y )
 
 			-- it was just a move, change the pawn position
 			-- we consider that the mouse position is at the center of the new image
-  			local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
+  			local zx,zy = -( map.x * 1/map.mag - layout.W / 2), -( map.y * 1/map.mag - layout.H / 2)
 			pawnMove.moveToX, pawnMove.moveToY = (x - zx) * map.mag - pawnMove.sizex / 2 , (y - zy) * map.mag - pawnMove.sizey / 2
 			pawnMove.moveToX = pawnMove.moveToX + map.translateQuadX
 			pawnMove.moveToY = pawnMove.moveToY + map.translateQuadY
@@ -874,8 +877,8 @@ function love.mousereleased( x, y )
 
 	  		if arrowStartX > arrowX then arrowStartX, arrowX = arrowX, arrowStartX end
 	  		if arrowStartY > arrowY then arrowStartY, arrowY = arrowY, arrowStartY end
-	  		local sx = math.floor( (arrowStartX + ( map.x / map.mag  - W / 2)) *map.mag )
-	  		local sy = math.floor( (arrowStartY + ( map.y / map.mag  - H / 2)) *map.mag )
+	  		local sx = math.floor( (arrowStartX + ( map.x / map.mag  - layout.W / 2)) *map.mag )
+	  		local sy = math.floor( (arrowStartY + ( map.y / map.mag  - layout.H / 2)) *map.mag )
 	  		local w = math.floor((arrowX - arrowStartX) * map.mag)
 	  		local h = math.floor((arrowY - arrowStartY) * map.mag)
 
@@ -894,8 +897,8 @@ function love.mousereleased( x, y )
 	  	elseif arrowModeMap == "CIRC" then
 
 			local sx, sy = math.floor((arrowX + arrowStartX) / 2), math.floor((arrowY + arrowStartY) / 2)
-	  		sx = math.floor( (sx + ( map.x / map.mag  - W / 2)) *map.mag )
-	  		sy = math.floor( (sy + ( map.y / map.mag  - H / 2)) *map.mag )
+	  		sx = math.floor( (sx + ( map.x / map.mag  - layout.W / 2)) *map.mag )
+	  		sy = math.floor( (sy + ( map.y / map.mag  - layout.H / 2)) *map.mag )
 			local r = distanceFrom( arrowX, arrowY, arrowStartX, arrowStartY) * map.mag / 2
 
 			-- if quad, apply current translation
@@ -1098,10 +1101,10 @@ elseif mouseMove then
 	local newy = w.y - dy * w.mag 
 
 	-- check we are still within margins of the screen
-  	local zx,zy = -( newx * 1/w.mag - W / 2), -( newy * 1/w.mag - H / 2)
+  	local zx,zy = -( newx * 1/w.mag - layout.W / 2), -( newy * 1/w.mag - layout.H / 2)
 	
-	if zx > W - layout.screenMargin or zx + w.w / w.mag < layout.screenMargin then newx = oldx end	
-	if zy > H - layout.screenMargin or zy + w.h / w.mag < layout.screenMargin then newy = oldy end	
+	if zx > layout.W - layout.screenMargin or zx + w.w / w.mag < layout.screenMargin then newx = oldx end	
+	if zy > layout.H - layout.screenMargin or zy + w.h / w.mag < layout.screenMargin then newy = oldy end	
 
 	local deltax, deltay = newx - oldx, newy - oldy
 
@@ -1488,18 +1491,29 @@ end
 function init() 
 
     -- create basic windows
-    combatWindow = Combat:new{ w=WC, h=HC, x=Window:cx(intW), y=Window:cy(intW),layout=layout}
-    pWindow = projectorWindow:new{ w=layout.W1, h=layout.H1, x=Window:cx(WC+intW+3),y=Window:cy(H - 3*iconSize - layout.snapshotSize - 2*intW - layout.H1 - 2 ) ,layout=layout}
-    snapshotWindow = snapshotBar:new{ w=W-2*intW, h=layout.snapshotSize+2, x=Window:cx(intW), y=Window:cy(H-layout.snapshotSize-2*iconSize),layout=layout }
+    combatWindow = Combat:new{ w=layout.WC, h=layout.HC, x=-intW+layout.W/2, y=-intW+layout.H/2-theme.iconSize,layout=layout}
+
+    pWindow = projectorWindow:new{ w=layout.W1, h=layout.H1, x=-(layout.WC+intW+3)+layout.W/2,
+					y=-(layout.H - 3*iconSize - layout.snapshotSize - 2*intW - layout.H1 - 2 )+layout.H/2 - theme.iconSize ,layout=layout}
+
+    snapshotWindow = snapshotBar:new{ w=layout.W-2*intW, h=layout.snapshotSize+2, x=-intW+layout.W/2, 
+					y=-(layout.H-layout.snapshotSize-2*iconSize)+layout.H/2 - theme.iconSize ,layout=layout, atlas=atlas }
+
     storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = theme.storyImage, w=theme.storyImage:getWidth(), 
 				  h=theme.storyImage:getHeight() , x=-1220, y=400,layout=layout}
+
     actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = theme.actionImage, w=theme.actionImage:getWidth(), 
 				   h=theme.actionImage:getHeight(), x=-1220,y=700,layout=layout} 
+
     rollWindow = iconRollWindow:new{ mag=3.5, image = theme.dicesImage, w=theme.dicesImage:getWidth(), h=theme.dicesImage:getHeight(), x=-2074,y=133,layout=layout} 
-    notifWindow = notificationWindow:new{ w=300, h=100, x=-W/2,y=H/2-50,layout=layout } 
+
+    notifWindow = notificationWindow:new{ w=300, h=100, x=-layout.W/2,y=layout.H/2-50,layout=layout } 
+
     dialogWindow = Dialog:new{w=800,h=220,x=400,y=110,layout=layout}
+
     helpWindow = Help:new{w=1000,h=480,x=500,y=240,layout=layout}
-    dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100, init=true,layout=layout} 
+
+    dataWindow = setupWindow:new{ w=600, h=400, x=300,y=layout.H/2-100, init=true,layout=layout} 
 
     -- do not display them yet
     -- basic windows (as opposed to maps, for instance) are also stored by name, so we can retrieve them easily elsewhere in the code
@@ -1555,7 +1569,7 @@ function init()
     if scenarioWindow then
       layout.scenarioWindow = scenarioWindow
       local w,h = scenarioWindow.w, scenarioWindow.h
-      local f1,f2 = w/WC, h/HC
+      local f1,f2 = w/layout.WC, h/layout.HC
       scenarioWindow.mag = math.max(f1,f2)
       scenarioWindow.x, scenarioWindow.y = scenarioWindow.w/2, scenarioWindow.h/2
       local zx,zy = scenarioWindow:WtoS(0,0)
@@ -1591,15 +1605,15 @@ function love.load( args )
     -- get actual screen size
     love.window.setMode( 0  , 0  , { fullscreen=false, resizable=true, display=1} )
     love.window.maximize()
-    W, H = love.window.getMode()
-    io.write("W,H=" .. W .. " " .. H .. "\n")
+    layout.W, layout.H = love.window.getMode()
+    io.write("W,H=" .. layout.W .. " " .. layout.H .. "\n")
 
     -- adjust some windows accordingly
-    snapshotH = H - layout.snapshotSize - snapshotMargin
-    HC = H - 4 * intW - 3 * iconSize - layout.snapshotSize
-    WC = 1290 - 2 * intW
-    viewh = HC 		-- view height
-    vieww = W - 260	-- view width
+    layout.snapshotH = layout.H - layout.snapshotSize - snapshotMargin
+    layout.HC = layout.H - 4 * intW - 3 * iconSize - layout.snapshotSize
+    layout.WC = 1290 - 2 * intW
+    viewh = layout.HC 		-- view height
+    vieww = layout.W - 260	-- view width
 
     -- some initialization stuff
     generateUID = UIDiterator()
@@ -1609,7 +1623,7 @@ function love.load( args )
       init()
       initialized = true
     else
-      dataWindow = setupWindow:new{ w=600, h=400, x=300,y=H/2-100, init=false,layout=layout} 
+      dataWindow = setupWindow:new{ w=600, h=400, x=300,y=layout.H/2-100, init=false,layout=layout} 
       layout:addWindow( dataWindow , true, "dataWindow" )
       initialized = false
     end

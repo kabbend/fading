@@ -6,10 +6,8 @@ local theme = require 'theme'
 -- how do we roll dices, how to we inflict damages, etc.
 --
 
-local yui       = require 'yui.yaoui'   -- graphical library on top of Love2D
-
 -- array of PNJ templates (loaded from data file)
-templateArray   = {}
+local templateArray   = {}
 
 local rpg = {}
 
