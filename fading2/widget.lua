@@ -138,6 +138,12 @@ function widget.textWidget:select()
 			self.head = string.sub(self.head, 1, byteoffset - 1) 
 		end 
 		self.trail = remove .. self.trail
+		if love.keyboard.isDown("lshift") then
+			if self.textSelected == "" then self.textSelectedPosition = self.cursorPosition end
+			self.textSelected = remove .. self.textSelected
+		else
+			self.textSelected = "" ; self.textSelectedPosition = 0
+		end
 		self:setCursorPosition()
 		if self.cursorPosition + self.xOffset < 0 then
 			self.xOffset = self.xOffset + theme.fontRound:getWidth(remove)
@@ -206,7 +212,7 @@ function widget.textWidget:draw()
   if self.textSelected ~= "" then
     love.graphics.setColor(155,155,155,155)
     local w = self.cursorPosition - self.textSelectedPosition
-    love.graphics.rectangle("fill",x+zx+self.textSelectedPosition,y+zy,w,self.h)
+    love.graphics.rectangle("fill",x+zx+self.textSelectedPosition+self.xOffset,y+zy,w,self.h)
   end
   love.graphics.setScissor()
   end

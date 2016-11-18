@@ -74,14 +74,6 @@ layout.screenMargin 	= 40			-- screen margin in map mode
 
 snapshotMargin 		= 7 				-- space between images and screen border
 
---[[
-snapshotH 	= H - layout.snapshotSize - snapshotMargin
-HC = H - 4 * intW - 3 * iconSize - layout.snapshotSize
-WC = 1290 - 2 * intW
---]]
---viewh = HC 		-- view height
---vieww = layout.W - 260		-- view width
-
 size = 19 		-- base font size
 
 -- various mouse movements
