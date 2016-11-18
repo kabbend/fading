@@ -61,6 +61,9 @@ function Combat:new( t ) -- create from w, h, x, y
   new.lastFocus		= nil	-- store last focus value
   new.nextFlash		= false
 
+  local viewh = new.layout.HC           -- view height
+  local vieww = new.layout.W - 260      -- view width
+
   -- create view structure
   new.view = yui.View(0, 0, vieww, viewh, {
          margin_top = 5,

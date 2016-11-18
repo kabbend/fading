@@ -54,7 +54,7 @@ function render.bulb(action)
   action(z,function()
     love.graphics.setBlendMode("add")
     love.graphics.setColor(255,255,255)
-    love.graphics.draw(love.graphics.getImage("default/bulb.png"),x,y,0,s/64,s/64)
+    love.graphics.draw(love.graphics.getImage("dice/default/bulb.png"),x,y,0,s/64,s/64)
     --[[    love.graphics.circle("fill",x,y,s/5,40)
     love.graphics.circle("line",x,y,s/5,40)
     ]]

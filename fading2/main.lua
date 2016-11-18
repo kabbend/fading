@@ -29,6 +29,7 @@ local Pawn			= require 'pawn'		-- store and display one pawn to display on map
 local Atlas			= require 'atlas'		-- store some information on maps (eg. which one is visible) 
 
 layout = mainLayout:new()		-- one instance of the global layout, FIXME: cannot be local for the moment because of yui library
+
 local atlas = nil 			-- will be set in init()
 
 -- dice3d code
@@ -46,7 +47,7 @@ layout.H1, layout.W1 	= 140, 140
 layout.snapshotSize 	= 70 			-- w and h of each snapshot
 layout.screenMargin 	= 40			-- screen margin in map mode
 layout.intW		= 2 			-- interval between windows
-layout.snapshotMargin	= 7 				-- space between images and screen border
+layout.snapshotMargin	= 7 			-- space between images and screen border
 
 -- main screen size
 local iconSize = theme.iconSize 
@@ -76,7 +77,6 @@ projector		= nil			-- direct access to tcp object for projector
 projectorId		= "*proj"		-- special ID to distinguish projector from other clients
 chunksize 		= (8192 - 1)		-- size of the datagram when sending binary file
 fullBinary		= false			-- if true, the server will systematically send binary files instead of local references
-
 
 -- various mouse movements
 mouseMove		= false
@@ -133,7 +133,6 @@ local oldiowrite = io.write
 function io.write( data ) if debug then oldiowrite( data ) end end
 
 function splitFilename(strFilename)
-	--return string.match(strFilename, "(.-)([^\\]-([^\\%.]+))$")
 	return string.match (strFilename,"[^/]+$")
 end
 
@@ -574,12 +573,10 @@ function love.draw()
   
   render.clear()
 
-  --render.bulb(render.zbuffer) --light source
   for i=1,#dice do if dice[i] then render.die(render.zbuffer, dice[i].die, dice[i].star) end end
   render.paint()
 
   love.graphics.pop()
-  --love.graphics.dbg()
 
     -- draw number if needed
     if drawDicesResult then
@@ -1392,7 +1389,6 @@ function parseDirectory( t )
     
 end
 
-
 function init() 
 
     -- create basic windows
@@ -1487,7 +1483,6 @@ end
 
 --
 -- Main function
--- Load PNJ class file, print (empty) GUI, then go on
 --
 function love.load( args )
 
@@ -1516,11 +1511,6 @@ function love.load( args )
     layout.snapshotH = layout.H - layout.snapshotSize - layout.snapshotMargin
     layout.HC = layout.H - 4 * layout.intW - 3 * iconSize - layout.snapshotSize
     layout.WC = 1290 - 2 * layout.intW
-    viewh = layout.HC 		-- view height
-    vieww = layout.W - 260	-- view width
-
-    -- some initialization stuff
-    generateUID = UIDiterator()
 
     -- launch further init procedure if possible or display setup window to require mandatory information. 
     if baseDirectory and baseDirectory ~= "" then

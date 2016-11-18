@@ -260,6 +260,30 @@ function Roll:changeDefense( newDefense )
   end
 end
 
+-- return an iterator which generates new unique ID, 
+-- from "A", "B" ... thru "Z", then "AA", "AB" etc.
+local function UIDiterator() 
+  local UID = ""
+  local incrementAlphaID = function ()
+    if UID == "" then UID = "A" return UID end
+    local head=UID:sub( 1, UID:len() - 1)
+    local tail=UID:byte( UID:len() )
+    local id
+    if (tail == 90) then 
+	local u = UIDiterator()
+	id = u(head) .. "A" 
+    else 
+	id = head .. string.char(tail+1) 
+    end
+    UID = id
+    return UID
+    end
+  return incrementAlphaID 
+  end
+
+-- some initialization stuff
+local generateUID = UIDiterator()
+
 -- return a new PNJ object, based on a given template. 
 -- Give him a new unique ID 
 local function PNJConstructor( template ) 
@@ -488,27 +512,6 @@ function rpg.changeDefense( i, n, m )
   end
 
 end
-
--- return an iterator which generates new unique ID, 
--- from "A", "B" ... thru "Z", then "AA", "AB" etc.
-function UIDiterator() 
-  local UID = ""
-  local incrementAlphaID = function ()
-    if UID == "" then UID = "A" return UID end
-    local head=UID:sub( 1, UID:len() - 1)
-    local tail=UID:byte( UID:len() )
-    local id
-    if (tail == 90) then 
-	local u = UIDiterator()
-	id = u(head) .. "A" 
-    else 
-	id = head .. string.char(tail+1) 
-    end
-    UID = id
-    return UID
-    end
-  return incrementAlphaID 
-  end
 
 -- create and store a new PNJ in PNJTable{}, based on a given class,
 -- return the id of the new PNJ generated, nil otherwise (because limit is reached).
