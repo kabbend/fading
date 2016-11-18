@@ -20,6 +20,18 @@ local newRound	= true
 local flashTimer	= 0
 local flashSequence	= false
 
+local size = 19 -- base font size
+
+-- draw a small colored circle, at position x,y, with 'id' as text
+function drawRound( x, y, kind, id )
+        if kind == "target" then love.graphics.setColor(250,80,80,180) end
+        if kind == "attacker" then love.graphics.setColor(204,102,0,180) end
+        if kind == "danger" then love.graphics.setColor(66,66,238,180) end 
+        love.graphics.circle ( "fill", x , y , 15 ) 
+        love.graphics.setColor(0,0,0)
+        love.graphics.setFont(theme.fontRound)
+        love.graphics.print ( id, x - string.len(id)*3 , y - 9 )
+        end
 
 --
 -- Combat class

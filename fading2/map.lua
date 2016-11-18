@@ -30,12 +30,18 @@ vec4 effect(vec4 colour, Image tex, vec2 tc, vec2 sc)
   return ((sum / (samples * samples)) + source) * colour;
 } ]]
 
+-- for scenario search
 local textBase                = "Search: "
 local text                    = textBase              -- text printed on the screen when typing search keywords
 local searchIterator          = nil                   -- iterator on the results, when search is done
 local searchPertinence        = 0                     -- will be set by using the iterator, and used during draw
 local searchIndex             = 0                     -- will be set by using the iterator, and used during draw
 local searchSize              = 0                     -- idem
+
+-- map placement at startup
+local mapOpeningSize          = 400                   -- approximate width size at opening
+local mapOpeningXY            = 250                   -- position to open next map, will increase with maps opened
+local mapOpeningStep          = 100                   -- increase x,y at each map opening
 
 --
 -- Multiple inheritance mechanism
@@ -391,7 +397,6 @@ end
 
 function Map:getFocus() 
 	if self.kind == "scenario" then 
-		searchActive = true 
 		textActiveCallback = function(t) text = text .. t end
         	textActiveBackspaceCallback = function ()
 			if text == textBase then return end
@@ -404,7 +409,6 @@ function Map:getFocus()
 
 function Map:looseFocus() 
 	if self.kind == "scenario" then 
-		searchActive = false 
 		textActiveCallback = nil
 		textActiveBackspaceCallback = nil
 	end 

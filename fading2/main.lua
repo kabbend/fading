@@ -42,6 +42,21 @@ require 'fading2/dice/diceview'
 require 'fading2/dice/light'
 require 'fading2/dice/default/config'
 
+layout.H1, layout.W1 	= 140, 140
+layout.snapshotSize 	= 70 			-- w and h of each snapshot
+layout.screenMargin 	= 40			-- screen margin in map mode
+layout.intW		= 2 			-- interval between windows
+
+-- main screen size
+local iconSize = theme.iconSize 
+local sep = '/'
+
+-- maps & scenario stuff
+local ignoreLastChar	= false
+local keyZoomIn		= ':'			-- default on macbookpro keyboard. Changed at runtime for windows
+local keyZoomOut 	= '=' 			-- default on macbookpro keyboard. Changed at runtime for windows
+local keyPaste		= 'lgui'		-- on mac only
+
 --
 -- GLOBAL VARIABLES
 --
@@ -50,12 +65,6 @@ debug = true
 
 -- main layout
 currentWindowDraw 	= nil
-intW			= 2 	-- interval between windows
-
--- main screen size
---W, H = 1440, 800 	-- main window size default values (may be changed dynamically on some systems)
-local iconSize = theme.iconSize 
-sep = '/'
 
 -- tcp information for network
 address, serverport	= "*", "12345"		-- server information
@@ -67,14 +76,7 @@ projectorId		= "*proj"		-- special ID to distinguish projector from other client
 chunksize 		= (8192 - 1)		-- size of the datagram when sending binary file
 fullBinary		= false			-- if true, the server will systematically send binary files instead of local references
 
--- projector snapshot size
-layout.H1, layout.W1 	= 140, 140
-layout.snapshotSize 	= 70 			-- w and h of each snapshot
-layout.screenMargin 	= 40			-- screen margin in map mode
-
 snapshotMargin 		= 7 				-- space between images and screen border
-
-size = 19 		-- base font size
 
 -- various mouse movements
 mouseMove		= false
@@ -86,17 +88,6 @@ pawnMove 		= nil		-- pawn currently moved by mouse movement
 defaultPawnSnapshot	= nil		-- default image to be used for pawns
 pawnMaxLayer		= 1
 pawnMovingTime		= 2		-- how many seconds to complete a movement on the map ?
-
--- maps & scenario stuff
-searchActive		= false
-ignoreLastChar		= false
-keyZoomIn		= ':'			-- default on macbookpro keyboard. Changed at runtime for windows
-keyZoomOut 		= '=' 			-- default on macbookpro keyboard. Changed at runtime for windows
-mapOpeningSize		= 400			-- approximate width size at opening
-mapOpeningXY		= 250			-- position to open next map, will increase with maps opened
-mapOpeningStep		= 100			-- increase x,y at each map opening
-
-keyPaste		= 'lgui'		-- on mac only
 
 -- current text input
 textActiveCallback		= nil			-- if set, function to call with keyboard input (argument: one char)
@@ -493,19 +484,6 @@ function love.update(dt)
 
 	end
 
-
--- draw a small colored circle, at position x,y, with 'id' as text
-function drawRound( x, y, kind, id )
-	if kind == "target" then love.graphics.setColor(250,80,80,180) end
-  	if kind == "attacker" then love.graphics.setColor(204,102,0,180) end
-  	if kind == "danger" then love.graphics.setColor(66,66,238,180) end 
-  	love.graphics.circle ( "fill", x , y , 15 ) 
-  	love.graphics.setColor(0,0,0)
-  	love.graphics.setFont(theme.fontRound)
-  	love.graphics.print ( id, x - string.len(id)*3 , y - 9 )
-	end
-
-
 function myStencilFunction( )
 	local map = currentWindowDraw
 	local x,y,mag,w,h = map.x, map.y, map.mag, map.w, map.h
@@ -536,47 +514,6 @@ function love.draw()
   love.graphics.draw( theme.backgroundImage , 0, 0, 0, layout.W / theme.backgroundImage:getWidth(), layout.H / theme.backgroundImage:getHeight() )
 
   love.graphics.setLineWidth(2)
-
---[[
-  -- display global dangerosity
-  local danger = computeGlobalDangerosity( )
-  if danger ~= -1 then drawRound( 1315 , 70, "danger", tostring(danger) ) end
-   
-  for i = 1, PNJnum-1 do
-  
-    local offset = 1212
-    
-    -- display TARGET (in a colored circle) when applicable
-    local index = findPNJ(PNJTable[i].target)
-    if index then 
-        local id = PNJTable[i].target
-        if PNJTable[index].PJ then id = PNJTable[index].class end
-        drawRound( PNJtext[i].x + offset, PNJtext[i].y + 15, "target", id )
-    end
-    
-    offset = offset + 30 -- in any case
-
-    -- display ATTACKERS (in a colored circle) when applicable
-    if PNJTable[i].attackers then
-      local sorted = {}
-      for id, v in pairs(PNJTable[i].attackers) do if v then table.insert(sorted,id) end end
-      table.sort(sorted)
-      for k,id in pairs(sorted) do
-          local index = findPNJ(id)
-          if index and PNJTable[index].PJ then id = PNJTable[index].class end
-          if index then drawRound( PNJtext[i].x + offset, PNJtext[i].y + 15, "attacker", id ) ; offset = offset + 30; end
-      end
-    end
-    
-    -- display dangerosity per PNJ
-    if PNJTable[i].PJ then
-      local danger = computeDangerosity( i )
-      if danger ~= -1 then drawRound( PNJtext[i].x + offset, PNJtext[i].y + 15, "danger", tostring(danger) ) end
-    end
-    
-
-  end
---]]
 
   -- draw windows
   layout:draw() 
@@ -1461,12 +1398,12 @@ end
 function init() 
 
     -- create basic windows
-    combatWindow = Combat:new{ w=layout.WC, h=layout.HC, x=-intW+layout.W/2, y=-intW+layout.H/2-theme.iconSize,layout=layout}
+    combatWindow = Combat:new{ w=layout.WC, h=layout.HC, x=-layout.intW+layout.W/2, y=-layout.intW+layout.H/2-theme.iconSize,layout=layout}
 
-    pWindow = projectorWindow:new{ w=layout.W1, h=layout.H1, x=-(layout.WC+intW+3)+layout.W/2,
-					y=-(layout.H - 3*iconSize - layout.snapshotSize - 2*intW - layout.H1 - 2 )+layout.H/2 - theme.iconSize ,layout=layout}
+    pWindow = projectorWindow:new{ w=layout.W1, h=layout.H1, x=-(layout.WC+layout.intW+3)+layout.W/2,
+					y=-(layout.H - 3*iconSize - layout.snapshotSize - 2*layout.intW - layout.H1 - 2 )+layout.H/2 - theme.iconSize ,layout=layout}
 
-    snapshotWindow = snapshotBar:new{ w=layout.W-2*intW, h=layout.snapshotSize+2, x=-intW+layout.W/2, 
+    snapshotWindow = snapshotBar:new{ w=layout.W-2*layout.intW, h=layout.snapshotSize+2, x=-layout.intW+layout.W/2, 
 					y=-(layout.H-layout.snapshotSize-2*iconSize)+layout.H/2 - theme.iconSize ,layout=layout, atlas=atlas }
 
     storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = theme.storyImage, w=theme.storyImage:getWidth(), 
@@ -1543,7 +1480,7 @@ function init()
       scenarioWindow.mag = math.max(f1,f2)
       scenarioWindow.x, scenarioWindow.y = scenarioWindow.w/2, scenarioWindow.h/2
       local zx,zy = scenarioWindow:WtoS(0,0)
-      scenarioWindow:translate(0,intW+iconSize-zy)
+      scenarioWindow:translate(0,layout.intW+iconSize-zy)
       scenarioWindow.startupX, scenarioWindow.startupY, scenarioWindow.startupMag = scenarioWindow.x, scenarioWindow.y, scenarioWindow.mag
     end
 
@@ -1579,8 +1516,8 @@ function love.load( args )
 
     -- adjust some windows accordingly
     layout.snapshotH = layout.H - layout.snapshotSize - snapshotMargin
-    layout.HC = layout.H - 4 * intW - 3 * iconSize - layout.snapshotSize
-    layout.WC = 1290 - 2 * intW
+    layout.HC = layout.H - 4 * layout.intW - 3 * iconSize - layout.snapshotSize
+    layout.WC = 1290 - 2 * layout.intW
     viewh = layout.HC 		-- view height
     vieww = layout.W - 260	-- view width
 
