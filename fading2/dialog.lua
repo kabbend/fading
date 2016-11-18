@@ -49,6 +49,7 @@ function Dialog:getFocus()
 	dialogActive = true
 	textActiveCallback = function(t) dialog = dialog .. t end 
 	textActiveBackspaceCallback = function ()
+	 if dialog == dialogBase then return end
          -- get the byte offset to the last UTF-8 character in the string.
          local byteoffset = utf8.offset(dialog, -1)
          if byteoffset then

@@ -4,6 +4,7 @@ local Snapshot		= require 'snapshotClass'	-- store and display one image
 local theme		= require 'theme'		-- global theme
 local Pawn		= require 'pawn'		-- store and display one pawn to display on map 
 local rpg		= require 'rpg'		
+local utf8		= require 'utf8'		
 
 local glowCode = [[
 extern vec2 size;
@@ -28,6 +29,13 @@ vec4 effect(vec4 colour, Image tex, vec2 tc, vec2 sc)
   
   return ((sum / (samples * samples)) + source) * colour;
 } ]]
+
+local textBase                = "Search: "
+local text                    = textBase              -- text printed on the screen when typing search keywords
+local searchIterator          = nil                   -- iterator on the results, when search is done
+local searchPertinence        = 0                     -- will be set by using the iterator, and used during draw
+local searchIndex             = 0                     -- will be set by using the iterator, and used during draw
+local searchSize              = 0                     -- idem
 
 --
 -- Multiple inheritance mechanism
@@ -381,8 +389,38 @@ function Map:draw()
     
 end
 
-function Map:getFocus() if self.kind == "scenario" then searchActive = true end end
-function Map:looseFocus() if self.kind == "scenario" then searchActive = false end end
+function Map:getFocus() 
+	if self.kind == "scenario" then 
+		searchActive = true 
+		textActiveCallback = function(t) text = text .. t end
+        	textActiveBackspaceCallback = function ()
+			if text == textBase then return end
+         		-- get the byte offset to the last UTF-8 character in the string.
+         		local byteoffset = utf8.offset(text, -1)
+         		if byteoffset then text = string.sub(text, 1, byteoffset - 1) end
+        		end
+	end 
+	end
+
+function Map:looseFocus() 
+	if self.kind == "scenario" then 
+		searchActive = false 
+		textActiveCallback = nil
+		textActiveBackspaceCallback = nil
+	end 
+	end
+
+function Map:iterate()
+	if self.kind ~= "scenario" then return end
+	if searchIterator then self.x,self.y,searchPertinence,searchIndex,searchSize = searchIterator() end
+	end
+
+function Map:doSearch()
+	  if self.kind ~= "scenario" then return end
+          searchIterator = doSearch( string.gsub( text, textBase, "" , 1) )
+          text = textBase
+          if searchIterator then self.x,self.y,searchPertinence,searchIndex,searchSize = searchIterator() end
+	end
 
 function Map:update(dt)	
 

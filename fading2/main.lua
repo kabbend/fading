@@ -88,14 +88,8 @@ pawnMaxLayer		= 1
 pawnMovingTime		= 2		-- how many seconds to complete a movement on the map ?
 
 -- maps & scenario stuff
-textBase		= "Search: "
-text 			= textBase		-- text printed on the screen when typing search keywords
 searchActive		= false
 ignoreLastChar		= false
-searchIterator		= nil			-- iterator on the results, when search is done
-searchPertinence 	= 0			-- will be set by using the iterator, and used during draw
-searchIndex		= 0			-- will be set by using the iterator, and used during draw
-searchSize		= 0 			-- idem
 keyZoomIn		= ':'			-- default on macbookpro keyboard. Changed at runtime for windows
 keyZoomOut 		= '=' 			-- default on macbookpro keyboard. Changed at runtime for windows
 mapOpeningSize		= 400			-- approximate width size at opening
@@ -198,13 +192,9 @@ function tcpsendBinary( t )
 
 -- capture text input (for text search)
 function love.textinput(t)
-	if (not searchActive) and (not textActiveCallback) then return end
+	if not textActiveCallback then return end
 	if ignoreLastChar then ignoreLastChar = false; return end
-	if searchActive then
-		text = text .. t
-	else
-		textActiveCallback( t )
-	end
+	textActiveCallback( t )
 	end
 
 --
@@ -1315,24 +1305,12 @@ else
 		map:maximize()
 	end
 
-   	if key == "backspace" and text ~= textBase then
-        	-- get the byte offset to the last UTF-8 character in the string.
-        	local byteoffset = utf8.offset(text, -1)
-        	if byteoffset then
-            	-- remove the last UTF-8 character.
-            	-- string.sub operates on bytes rather than UTF-8 characters, so we couldn't do string.sub(text, 1, -2).
-            		text = string.sub(text, 1, byteoffset - 1)
-        	end
-    	end
-
    	if key == "tab" then
-	  if searchIterator then map.x,map.y,searchPertinence,searchIndex,searchSize = searchIterator() end
+	  map:iterate()
    	end
 
    	if key == "return" then
-	  searchIterator = doSearch( string.gsub( text, textBase, "" , 1) )
-	  text = textBase
-	  if searchIterator then map.x,map.y,searchPertinence,searchIndex,searchSize = searchIterator() end
+	  map:doSearch()
    	end
 
   end
@@ -1509,17 +1487,17 @@ function init()
 
     -- do not display them yet
     -- basic windows (as opposed to maps, for instance) are also stored by name, so we can retrieve them easily elsewhere in the code
-    layout:addWindow( combatWindow , false, "combatWindow" ) 
-    layout:addWindow( pWindow , false, "pWindow" )
-    layout:addWindow( snapshotWindow , false , "snapshotWindow" )
-    layout:addWindow( notifWindow , false , "notificationWindow" )
-    layout:addWindow( dialogWindow , false , "dialogWindow" )
-    layout:addWindow( helpWindow , false , "helpWindow" ) 
-    layout:addWindow( dataWindow , false , "dataWindow" )
+    layout:addWindow( combatWindow , 	false, "combatWindow" ) 
+    layout:addWindow( pWindow , 	false, "pWindow" )
+    layout:addWindow( snapshotWindow , 	false , "snapshotWindow" )
+    layout:addWindow( notifWindow , 	false , "notificationWindow" )
+    layout:addWindow( dialogWindow , 	false , "dialogWindow" )
+    layout:addWindow( helpWindow , 	false , "helpWindow" ) 
+    layout:addWindow( dataWindow , 	false , "dataWindow" )
 
-    layout:addWindow( storyWindow , true , "storyWindow" )
-    layout:addWindow( actionWindow , true , "actionWindow" )
-    layout:addWindow( rollWindow , true , "rollWindow" )
+    layout:addWindow( storyWindow , 	true , "storyWindow" )
+    layout:addWindow( actionWindow , 	true , "actionWindow" )
+    layout:addWindow( rollWindow , 	true , "rollWindow" )
 
     io.write("base directory   : " .. baseDirectory .. "\n") ; layout.notificationWindow:addMessage("base directory : " .. baseDirectory .. "\n")
     io.write("scenario directory : " .. fadingDirectory .. "\n") ; layout.notificationWindow:addMessage("scenario : " .. fadingDirectory .. "\n")
@@ -1571,7 +1549,6 @@ function init()
 
  
 end
-
 
 --
 -- Main function
