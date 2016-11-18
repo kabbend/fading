@@ -35,6 +35,7 @@ function snapshotBar:draw()
   self:drawBack()
 
   local snapshotSize = self.layout.snapshotSize
+  local snapshotMargin = self.layout.snapshotMargin
 
   local zx,zy = -( self.x * 1/self.mag - self.layout.W / 2), -( self.y * 1/self.mag - self.layout.H / 2)
   love.graphics.setColor(255,255,255)
@@ -118,6 +119,7 @@ function snapshotBar:update(dt)
 
   	local zx,zy = -( self.x - self.layout.W / 2), -( self.y - self.layout.H / 2)
   	local snapshotSize = self.layout.snapshotSize
+  	local snapshotMargin = self.layout.snapshotMargin
 
 	-- change snapshot offset if mouse  at bottom right or left
 	local snapMax = #snapshots[self.currentSnap].s * (snapshotSize + snapshotMargin) - self.layout.W
@@ -146,6 +148,7 @@ function snapshotBar:click(x,y)
 
   local zx,zy = -( self.x * 1/self.mag - self.layout.W / 2), -( self.y * 1/self.mag - self.layout.H / 2)
   local snapshotSize = self.layout.snapshotSize
+  local snapshotMargin = self.layout.snapshotMargin
   
   Window.click(self,x,y)
  

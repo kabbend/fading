@@ -46,6 +46,7 @@ layout.H1, layout.W1 	= 140, 140
 layout.snapshotSize 	= 70 			-- w and h of each snapshot
 layout.screenMargin 	= 40			-- screen margin in map mode
 layout.intW		= 2 			-- interval between windows
+layout.snapshotMargin	= 7 				-- space between images and screen border
 
 -- main screen size
 local iconSize = theme.iconSize 
@@ -76,7 +77,6 @@ projectorId		= "*proj"		-- special ID to distinguish projector from other client
 chunksize 		= (8192 - 1)		-- size of the datagram when sending binary file
 fullBinary		= false			-- if true, the server will systematically send binary files instead of local references
 
-snapshotMargin 		= 7 				-- space between images and screen border
 
 -- various mouse movements
 mouseMove		= false
@@ -1113,8 +1113,6 @@ else
 	-- 'backspace'
 	-- any other key is treated as a message input
   	if (key == "return") then
-	  --doDialog( string.gsub( dialog, dialogBase, "" , 1) )
-	  --dialog = dialogBase
 	  doDialog()
   	end
 	
@@ -1515,7 +1513,7 @@ function love.load( args )
     io.write("W,H=" .. layout.W .. " " .. layout.H .. "\n")
 
     -- adjust some windows accordingly
-    layout.snapshotH = layout.H - layout.snapshotSize - snapshotMargin
+    layout.snapshotH = layout.H - layout.snapshotSize - layout.snapshotMargin
     layout.HC = layout.H - 4 * layout.intW - 3 * iconSize - layout.snapshotSize
     layout.WC = 1290 - 2 * layout.intW
     viewh = layout.HC 		-- view height
