@@ -631,7 +631,7 @@ function love.mousereleased( x, y )
 		mouseMove = false 
 		-- we were resizing a map. Send the result to the projector eventually
 		local window = layout:getFocus()
-		if window and window.class == "map" and atlas:getVisible() == window then
+		if window and window.class == "map" and atlas:getVisible() == window and not window.sticky then
   			tcpsend( projector, "MAGN " .. 1/window.mag)
   			tcpsend( projector, "CHXY " .. math.floor(window.x+window.translateQuadX) .. " " .. math.floor(window.y+window.translateQuadY) )
 		end
