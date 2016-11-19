@@ -26,7 +26,6 @@ function snapshotBar:new( t ) -- create from w, h, x, y
   new.snapshots = snapshots
   new.snapText = snapText
   new.currentSnap = 1 
-  new.atlas = t.atlas
   return new
 end
 
@@ -179,7 +178,7 @@ function snapshotBar:click(x,y)
 	      if self.currentSnap == 1 then
 	      	layout.pWindow.currentImage = snapshots[self.currentSnap].s[index].im
 	      	-- remove the 'visible' flag from maps (eventually)
-	      	self.atlas:removeVisible()
+	      	atlas:removeVisible()
 		tcpsend(projector,"ERAS") 	-- remove all pawns (if any) 
     	      	-- send the filename over the socket
 		if snapshots[self.currentSnap].s[index].is_local then

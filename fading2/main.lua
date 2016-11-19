@@ -28,9 +28,8 @@ local Snapshot			= require 'snapshotClass'	-- store and display one image
 local Pawn			= require 'pawn'		-- store and display one pawn to display on map 
 local Atlas			= require 'atlas'		-- store some information on maps (eg. which one is visible) 
 
-layout = mainLayout:new()		-- one instance of the global layout, FIXME: cannot be local for the moment because of yui library
-
-local atlas = nil 			-- will be set in init()
+layout = mainLayout:new()		-- one instance of the global layout
+atlas = nil 				-- one instance of the atlas. Will be set in init()
 
 -- dice3d code
 require	'fading2/dice/base'
@@ -262,7 +261,7 @@ function love.filedropped(file)
 
 	  elseif is_a_map then 
 	    local m = Map:new()
-	    m:load{ file=file, layout=layout, atlas=atlas } -- no filename, and file object means local 
+	    m:load{ file=file, layout=layout } -- no filename, and file object means local 
 	    layout:addWindow( m , false )
 	    table.insert( layout.snapshotWindow.snapshots[2].s , m )
 
@@ -1338,7 +1337,7 @@ function parseDirectory( t )
       elseif f == 'scenario.jpg' then
 
 	local s = Map:new()
-	s:load{ kind="scenario", filename=path .. sep .. f , layout=layout, atlas=atlas}
+	s:load{ kind="scenario", filename=path .. sep .. f , layout=layout }
 	layout:addWindow( s , false )
 	atlas.scenario = s
 	io.write("Loaded scenario image file at " .. path .. sep .. f .. "\n")
@@ -1364,7 +1363,7 @@ function parseDirectory( t )
 	elseif string.sub(f,1,3) == 'map' then
 
 	  local s = Map:new()
-	  s:load{ filename=path .. sep .. f , layout=layout, atlas=atlas} 
+	  s:load{ filename=path .. sep .. f , layout=layout } 
 	  layout:addWindow( s , false )
 	  table.insert( layout.snapshotWindow.snapshots[2].s, s ) 
 
@@ -1392,33 +1391,29 @@ end
 function init() 
 
     -- create basic windows
-    combatWindow = Combat:new{ w=layout.WC, h=layout.HC, x=-layout.intW+layout.W/2, y=-layout.intW+layout.H/2-theme.iconSize,layout=layout}
+    local combatWindow = Combat:new{ w=layout.WC, h=layout.HC, x=-layout.intW+layout.W/2, y=-layout.intW+layout.H/2-theme.iconSize,layout=layout}
 
-    pWindow = projectorWindow:new{ w=layout.W1, h=layout.H1, x=-(layout.WC+layout.intW+3)+layout.W/2,
+    local pWindow = projectorWindow:new{ w=layout.W1, h=layout.H1, x=-(layout.WC+layout.intW+3)+layout.W/2,
 					y=-(layout.H - 3*iconSize - layout.snapshotSize - 2*layout.intW - layout.H1 - 2 )+layout.H/2 - theme.iconSize ,layout=layout}
 
-    storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = theme.storyImage, w=theme.storyImage:getWidth(), 
+    local storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = theme.storyImage, w=theme.storyImage:getWidth(), 
 				  h=theme.storyImage:getHeight() , x=-1220, y=400,layout=layout}
 
-    actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = theme.actionImage, w=theme.actionImage:getWidth(), 
+    local actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = theme.actionImage, w=theme.actionImage:getWidth(), 
 				   h=theme.actionImage:getHeight(), x=-1220,y=700,layout=layout} 
 
-    rollWindow = iconRollWindow:new{ mag=3.5, image = theme.dicesImage, w=theme.dicesImage:getWidth(), h=theme.dicesImage:getHeight(), x=-2074,y=133,layout=layout} 
+    local rollWindow = iconRollWindow:new{ mag=3.5, image = theme.dicesImage, w=theme.dicesImage:getWidth(), h=theme.dicesImage:getHeight(), x=-2074,y=133,layout=layout} 
 
-    notifWindow = notificationWindow:new{ w=300, h=100, x=-layout.W/2,y=layout.H/2-50,layout=layout } 
+    local notifWindow = notificationWindow:new{ w=300, h=100, x=-layout.W/2,y=layout.H/2-50,layout=layout } 
 
-    dialogWindow = Dialog:new{w=800,h=220,x=400,y=110,layout=layout}
+    local dialogWindow = Dialog:new{w=800,h=220,x=400,y=110,layout=layout}
 
-    helpWindow = Help:new{w=1000,h=480,x=500,y=240,layout=layout}
+    local helpWindow = Help:new{w=1000,h=480,x=500,y=240,layout=layout}
 
-    dataWindow = setupWindow:new{ w=600, h=400, x=300,y=layout.H/2-100, init=true,layout=layout} 
+    local dataWindow = setupWindow:new{ w=600, h=400, x=300,y=layout.H/2-100, init=true,layout=layout} 
 
-    -- create a new empty atlas (an array of maps), and tell him where to project
-    atlas = Atlas.new( layout.pWindow )
-
-    -- create last window, which requires an atlas
-    snapshotWindow = snapshotBar:new{ w=layout.W-2*layout.intW, h=layout.snapshotSize+2, x=-layout.intW+layout.W/2, 
-					y=-(layout.H-layout.snapshotSize-2*iconSize)+layout.H/2 - theme.iconSize ,layout=layout, atlas=atlas }
+    local snapshotWindow = snapshotBar:new{ w=layout.W-2*layout.intW, h=layout.snapshotSize+2, x=-layout.intW+layout.W/2, 
+					y=-(layout.H-layout.snapshotSize-2*iconSize)+layout.H/2 - theme.iconSize ,layout=layout }
 
     -- do not display them yet
     -- basic windows (as opposed to maps, for instance) are also stored by name, so we can retrieve them easily elsewhere in the code
@@ -1436,6 +1431,9 @@ function init()
 
     io.write("base directory   : " .. baseDirectory .. "\n") ; layout.notificationWindow:addMessage("base directory : " .. baseDirectory .. "\n")
     io.write("scenario directory : " .. fadingDirectory .. "\n") ; layout.notificationWindow:addMessage("scenario : " .. fadingDirectory .. "\n")
+
+    -- create a new empty atlas (an array of maps), and tell him where to project
+    atlas = Atlas.new( layout.pWindow )
 
     -- create socket and listen to any client
     server = socket.tcp()

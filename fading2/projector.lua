@@ -39,7 +39,40 @@ function projectorWindow:click(x,y)
 	end
 
 function projectorWindow:drop(o)
-	self.currentImage = o.snapshot.im	
+
+ 	local s = o.snapshot
+
+	-- replace the image locally
+	self.currentImage = s.im	
+
+	-- and send it remotely
+	if  o.object.class == "pnjtable" or o.object.class == "image" or o.object.class == "pnj" or  o.object.class == "pawn" then
+		-- image coming from the combat window (pnjtable) or from the snapshot bar
+                -- remove the 'visible' flag from maps (eventually)
+                atlas:removeVisible()
+                tcpsend(projector,"ERAS")       -- remove all pawns (if any) 
+                -- send the filename over the socket
+                if s.is_local then
+                        tcpsendBinary{ file = s.file }
+                        tcpsend(projector,"BEOF")
+                elseif fullBinary then
+                        tcpsendBinary{ filename = s.filename }
+                        tcpsend(projector,"BEOF")
+                else
+                        tcpsend( projector, "OPEN " .. s.baseFilename)
+                end
+                tcpsend( projector, "DISP")     -- display immediately
+
+	elseif o.object.class == "map" then
+		-- map coming from the snapshot bar. This is equivalent to open it and make it visible
+		-- open the window map, put focus
+                s.layout:setDisplay( s , true )
+                s.layout:setFocus( s )
+		-- make it visible
+		atlas:toggleVisible( s )
+                if not atlas:isVisible( s ) then s.sticky = false end
+	end
+
 	end
 
 return projectorWindow

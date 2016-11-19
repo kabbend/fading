@@ -14,8 +14,8 @@ function setupWindow:new( t ) -- create from w, h, x, y, init
   self.__index = self
   if t.init then new.title = "CONFIGURATION DATA" else new.title = "PLEASE PROVIDE MANDATORY INFORMATION" end
   new.text1 = widget.textWidget:new{ x = 150, y = 25 , w = 440, text = baseDirectory }
-  new.text2 = widget.textWidget:new{ x = 150, y = 55, w = 440, text = fadingDirectory }
-  new.text3 = widget.textWidget:new{ x = 150, y = 85, w = 150, text = serverport }
+  new.text2 = widget.textWidget:new{ x = 150, y = 85, w = 440, text = fadingDirectory }
+  new.text3 = widget.textWidget:new{ x = 150, y = 145, w = 150, text = serverport }
   if t.init then 
 	new.save  = widget.buttonWidget:new{ x = 440, y = new.h - 45, text = "Save", onClick = function() new:setupSave() end }
   	new:addWidget(new.save)
@@ -58,9 +58,21 @@ function setupWindow:draw()
   love.graphics.setFont(theme.fontRound)
   love.graphics.setColor( theme.color.black )
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+  love.graphics.setColor(0,0,0)
   love.graphics.print("BASE DIRECTORY *", zx + 5, zy + 25 )
-  love.graphics.print("SCENARIO", zx + 5, zy + 55 )
-  love.graphics.print("SERVER IP PORT *", zx + 5, zy + 85 )
+  love.graphics.setColor(100,100,100)
+  love.graphics.print("This is the base directory where all information is stored. It is recommended", zx + 55, zy + 45 )
+  love.graphics.print("to share this directory when running the projector to decrease network trafic", zx + 55, zy + 60 )
+  love.graphics.setColor(0,0,0)
+  love.graphics.print("SCENARIO", zx + 5, zy + 85 )
+  love.graphics.setColor(100,100,100)
+  love.graphics.print("Optional. This is a specific scenario directory within the base directory.", zx + 55, zy + 105 )
+  love.graphics.print("Please specify a path relative to the base directory, not an absolute one.", zx + 55, zy + 120 )
+  love.graphics.setColor(0,0,0)
+  love.graphics.print("SERVER IP PORT *", zx + 5, zy + 145 )
+  love.graphics.setColor(100,100,100)
+  love.graphics.print("For communication with the projector and the players. The server will use 2", zx + 55, zy + 165 )
+  love.graphics.print("successive ports, starting with the one specified (eg. 12345 and 12346)", zx + 55, zy + 180 )
   self:drawBar()
   end
 
