@@ -699,9 +699,11 @@ function love.mousereleased( x, y )
 					local i = findPNJ( p.id )
 	  				local f = p.snapshot.baseFilename -- FIXME: what about pawns loaded dynamically ?
 	  				io.write("PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. 
-						math.floor(p.sizex * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f .. "\n")
+						--math.floor(p.sizex * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f .. "\n")
+						math.floor(p.sizex) .. " " .. flag .. " " .. f .. "\n")
 	  				tcpsend( projector, "PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. 
-						math.floor(p.sizex * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f)
+						--math.floor(p.sizex * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f)
+						math.floor(p.sizex) .. " " .. flag .. " " .. f)
 				end
 
 			end
