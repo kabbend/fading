@@ -342,12 +342,12 @@ function Map:draw()
 				end
 		       		nzx = zx + map.pawns[i].offsetx / map.mag
 		       		nzy = zy + map.pawns[i].offsety / map.mag
-				if index == focus then 	
+				if index == layout.combatWindow:getPNJWithFocus() then 	
   					love.graphics.setShader(self.shader)
   					self.shader:send("size",{100,100})
   				end
 		       		love.graphics.draw( map.pawns[i].snapshot.im , nzx, nzy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
-				if index == focus then 	love.graphics.setShader() end
+				if index == layout.combatWindow:getPNJWithFocus() then love.graphics.setShader() end
 				-- display hits number and ID
 		       		love.graphics.setColor(0,0,0)  
 				local f = map.basePawnSize / 5
