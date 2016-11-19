@@ -365,10 +365,12 @@ function Map:draw()
      -- print visible 
      if atlas:isVisible( map ) then
 	local char = "V" -- a priori
-	if map.sticky then char = "S" end -- stands for S(tuck)
+	if map.sticky then char = "S" end -- stands for S(ticky)
         love.graphics.setColor(200,0,0,180)
         love.graphics.setFont(theme.fontDice)
-	love.graphics.print( char , x + 5 , y + (40 / map.mag) , 0, 2/map.mag, 2/map.mag) -- bigger letters
+	local fx = math.max( x , 0 )
+	local fy = math.max( y + (20/map.mag), 0 )
+	love.graphics.print( char , fx , fy , 0, 2/map.mag, 2/map.mag) -- bigger letters
      end
 
      -- print search zone if scenario
