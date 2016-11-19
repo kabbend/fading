@@ -1397,9 +1397,6 @@ function init()
     pWindow = projectorWindow:new{ w=layout.W1, h=layout.H1, x=-(layout.WC+layout.intW+3)+layout.W/2,
 					y=-(layout.H - 3*iconSize - layout.snapshotSize - 2*layout.intW - layout.H1 - 2 )+layout.H/2 - theme.iconSize ,layout=layout}
 
-    snapshotWindow = snapshotBar:new{ w=layout.W-2*layout.intW, h=layout.snapshotSize+2, x=-layout.intW+layout.W/2, 
-					y=-(layout.H-layout.snapshotSize-2*iconSize)+layout.H/2 - theme.iconSize ,layout=layout, atlas=atlas }
-
     storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = theme.storyImage, w=theme.storyImage:getWidth(), 
 				  h=theme.storyImage:getHeight() , x=-1220, y=400,layout=layout}
 
@@ -1415,6 +1412,13 @@ function init()
     helpWindow = Help:new{w=1000,h=480,x=500,y=240,layout=layout}
 
     dataWindow = setupWindow:new{ w=600, h=400, x=300,y=layout.H/2-100, init=true,layout=layout} 
+
+    -- create a new empty atlas (an array of maps), and tell him where to project
+    atlas = Atlas.new( layout.pWindow )
+
+    -- create last window, which requires an atlas
+    snapshotWindow = snapshotBar:new{ w=layout.W-2*layout.intW, h=layout.snapshotSize+2, x=-layout.intW+layout.W/2, 
+					y=-(layout.H-layout.snapshotSize-2*iconSize)+layout.H/2 - theme.iconSize ,layout=layout, atlas=atlas }
 
     -- do not display them yet
     -- basic windows (as opposed to maps, for instance) are also stored by name, so we can retrieve them easily elsewhere in the code
@@ -1457,9 +1461,6 @@ function init()
     -- later on, an image might be attached to them, if we find one
     rpg.createPJ()
     layout.combatWindow:sortAndDisplayPNJ()
-
-    -- create a new empty atlas (an array of maps), and tell him where to project
-    atlas = Atlas.new( layout.pWindow )
 
     -- load various data files
     parseDirectory{ path = baseDirectory .. sep .. fadingDirectory }
