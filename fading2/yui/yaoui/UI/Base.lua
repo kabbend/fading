@@ -54,7 +54,7 @@ function Base:basePreUpdate(dt, parent)
 
     -- Check for hot
     local w = layout:getWindow(x,y)
-    local masked = w and (w ~= combatWindow) 
+    local masked = w and (w ~= layout.combatWindow) 
     self.hot = self:collision(x, y) and not masked 
 
     -- Check for enter 

@@ -581,7 +581,7 @@ function love.draw()
     if drawDicesResult then
       love.graphics.setColor(unpack(theme.color.white))
       love.graphics.setFont(theme.fontDice)
-      love.graphics.print(diceSum,650,4*viewh/5)
+      love.graphics.print(diceSum,650,3.5*layout.H/5)
     end
 
   end 
@@ -1165,6 +1165,7 @@ else
 			-- we just save the current status for future restoration
 			map.stickX, map.stickY, map.stickmag = map.x, map.y, map.mag
 			map.sticky = true
+			layout.notificationWindow:addMessage("Map " .. map.displayFilename .. " is now sticky")
 		else
 			-- we were already sticky, with a different status probably. So we store this
 			-- new one, but we need to align the projector as well
@@ -1180,6 +1181,7 @@ else
 		window:move( window.stickX , window.stickY )
 		window.mag = window.stickmag
 		window.sticky = false
+		layout.notificationWindow:addMessage("Map " .. window.displayFilename .. " is no more sticky. Be careful with your movements")
 		return
 	end
 
@@ -1195,7 +1197,9 @@ else
     
 	if key == "v" and love.keyboard.isDown("lctrl") then
 		atlas:toggleVisible( map )
-		if not atlas:isVisible( map ) then map.sticky = false end
+		if not atlas:isVisible( map ) then map.sticky = false else 
+		  layout.notificationWindow:addMessage("Map " .. map.displayFilename .. " is now visible to players. All your changes will be relayed to them")
+		end
     	end
 
    	if key == "p" and love.keyboard.isDown("lctrl") then
