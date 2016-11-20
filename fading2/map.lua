@@ -229,8 +229,8 @@ function Map:drop( o )
 		  else
 			id = obj.id
 		  end
-		  io.write("map drop 1: object is pnj with id " .. id .. "\n")
 		  if not id then return end
+		  io.write("map drop 1: object is pnj with id " .. id .. "\n")
 
 		  local p = self:createPawns(0,0,0,id)  -- we create it at 0,0, and translate it afterwards
 		  if p then 

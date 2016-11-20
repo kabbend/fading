@@ -121,7 +121,8 @@ function snapshotBar:update(dt)
   	local snapshotMargin = self.layout.snapshotMargin
 
 	-- change snapshot offset if mouse  at bottom right or left
-	local snapMax = #snapshots[self.currentSnap].s * (snapshotSize + snapshotMargin) - self.layout.W
+	--local snapMax = #snapshots[self.currentSnap].s * (snapshotSize + snapshotMargin) - self.layout.W
+	local snapMax = #snapshots[self.currentSnap].s * (snapshotSize + snapshotMargin) - self.w
 	if snapMax < 0 then snapMax = 0 end
 	local x,y = love.mouse.getPosition()
 	local left = math.max(zx,0)
