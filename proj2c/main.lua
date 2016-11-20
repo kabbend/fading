@@ -658,6 +658,7 @@ function love.load( args )
  if parse.log then
    logFile = io.open("proj.log","w")
    io.output(logFile)
+   io.write("starting log...\n")
  end
 
  address = parse.address 
@@ -676,11 +677,12 @@ function love.load( args )
 
  -- create socket and connect to the server
  tcp = socket.tcp()
+ assert(tcp)
  tcp:settimeout(0)
  -- trying to reach server
  tcp:connect(address, port) 
  if fullBinary then tcp:send("CONNECTB\n") else tcp:send("CONNECT\n") end
-
+ 
  -- GUI initializations
  -- in remote: we go to 1st display fullscreen
  -- in local: we try to go to 2nd display fullscreen, otherwise go to 1st display standard 

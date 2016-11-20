@@ -25,7 +25,7 @@
     vector:norm(): returns a unit vector pointing to the same direction as a or vector{0,0,0}
     
 --]]
-require "fading2/dice/base"
+require "dice/base"
 
 vector={metatable={__index={0,0,0}}} --metatable is used because of operator overloading
 setmetatable(vector,{__call=clone})

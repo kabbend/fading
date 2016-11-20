@@ -1,5 +1,5 @@
-require "fading2/dice/vector"
-require "fading2/dice/stars"
+require "dice/vector"
+require "dice/stars"
 
 function newD4star(size)
   if not size then size=1 end

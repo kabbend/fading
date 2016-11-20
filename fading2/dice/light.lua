@@ -1,5 +1,5 @@
-require "fading2/dice/diceview"
-require "fading2/dice/vector"
+require "dice/diceview"
+require "dice/vector"
 
 light=vector{0,0,15}
 

@@ -3,7 +3,7 @@
 --  stars are set of points rigidly connected together
 --  stars bounce when they hit a face of their box
 --  stars bounce off each other as if they were spheres
-require "fading2/dice/vector"
+require "dice/vector"
 
 box={ timeleft=0 }
 function box:set(x,y,z,gravity,bounce,friction,dt) 

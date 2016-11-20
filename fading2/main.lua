@@ -32,15 +32,15 @@ layout = mainLayout:new()		-- one instance of the global layout
 atlas = nil 				-- one instance of the atlas. Will be set in init()
 
 -- dice3d code
-require	'fading2/dice/base'
-require	'fading2/dice/loveplus'
-require	'fading2/dice/vector'
-require 'fading2/dice/render'
-require 'fading2/dice/stars'
-require 'fading2/dice/geometry'
-require 'fading2/dice/diceview'
-require 'fading2/dice/light'
-require 'fading2/dice/default/config'
+require	'./dice/base'
+require	'./dice/loveplus'
+require	'./dice/vector'
+require './dice/render'
+require './dice/stars'
+require './dice/geometry'
+require './dice/diceview'
+require './dice/light'
+require './dice/default/config'
 
 layout.H1, layout.W1 	= 140, 140
 layout.snapshotSize 	= 70 			-- w and h of each snapshot
@@ -1492,7 +1492,7 @@ end
 function love.load( args )
 
     -- load config file
-    dofile( "fading2/fsconf.lua" )    
+    dofile( "fsconf.lua" )    
 
     -- GUI initializations...
     love.window.setTitle( "Fading Suns Tabletop" )

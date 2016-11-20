@@ -34,7 +34,7 @@ function setupWindow:setupSave()
   local t1 = self.text1:getText() or ""
   local t2 = self.text2:getText() or ""
   local t3 = self.text3:getText() or ""
-  local file, msg, code = io.open("fading2/fsconf.lua",'w')
+  local file, msg, code = io.open("fsconf.lua",'w')
   if not file then io.write("cannot write to conf file: " .. tostring(msg) .. "\n") ; return end
   file:write( "-- fading suns conf file\n")
   file:write( "baseDirectory = '" .. t1 .. "'\n")
@@ -45,9 +45,9 @@ function setupWindow:setupSave()
 
 function setupWindow:setupLoad()
   self:setupSave()
-  dofile("fading2/fsconf.lua")
-  self.layout:setDisplay(self,false)  
-  self.markForClosure = true
+  --dofile("fading2/fsconf.lua")
+  --self.layout:setDisplay(self,false)  
+  --self.markForClosure = true
   love.event.quit("restart")
   end
 
