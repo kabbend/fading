@@ -32,6 +32,8 @@ local Atlas			= require 'atlas'		-- store some information on maps (eg. which on
 layout = mainLayout:new()		-- one instance of the global layout
 atlas = nil 				-- one instance of the atlas. Will be set in init()
 
+if love.system.getOS() == "Windows" then __WINDOWS__ = true end
+
 -- dice3d code
 require	'./dice/base'
 require	'./dice/loveplus'
@@ -1439,8 +1441,12 @@ function init()
     io.write("base directory   : " .. baseDirectory .. "\n") ; layout.notificationWindow:addMessage("base directory : " .. baseDirectory .. "\n")
     io.write("scenario directory : " .. fadingDirectory .. "\n") ; layout.notificationWindow:addMessage("scenario : " .. fadingDirectory .. "\n")
 
-    local utf16dir =  utf16.utf8to16( baseDirectory )
-    io.write("UTF16 base directory : " .. utf16dir .. "\n")
+    if __WINDOWS__ then
+      baseDirectory =  utf16.utf8to16( baseDirectory )
+      io.write("UTF16 base directory : " .. baseDirectory .. "\n")
+      fadingDirectory =  utf16.utf8to16( fadingDirectory )
+      io.write("UTF16 scenario directory : " .. fadingDirectory .. "\n")
+    end
 
     -- create a new empty atlas (an array of maps), and tell him where to project
     atlas = Atlas.new( layout.pWindow )
@@ -1460,8 +1466,8 @@ function init()
     -- initialize class template list  and dropdown list (opt{}) at the same time
     -- later on, we might attach some images to these classes if we find them
     -- try 2 locations to find data. Merge results if 2 files 
-    _, RpgClasses = rpg.loadClasses{ 	utf16dir .. sep .. "data" , 
-			         	utf16dir .. sep .. fadingDirectory .. sep .. "data" } 
+    _, RpgClasses = rpg.loadClasses{ 	baseDirectory .. sep .. "data" , 
+			         	baseDirectory .. sep .. fadingDirectory .. sep .. "data" } 
 
     if not RpgClasses or #RpgClasses == 0 then error("sorry, need at least one data file") end
 
