@@ -1,5 +1,6 @@
 
 local utf8 		= require 'utf8'
+local utf16		= require 'utf16'
 local socket 		= require 'socket'	-- general networking
 local parser    	= require 'parse'	-- parse command line arguments
 local tween		= require 'tween'	-- tweening library (manage transition states)
@@ -1438,6 +1439,9 @@ function init()
     io.write("base directory   : " .. baseDirectory .. "\n") ; layout.notificationWindow:addMessage("base directory : " .. baseDirectory .. "\n")
     io.write("scenario directory : " .. fadingDirectory .. "\n") ; layout.notificationWindow:addMessage("scenario : " .. fadingDirectory .. "\n")
 
+    local utf16dir =  utf16.utf8to16( baseDirectory )
+    io.write("UTF16 base directory : " .. utf16dir .. "\n")
+
     -- create a new empty atlas (an array of maps), and tell him where to project
     atlas = Atlas.new( layout.pWindow )
 
@@ -1456,8 +1460,8 @@ function init()
     -- initialize class template list  and dropdown list (opt{}) at the same time
     -- later on, we might attach some images to these classes if we find them
     -- try 2 locations to find data. Merge results if 2 files 
-    _, RpgClasses = rpg.loadClasses{ 	baseDirectory .. sep .. "data" , 
-			         	baseDirectory .. sep .. fadingDirectory .. sep .. "data" } 
+    _, RpgClasses = rpg.loadClasses{ 	utf16dir .. sep .. "data" , 
+			         	utf16dir .. sep .. fadingDirectory .. sep .. "data" } 
 
     if not RpgClasses or #RpgClasses == 0 then error("sorry, need at least one data file") end
 

@@ -1,4 +1,4 @@
 -- fading suns conf file
-baseDirectory = 'c:/Users/kaben/Google Drive/RPG/fadingsuns/pictures'
-fadingDirectory = ''
+baseDirectory = "C:\\Users\\kaben\\essai Accentué"
+fadingDirectory = ""
 serverport = 12345

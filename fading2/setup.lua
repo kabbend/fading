@@ -37,8 +37,8 @@ function setupWindow:setupSave()
   local file, msg, code = io.open("fsconf.lua",'w')
   if not file then io.write("cannot write to conf file: " .. tostring(msg) .. "\n") ; return end
   file:write( "-- fading suns conf file\n")
-  file:write( "baseDirectory = '" .. t1 .. "'\n")
-  file:write( "fadingDirectory = '" .. t2 .. "'\n")
+  file:write( "baseDirectory = " .. string.format('%q', t1 ).. "\n")
+  file:write( "fadingDirectory = " .. string.format('%q',t2 ) .. "\n")
   file:write( "serverport = " .. t3 .. "\n")
   file:close()
   end
