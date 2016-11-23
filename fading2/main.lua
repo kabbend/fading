@@ -312,7 +312,11 @@ function love.update(dt)
 		layout.notificationWindow:addMessage("receiving projector call")
 		clients[i].id = projectorId
 		projector = clients[i].tcp
-	    	tcpsend(projector,"CONN")
+		if love.system.getOS() == "OS X" then
+	    		tcpsend(projector,"CONN MAC")
+		else
+	    		tcpsend(projector,"CONN WIN")
+		end
 	
 	      elseif data == "CONNECTB" then 
 		io.write("receiving projector call, binary mode\n")
@@ -321,7 +325,11 @@ function love.update(dt)
 		fullBinary = true
 		clients[i].id = projectorId
 		projector = clients[i].tcp
-	    	tcpsend(projector,"CONN")
+		if love.system.getOS() == "OS X" then
+	    		tcpsend(projector,"CONN MAC")
+		else
+	    		tcpsend(projector,"CONN WIN")
+		end
 	
 	      elseif 
 		-- scan for the command itself to find the player's name

@@ -1,12 +1,16 @@
 local socket = require 'socket'
 local parser = require 'parse'
 local tween  = require 'tween'
- 
+local codepage = require 'codepage'
+
+if love.system.getOS() == "Windows" then __WINDOWS__ = true end
+
 -- the address and port of the server
 defaultAddress, port, portbin 	= "localhost", 12345, 12346
 connect 			= false		-- connection status to server
 timer 				= 0
 connectRetryTime 		= 5
+serverOS			= nil
 
 -- image information
 currentImage = nil	-- displayed image
@@ -35,6 +39,7 @@ local oldiowrite = io.write
 function io.write( data ) if debug then oldiowrite( data ) end end
 
 function redressFilename( filename )
+  if serverOS == love.system.getOS() then return filename end -- nothing to redress
   local f = ""
   local i = 1
   repeat 
@@ -70,6 +75,9 @@ function Pawn:new( id, filename, sizex, x, y , pj )
   if new.PJ then new.layer = new.layer + 10e6 end	-- PJ are always on top, so we increase their layer artificially !
   new.filename = filename
   -- load pawn image
+
+  if __WINDOWS__ then filename = codepage.utf8tocp1252(filename) end
+
   local file = io.open( filename , "rb" )
   if not file then
 	  io.write("cannot open file " .. filename .. "\n")
@@ -375,7 +383,8 @@ function love.update( dt )
 	--
 	-- working with server:
 	--
-	--   CONN			Connected. Answer from server
+	--   CONN MAC|WIN		Connected. Answer from server. Gives indication on incoming paths format (esp. separator)
+	--				depending on windows or Mac
 	--
 	-- working with images and maps:
 	--
@@ -507,8 +516,13 @@ function love.update( dt )
 
 	  end
 	
-	  if command == "CONN" then
- 	  	io.write("Connected to " .. address .. " " .. port .. "\n")
+	  if command == "CONN MAC" then
+ 	  	io.write("Connected to " .. address .. " " .. port .. ", Mac server\n")
+		serverOS = "OS X"
+		connect = true
+	  elseif command == "CONN WIN" or command == "CONN" then
+ 	  	io.write("Connected to " .. address .. " " .. port .. ", Windows server\n")
+		serverOS = "Windows"
 		connect = true
 	  end
 
@@ -521,6 +535,8 @@ function love.update( dt )
 		io.write("redressing filename, from " .. rawfilename .. " to " .. filename .. "\n")
 
 		filename = baseDirectory .. sep .. filename 
+
+  		if __WINDOWS__ then filename = codepage.utf8tocp1252(filename) end
 
 		local file = io.open( filename , "rb" )
 		if not file then
@@ -644,7 +660,6 @@ options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDi
             { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false },
             { opcode="-i", longopcode="--ip", mandatory=false, varname="address", value=true, default="localhost" },
             { opcode="-p", longopcode="--port", mandatory=false, varname="port", value=true, default="12345" },
-            { opcode="-I", longopcode="--interact", mandatory=false, varname="interact", value=false, default=false },
 	   }
 
 --
@@ -664,8 +679,8 @@ function love.load( args )
  address = parse.address 
  baseDirectory = parse.baseDirectory 
  port = parse.port ; portbin = port + 1
- debug = parse.debug
- interact = parse.interact
+ --debug = parse.debug
+ debug = true
 
  -- no directory provided, we will request full binary mode to the server
  if baseDirectory == "" then fullBinary = true end
