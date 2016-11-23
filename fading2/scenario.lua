@@ -1,4 +1,6 @@
 
+local codepage = require 'codepage'		-- windows cp1252 support
+
 dictionnary 		= {}			-- dictionnary indexed by word, with value a couple position (string) 
 						-- and level (integer) as in { "((x,y))", lvl } 
 
@@ -128,6 +130,9 @@ function readScenario( filename )
 	table.insert( stack, { level=0, xy="((".. math.floor(layout.W / 2) .. "," .. math.floor(layout.H / 2) .. "))" } )
 
 	local linecount = 0
+
+	if __WINDOWS__ then filename = codepage.utf8tocp1252(filename) end
+
 	for line in io.lines(filename) do
 
 		linecount = linecount + 1

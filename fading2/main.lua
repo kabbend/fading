@@ -1,6 +1,6 @@
 
 local utf8 		= require 'utf8'
-local utf16		= require 'utf16'
+local codepage		= require 'codepage'	-- windows cp1252 support
 local socket 		= require 'socket'	-- general networking
 local parser    	= require 'parse'	-- parse command line arguments
 local tween		= require 'tween'	-- tweening library (manage transition states)
@@ -134,8 +134,9 @@ maskType		 = "RECT"	-- shape to use, rectangle by default
 local oldiowrite = io.write
 function io.write( data ) if debug then oldiowrite( data ) end end
 
+
 function splitFilename(strFilename)
-	return string.match (strFilename,"[^/]+$")
+	return string.match (strFilename,"[^" .. sep .. "]+$")
 end
 
 -- send a command or data to the projector over the network
@@ -1278,9 +1279,12 @@ function parseDirectory( t )
     if love.system.getOS() == "OS X" then
 	    io.write("ls '" .. path .. "' > .temp\n")
 	    os.execute("ls '" .. path .. "' > .temp")
-    elseif love.system.getOS() == "Windows" then
-	    io.write("dir /b \"" .. path .. "\" > .temp\n")
-	    os.execute("dir /b \"" .. path .. "\" > .temp ")
+    elseif __WINDOWS__ then
+	    local pathcp1252 = codepage.utf8tocp1252(path)
+	    io.write("dir /b \"" .. pathcp1252 .. "\" > temp\n")
+	    local cf = io.open("cmdfs.bat","w")
+	    os.execute("chcp 65001 & cmd.exe /c dir /b \"" .. pathcp1252 .. "\" > .temp & chcp 850\n")
+	    cf:close()
     end
 
     -- store output
@@ -1291,7 +1295,7 @@ function parseDirectory( t )
 
     for k,f in pairs(allfiles) do
 
-      io.write("scanning file '" .. f .. "\n")
+      io.write("scanning file '" .. f .. "'\n")
 
       if kind == "pawns" then
 
@@ -1346,7 +1350,7 @@ function parseDirectory( t )
       elseif f == 'scenario.jpg' then
 
 	local s = Map:new()
-	s:load{ kind="scenario", filename=path .. sep .. f , layout=layout }
+	s:load{ kind="scenario",filename = path .. sep .. f , layout=layout }
 	layout:addWindow( s , false )
 	atlas.scenario = s
 	io.write("Loaded scenario image file at " .. path .. sep .. f .. "\n")
@@ -1361,7 +1365,7 @@ function parseDirectory( t )
 
         if string.sub(f,1,4) == 'pawn' then
 
-		local s = Snapshot:new{ filename = path .. sep .. f , size=layout.snapshotSize }
+		local s = Snapshot:new{ filename = path .. sep .. f, size=layout.snapshotSize }
 		table.insert( layout.snapshotWindow.snapshots[4].s, s ) 
 		
 		local pjname = string.sub(f,5, f:len() - 4 )
@@ -1372,13 +1376,15 @@ function parseDirectory( t )
 	elseif string.sub(f,1,3) == 'map' then
 
 	  local s = Map:new()
-	  s:load{ filename=path .. sep .. f , layout=layout } 
+	  s:load{ filename= path .. sep .. f, layout=layout } 
 	  layout:addWindow( s , false )
 	  table.insert( layout.snapshotWindow.snapshots[2].s, s ) 
 
  	else
-	  
-	  local s = Snapshot:new{ filename = path .. sep .. f , size=layout.snapshotSize } 
+	 
+	  io.write("loading " .. f .. "\n")
+	  local s = Snapshot:new{ filename = path .. sep .. f, size=layout.snapshotSize } 
+	  assert(s)
 	  table.insert( layout.snapshotWindow.snapshots[1].s, s ) 
 	  
         end
@@ -1442,10 +1448,20 @@ function init()
     io.write("scenario directory : " .. fadingDirectory .. "\n") ; layout.notificationWindow:addMessage("scenario : " .. fadingDirectory .. "\n")
 
     if __WINDOWS__ then
-      baseDirectory =  utf16.utf8to16( baseDirectory )
-      io.write("UTF16 base directory : " .. baseDirectory .. "\n")
-      fadingDirectory =  utf16.utf8to16( fadingDirectory )
-      io.write("UTF16 scenario directory : " .. fadingDirectory .. "\n")
+
+      -- all filenames are stored in UTF8 encoding, but on windows we need to pass paths and names encoded properly in case
+      -- of special characters (accentuated, symbols etc.). Properly means UTF16 or Unicode, but these encodings are not directly 
+      -- possible thru io.open() layer (thru C api). So, we use a (somehow) degraded encoding CP1252, which corresponds more or
+      -- less to Extended ASCII, far from complete but enough for western usual lingual plane...
+      --
+      -- We use this CP1252 encoding on 2 occasions:
+      -- * when we search the filesystem, in loadClasses() and parseDirectory() 
+      -- * each time we call io.open()
+      --
+      baseDirectoryCp1252 =   codepage.utf8tocp1252( baseDirectory )
+      io.write("cp1252 base directory : " .. baseDirectoryCp1252 .. "\n")
+      fadingDirectoryCp1252 =   codepage.utf8tocp1252( fadingDirectory )
+      io.write("cp1252 scenario directory : " .. fadingDirectoryCp1252 .. "\n")
     end
 
     -- create a new empty atlas (an array of maps), and tell him where to project
@@ -1466,15 +1482,24 @@ function init()
     -- initialize class template list  and dropdown list (opt{}) at the same time
     -- later on, we might attach some images to these classes if we find them
     -- try 2 locations to find data. Merge results if 2 files 
-    _, RpgClasses = rpg.loadClasses{ 	baseDirectory .. sep .. "data" , 
-			         	baseDirectory .. sep .. fadingDirectory .. sep .. "data" } 
+    local directory, scenarioDirectory = baseDirectory, fadingDirectory
+    if __WINDOWS__ then directory, scenarioDirectory = baseDirectoryCp1252, fadingDirectoryCp1252 end
 
-    if not RpgClasses or #RpgClasses == 0 then error("sorry, need at least one data file") end
+    _, RpgClasses = rpg.loadClasses{ 	directory .. sep .. "data" , 
+			         	directory .. sep .. scenarioDirectory .. sep .. "data" } 
 
-    -- create PJ automatically (1 instance of each!)
-    -- later on, an image might be attached to them, if we find one
-    rpg.createPJ()
-    layout.combatWindow:sortAndDisplayPNJ()
+    if not RpgClasses or #RpgClasses == 0 then 
+	    
+    	layout.notificationWindow:addMessage("Warning: No data file found! No PC or NPC can be created") -- not blocking, but severe
+
+    else
+
+    	-- create PJ automatically (1 instance of each!)
+    	-- later on, an image might be attached to them, if we find one
+    	rpg.createPJ()
+    	layout.combatWindow:sortAndDisplayPNJ()
+
+    end
 
     -- load various data files
     parseDirectory{ path = baseDirectory .. sep .. fadingDirectory }

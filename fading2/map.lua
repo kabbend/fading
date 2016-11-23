@@ -5,6 +5,7 @@ local theme		= require 'theme'		-- global theme
 local Pawn		= require 'pawn'		-- store and display one pawn to display on map 
 local rpg		= require 'rpg'		
 local utf8		= require 'utf8'		
+local codepage		= require 'codepage'		-- windows cp1252 support
 
 local glowCode = [[
 extern vec2 size;
@@ -68,7 +69,7 @@ local function createClass (a,b)
 -- some convenient file loading functions (based on filename or file descriptor)
 local function loadDistantImage( filename )
  
-  if __WINDOWS__ then filename =  utf8tocp1252(filename) end
+  if __WINDOWS__ then filename =  codepage.utf8tocp1252(filename) end
   local file = assert( io.open( filename, 'rb' ) )
   local image = file:read('*a')
   file:close()

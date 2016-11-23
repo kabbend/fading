@@ -1,9 +1,11 @@
 
+local codepage = require 'codepage'	-- windows cp1252 support
+
 
 -- some convenient file loading functions (based on filename or file descriptor)
 local function loadDistantImage( filename )
 
-  if __WINDOWS__ then filename =  utf8tocp1252(filename) end 
+  if __WINDOWS__ then filename =  codepage.utf8tocp1252(filename) end 
   local file = assert( io.open( filename, 'rb' ) )
   local image = file:read('*a')
   file:close()
