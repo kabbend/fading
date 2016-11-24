@@ -1286,7 +1286,7 @@ function parseDirectory( t )
     local allfiles = {}, command
     if love.system.getOS() == "OS X" then
 	    io.write("ls '" .. path .. "' > .temp\n")
-	    os.execute("ls '" .. path .. "' > .temp")
+	    os.execute("ls '" .. path .. "' > .temp0 && iconv -f utf8-mac -t utf-8 .temp0 > .temp")
     elseif __WINDOWS__ then
 	    local pathcp1252 = codepage.utf8tocp1252(path)
 	    io.write("dir /b \"" .. pathcp1252 .. "\" > temp\n")
