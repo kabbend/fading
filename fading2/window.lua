@@ -238,6 +238,7 @@ function Window:update(dt)
 		
 			if self.sinkSteps >= sinkSteps then 
 				self.markForSink = false -- finish sink movement
+				self.layout.sinkInProgress = false 
 				-- disappear eventually
 				if not self.sinkFinalDisplay then 
 					self.layout:setDisplay(self, false) 

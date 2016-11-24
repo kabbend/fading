@@ -93,6 +93,9 @@ function iconWindow:click(x,y)
 		return
 	end
 
+	-- do not start a sink movement if one already in progress
+	if self.layout.sinkInProgress then return else self.layout.sinkInProgress = true end  
+
   	local cx,cy = Window.WtoS(self,self.w/2,self.h/2) 
 	self.open = not self.open
 	if self.open then -- only one opened at a time
