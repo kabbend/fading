@@ -28,15 +28,16 @@ end
 -- filesystem, or a file object on the local filesystem
 local Snapshot = { class = "snapshot" , filename = nil, file = nil }
 
-function Snapshot:new( t ) -- create from filename or file object (one mandatory), and kind 
+function Snapshot:new( t ) -- create from filename or file object (one mandatory), and size (width in pixels)
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
-  new.snapshotSize = t.size
+  new.snapshotSize = t.size or layout.snapshotSize
   assert( new.filename or new.file )
   local image
   if new.filename then 
 	image = loadDistantImage( new.filename )
+	if not image then return nil end
 	new.is_local = false
 	new.baseFilename = string.gsub(new.filename,baseDirectory,"")
 	new.displayFilename = splitFilename(new.filename)
