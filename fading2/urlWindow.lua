@@ -2,7 +2,7 @@
 local Window 		= require 'window'	-- Window class & system
 local theme		= require 'theme'	-- global theme
 local widget		= require 'widget'	
-local Snapshot		= require 'snapshot'
+local Snapshot		= require 'snapshotClass'
 
 --
 -- urlWindow class
@@ -16,7 +16,7 @@ function urlWindow:new( t ) -- create from w, h, x, y, init
   self.__index = self
   new.widgets = {}
   new.path = t.path
-  new.text = widget.textWidget:new{ x = 5, y = 5 , w = 850, text = "http://" }
+  new.text = widget.textWidget:new{ x = 5, y = 5 , w = 850, text = "" }
   new:addWidget( new.text )
   new.load = widget.buttonWidget:new{ x = 880, y = 2 , w = 100, text = "Download" }
   new:addWidget( new.load )
@@ -43,8 +43,9 @@ function urlWindow:loadURL()
   end
 
   -- write it to a file
-  local filename = self.path .. "downloadImage"
+  local filename = self.path .. "downloadFromWWW-"..os.date("%Y%m%d%H%M%S")
   local f = io.open(filename,"w")
+  if not f then layout.notificationWindow:addMessage("Sorry, could not load image at " .. url ); return end
   f:write(b)
   f:close()
 
@@ -52,15 +53,14 @@ function urlWindow:loadURL()
   local csnap = layout.snapshotWindow.currentSnap
   local s = nil
   if csnap == 2 then
-	-- loading a map
+	-- loading a map FIXME
   else
 	-- loading something else
-  	s = Snapshot:new{ filename = filename , size = self.layout.snapshotSize, nomipmaps = true }
+  	s = Snapshot:new{ filename = filename , size = self.layout.snapshotSize }
   end
   if not s then 
 	layout.notificationWindow:addMessage("Could not load image at " .. url ); return 
   else
-	io.write("w,h,snapmag=" .. tostring(s.w) .. " " .. tostring(s.h) .. " " .. tostring(s.snapmag) .. "\n")
 	layout.notificationWindow:addMessage("Image loaded, " .. url )
   	io.write("adding image " .. url .. " to snapshotBar list #" .. csnap .. "\n") 
   	table.insert( layout.snapshotWindow.snapshots[csnap].s , s )  
