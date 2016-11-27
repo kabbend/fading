@@ -12,6 +12,7 @@ function setupWindow:new( t ) -- create from w, h, x, y, init
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
+  new.widgets = {}
   if t.init then new.title = "CONFIGURATION DATA" else new.title = "PLEASE PROVIDE MANDATORY INFORMATION" end
   new.text1 = widget.textWidget:new{ x = 150, y = 25 , w = 440, text = baseDirectory }
   new.text2 = widget.textWidget:new{ x = 150, y = 105, w = 440, text = fadingDirectory }

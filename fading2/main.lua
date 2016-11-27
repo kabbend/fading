@@ -23,6 +23,7 @@ local projectorWindow		= require 'projector'		-- project images to players
 local snapshotBar		= require 'snapshot'		-- all kinds of images 
 local Map			= require 'map'			-- maps 
 local Combat			= require 'combat'		-- main combat window (with PNJ list) 
+local urlWindow			= require 'urlwindow'		-- provide an URL to load 
 
 -- specific object classes
 local Snapshot			= require 'snapshotClass'	-- store and display one image 
@@ -51,7 +52,6 @@ layout.screenMargin 	= 40			-- screen margin in map mode
 layout.intW		= 2 			-- interval between windows
 layout.snapshotMargin	= 7 			-- space between images and screen border
 
--- main screen size
 local iconSize = theme.iconSize 
 local sep = '/'
 
@@ -81,23 +81,26 @@ chunksize 		= (8192 - 1)		-- size of the datagram when sending binary file
 fullBinary		= false			-- if true, the server will systematically send binary files instead of local references
 
 -- various mouse movements
-mouseMove		= false
+mouseMove		= false			-- a window is being moved
+pawnMove 		= nil			-- pawn currently moved by mouse movement
+
+-- drag & drop data
 dragMove		= false
 dragObject		= { originWindow = nil, object = nil, snapshot = nil }
 
 -- pawns and PJ snapshots
-pawnMove 		= nil		-- pawn currently moved by mouse movement
 defaultPawnSnapshot	= nil		-- default image to be used for pawns
 pawnMaxLayer		= 1
 pawnMovingTime		= 2		-- how many seconds to complete a movement on the map ?
 
 -- current text input
+-- A window or widget waiting for input should set these functions
 textActiveCallback		= nil			-- if set, function to call with keyboard input (argument: one char)
-textActiveBackspaceCallback	= nil			-- if set, function to call on a backspace (suppress char)
-textActivePasteCallback		= nil			-- if set, function to call on a paste 
+textActiveBackspaceCallback	= nil			-- if set, function to call on a backspace 
+textActivePasteCallback		= nil			-- if set, function to call on a paste clipboard
 textActiveCopyCallback		= nil			-- if set, function to call on a copy clipboard 
-textActiveLeftCallback		= nil			
-textActiveRightCallback		= nil			
+textActiveLeftCallback		= nil			-- if set, function to call on left arrow 	
+textActiveRightCallback		= nil			-- if set, function to call on right arrow	
 
 -- array of PJ and PNJ characters
 -- Only PJ at startup (PNJ are created upon user request)
@@ -111,14 +114,14 @@ PNJmax   	= 13		-- Limit in the number of PNJs (and the GUI frame size as well)
 -- this corresponds to the i-th PNJ as stored in PNJTable[i]
 PNJtext 	= {}		
 
--- flag and timer to draw d6 dices in combat mode
-dice 		    = {}	-- list of d6 dices
+-- flag and timer to draw dices
+dice 		    = {}	-- list of dices
 drawDicesTimer      = 0
 drawDices           = false	-- flag to draw dices
 drawDicesResult     = false	-- flag to draw dices result (in a 2nd step)	
-diceKind 	    = ""	-- kind of dice (black for 'attack', white for 'armor') -- unused
+diceKind 	    = ""	-- kind of dice (black for 'attack', white for 'armor') -- unused at the moment
 diceSum		    = 0		-- result to be displayed on screen
-lastDiceSum	    = 0		-- store previous result
+lastDiceSum	    = 0		-- store previous result, to detect stabilization
 diceStableTimer	    = 0
 
 -- information to draw the arrow in combat mode
@@ -134,7 +137,7 @@ maskType		 = "RECT"	-- shape to use, rectangle by default
 local oldiowrite = io.write
 function io.write( data ) if debug then oldiowrite( data ) end end
 
-
+-- get filename without path. depends on separator, which depends itself on OS (windows or OS X)
 function splitFilename(strFilename)
 	return string.match (strFilename,"[^" .. sep .. "]+$")
 end
@@ -183,7 +186,9 @@ function tcpsendBinary( t )
  c:close()
  end
 
--- capture text input (for text search)
+-- capture text input, by calling active callback function if any
+-- it may happen that a key should be ignored, because part of an existing command 
+-- (eg. when pressing CTRL+z to zoom a scenario, 'z' should be discarded for search input)
 function love.textinput(t)
 	if not textActiveCallback then return end
 	if ignoreLastChar then ignoreLastChar = false; return end
@@ -236,7 +241,7 @@ function love.filedropped(file)
 		local snap = Snapshot:new{ file = file, size=layout.snapshotSize }
 		if is_a_pawn then 
 			table.insert( layout.snapshotWindow.snapshots[4].s , snap )
-			snap.kind = "pawn"	
+			snap.kind = "pawn"	-- FIXME is it still useful ?
 		else
 			table.insert( layout.snapshotWindow.snapshots[1].s , snap )
 			snap.kind = "image"	
@@ -273,7 +278,7 @@ function love.filedropped(file)
 
 	end
 
--- GUI basic functions
+-- LOVE basic functions
 function love.update(dt)
 
 	-- update all windows
@@ -378,7 +383,6 @@ function love.update(dt)
 		  local indexT = findPNJ( id2 )
 		  rpg.updateTargetByArrow( indexP, indexT )
 		  layout.combatWindow:setFocus(indexP)
-		  --layout.combatWindow:updateLineColor(indexP)
 		else
 		  io.write("inconsistent TARG command received while no map or no pawns\n")
 		end
@@ -389,10 +393,9 @@ function love.update(dt)
 		if map and map.pawns then
 		  local str = string.sub(data , 6)
                   local _,_,id,x,y = string.find( str, "(%a+) (%d+) (%d+)" )
-		  -- the two innocent lines below are important: x and y are returned as strings, not numbers, which is quite inocuous
+		  -- the innocent line below is important: x and y are returned as strings, not numbers, which is quite inocuous
 		  -- except that tween() functions really expect numbers. Here we force x and y to be numbers.
-		  x = x + 0
-		  y = y + 0
+		  x, y = x + 0, y + 0
 		  for i=1,#map.pawns do 
 			if map.pawns[i].id == id then 
 				map.pawns[i].moveToX = x; map.pawns[i].moveToY = y; 
@@ -443,6 +446,7 @@ function love.update(dt)
   		box:update(dt)
 
 		if drawDicesKind == "d20" then
+			-- d20 dices need to be stopped somehow, their geometry prevent them to stop easily...
 			if drawDicesTimer > 4 then
 				-- reduce dice velocity, to stabilize it
 				box[1].angular = vector{0,0,0}
@@ -451,14 +455,15 @@ function love.update(dt)
 				box[1].velocity[3] = -1 
 			end
 		else
-		 local immobile = false   
-		 for i=1,#box do
-  		  	if box[i].velocity:abs() > 0.8 then break end -- at least one alive !
-  			immobile = true
-			drawDicesResult = true
-		 end
+			-- For d6 dices, we detect when they are almost immobile
+		 	local immobile = false   
+		 	for i=1,#box do
+  		  	  if box[i].velocity:abs() > 0.8 then break end -- at least one alive !
+  			  immobile = true
+			  drawDicesResult = true
+		 	end
 
-		 if immobile then
+		 	if immobile then
   			-- for each die, retrieve the 4 points with positive z coordinate
   			-- there should always be 4 (and exactly 4) such points, unless 
   			-- very unlikely situations for the die (not horizontal...). 
@@ -478,7 +483,7 @@ function love.update(dt)
   			end 
 
 			if lastDiceSum ~= diceSum then diceStableTimer = 0 end
-		 end
+		 	end
  		end 
 
 		-- dice are removed after a fixed timelength (30 sec.) or after the result is stable for long enough (6 sec.)
@@ -494,13 +499,14 @@ function love.update(dt)
 
 	end
 
+-- this function draws the fog of war on maps. As it is a function called automatically by love engine without arguments,
+-- it must rely on a global variable 'currentWindowDraw' to know which map is currently to be drawn.
 function myStencilFunction( )
 	local map = currentWindowDraw
 	local x,y,mag,w,h = map.x, map.y, map.mag, map.w, map.h
         local zx,zy = -( x * 1/mag - layout.W / 2), -( y * 1/mag - layout.H / 2)
 	love.graphics.rectangle("fill",zx,zy,w/mag,h/mag)
 	for k,v in pairs(map.mask) do
-		--local _,_,shape,x,y,wm,hm = string.find( v , "(%a+) (%d+) (%d+) (%d+) (%d+)" )
 		local _,_,shape = string.find( v , "(%a+)" )
 		if shape == "RECT" then 
 			local _,_,_,x,y,wm,hm = string.find( v , "(%a+) (%-?%d+) (%-?%d+) (%d+) (%d+)" )
@@ -516,31 +522,31 @@ function myStencilFunction( )
 	end
 	end
 
+-- global draw function
 function love.draw() 
 
   local alpha = 80
 
+  -- draws screen background
   love.graphics.setColor(255,255,255)
   love.graphics.draw( theme.backgroundImage , 0, 0, 0, layout.W / theme.backgroundImage:getWidth(), layout.H / theme.backgroundImage:getHeight() )
 
   love.graphics.setLineWidth(2)
 
-  -- draw windows
+  -- draw all windows
   layout:draw() 
 
   -- all code below does not take place until the environement is fully initialized (ie baseDirectory is defined)
   if not initialized then return end
 
-  -- drag & drop
+  -- if drag & drop, draw a small snapshot at mouse position
   if dragMove then
-
 	local x,y = love.mouse.getPosition()
 	local s = dragObject.snapshot
 	love.graphics.draw(s.im, x, y, 0, s.snapmag, s.snapmag)
-
   end
 
-  -- draw arrow
+  -- draw arrow eventually
   if arrowMode then
 
       -- draw arrow and arrow head
@@ -551,8 +557,8 @@ function love.draw()
         love.graphics.polygon( "fill", arrowX, arrowY, x3, y3, x4, y4 )
       end
 
-      -- draw a pawn to know the size    
       if arrowPawn then
+        -- draw a pawn at cursor position (to determine the size on this particular map)
 	local map = layout:getFocus()
 	local w = distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY)
 	love.graphics.setColor(255,255,255,180)
@@ -561,8 +567,8 @@ function love.draw()
 	love.graphics.draw( s.im, arrowStartX, arrowStartY, 0, f, f )
       end
  
-      -- draw circle or rectangle itself
       if arrowModeMap == "RECT" then 
+        -- draw circle or rectangle itself
 		love.graphics.rectangle("line",arrowStartX, arrowStartY,(arrowX - arrowStartX),(arrowY - arrowStartY)) 
       elseif arrowModeMap == "CIRC" then 
 		love.graphics.circle("line",(arrowStartX+arrowX)/2, (arrowStartY+arrowY)/2, distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY) / 2) 
@@ -589,7 +595,7 @@ function love.draw()
 
   love.graphics.pop()
 
-    -- draw number if needed
+    -- draw dice number result if needed
     if drawDicesResult then
       love.graphics.setColor(unpack(theme.color.white))
       love.graphics.setFont(theme.fontDice)
@@ -599,7 +605,6 @@ function love.draw()
   end 
 
 end
-
 
 function distanceFrom(x1,y1,x2,y2) return math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2) end
 
@@ -618,12 +623,10 @@ function computeTriangle( x1, y1, x2, y2 )
   return x3,y3,x4,y4
   end
 
-
--- when mouse is released and an arrow is being draw, check if the ending point
--- is on a given PNJ, and update PNJ accordingly
+-- handle all possible actions when mouse is released 
 function love.mousereleased( x, y )   
 
-	-- check if we must close the window
+	-- check if we must close a window (ie. we were pressing the 'close' icon)
 	local x,y = love.mouse.getPosition()
 	local w = layout:getWindow(x,y)
 	if w and w.markForClosure then 
@@ -631,7 +634,7 @@ function love.mousereleased( x, y )
 		layout:setDisplay(w,false) 
 	end
 
-	-- we were dragging, we drop the object
+	-- we were dragging an object, we drop it 
 	if dragMove then
 		dragMove = false
 		if w then w:drop( dragObject ) end
@@ -890,8 +893,8 @@ function love.mousereleased( x, y )
 	end
 
 	end
-	
--- put FOCUS on a PNJ line when mouse is pressed (or remove FOCUS if outside PNJ list)
+
+-- handle all actions when the mouse is pressed	
 function love.mousepressed( x, y , button )   
 
 	local window = layout:click(x,y)
@@ -1048,14 +1051,17 @@ end
 
 end
 
+-- handle all actions when a key is pressed
 function love.keypressed( key, isrepeat )
 
-if textActiveBackspaceCallback and key == "backspace" then textActiveBackspaceCallback(); return end
-if textActiveLeftCallback and key == "left" then textActiveLeftCallback(); return end
-if textActiveRightCallback and key == "right" then textActiveRightCallback(); return end
-if textActivePasteCallback and key == "v" and love.keyboard.isDown(keyPaste) then textActivePasteCallback(); return end
-if textActiveCopyCallback and key == "c" and love.keyboard.isDown(keyPaste) then textActiveCopyCallback(); return end
+-- check if a callback is set and must be activated
+if textActiveBackspaceCallback 	and key == "backspace" 	then textActiveBackspaceCallback(); return end
+if textActiveLeftCallback 	and key == "left" 	then textActiveLeftCallback(); return end
+if textActiveRightCallback 	and key == "right" 	then textActiveRightCallback(); return end
+if textActivePasteCallback 	and key == "v" 	and love.keyboard.isDown(keyPaste) then textActivePasteCallback(); return end
+if textActiveCopyCallback 	and key == "c" 	and love.keyboard.isDown(keyPaste) then textActiveCopyCallback(); return end
 
+-- code below is executed only if server is initialized
 if not initialized then return end
 
 -- keys applicable in any context
@@ -1101,11 +1107,8 @@ end
 
 -- other keys applicable 
 local window = layout:getFocus()
-if not window then
-  -- no window selected at the moment, we expect:
-  -- FIXME: do we expect something ?
- 
-else
+
+if window then
   -- a window is selected. Keys applicable to any window:
   -- 'lctrl + c' : recenter window
   -- 'lctrl + x' : close window
@@ -1267,7 +1270,7 @@ else
 
   end
 
-
+-- some cleanup when leaving
 function leave()
 	if server then server:close() end
 	for i=1,#clients do clients[i].tcp:close() end
@@ -1438,15 +1441,16 @@ function init()
     local snapshotWindow = snapshotBar:new{ w=layout.W-2*layout.intW, h=layout.snapshotSize+2, x=-layout.intW+layout.W/2, 
 					y=-(layout.H-layout.snapshotSize-2*iconSize)+layout.H/2 - theme.iconSize ,layout=layout }
 
+
     -- do not display them yet
     -- basic windows (as opposed to maps, for instance) are also stored by name, so we can retrieve them easily elsewhere in the code
     layout:addWindow( combatWindow , 	false, "combatWindow" ) 
     layout:addWindow( pWindow , 	false, "pWindow" )
-    layout:addWindow( snapshotWindow , 	false , "snapshotWindow" )
-    layout:addWindow( notifWindow , 	false , "notificationWindow" )
-    layout:addWindow( dialogWindow , 	false , "dialogWindow" )
-    layout:addWindow( helpWindow , 	false , "helpWindow" ) 
-    layout:addWindow( dataWindow , 	false , "dataWindow" )
+    layout:addWindow( snapshotWindow , 	false, "snapshotWindow" )
+    layout:addWindow( notifWindow , 	false, "notificationWindow" )
+    layout:addWindow( dialogWindow , 	false, "dialogWindow" )
+    layout:addWindow( helpWindow , 	false, "helpWindow" ) 
+    layout:addWindow( dataWindow , 	false, "dataWindow" )
 
     layout:addWindow( storyWindow , 	true , "storyWindow" )
     layout:addWindow( actionWindow , 	true , "actionWindow" )
@@ -1470,9 +1474,20 @@ function init()
       io.write("cp1252 base directory : " .. baseDirectoryCp1252 .. "\n")
       fadingDirectoryCp1252 =   codepage.utf8tocp1252( fadingDirectory )
       io.write("cp1252 scenario directory : " .. fadingDirectoryCp1252 .. "\n")
+
+      local uWindow = urlWindow:new{w=1000,h=38,x=1000-layout.W/2,layout=layout, path=baseDirectoryCp1252..sep..fadingDirectoryCp1252..sep,
+					y= -layout.H/2+theme.iconSize+layout.intW+2*layout.snapshotSize }
+      layout:addWindow( uWindow , false, "uWindow" )
+
+    else
+
+      local uWindow = urlWindow:new{w=1000,h=38,x=1000-layout.W/2,layout=layout, path=baseDirectory..sep..fadingDirectory..sep,
+					y= -layout.H/2+theme.iconSize+layout.intW+2*layout.snapshotSize }
+      layout:addWindow( uWindow , false, "uWindow" )
+
     end
 
-    -- create a new empty atlas (an array of maps), and tell him where to project
+    -- create a new empty atlas (a reference for maps), and tell it where to project the maps
     atlas = Atlas.new( layout.pWindow )
 
     -- create socket and listen to any client
@@ -1487,9 +1502,9 @@ function init()
     tcpbin:bind(address, serverport+1)
     tcpbin:listen(1)
 
-    -- initialize class template list  and dropdown list (opt{}) at the same time
-    -- later on, we might attach some images to these classes if we find them
-    -- try 2 locations to find data. Merge results if 2 files 
+    -- initialize PNJ class list 
+    -- later on, we might attach some images (snapshots) to these classes if we find them.
+    -- try 2 locations to find class data. The loadClasses() function is assumed to merge all results if 2 files are present 
     local directory, scenarioDirectory = baseDirectory, fadingDirectory
     if __WINDOWS__ then directory, scenarioDirectory = baseDirectoryCp1252, fadingDirectoryCp1252 end
 
@@ -1509,7 +1524,7 @@ function init()
 
     end
 
-    -- load various data files
+    -- load rest of data files (ie. images and maps)
     parseDirectory{ path = baseDirectory .. sep .. fadingDirectory }
     parseDirectory{ path = baseDirectory .. sep .. "pawns" , kind = "pawns" }
 
@@ -1543,24 +1558,24 @@ function love.load( args )
     yui.UI.registerEvents()
 
     -- some adjustments on different systems
-    if love.system.getOS() == "Windows" then
+    if __WINDOWS__ then
 	keyZoomIn, keyZoomOut = ':', '!'
-    	sep = '\\'
 	keyPaste = 'lctrl'
+    	sep = '\\'
     end
 
-    -- get actual screen size
+    -- maximize screen size and store these dimensions  
     love.window.setMode( 0  , 0  , { fullscreen=false, resizable=true, display=1} )
     love.window.maximize()
     layout.W, layout.H = love.window.getMode()
-    io.write("W,H=" .. layout.W .. " " .. layout.H .. "\n")
 
     -- adjust some windows accordingly
     layout.snapshotH = layout.H - layout.snapshotSize - layout.snapshotMargin
     layout.HC = layout.H - 4 * layout.intW - 3 * iconSize - layout.snapshotSize
     layout.WC = 1290 - 2 * layout.intW
 
-    -- launch further init procedure if possible or display setup window to require mandatory information. 
+    -- launch further init procedure if possible,
+    -- or display setup window to require missing information
     if baseDirectory and baseDirectory ~= "" then
       init()
       initialized = true

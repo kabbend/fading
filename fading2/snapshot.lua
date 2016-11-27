@@ -17,7 +17,7 @@ local iconSize = theme.iconSize
 -- a snapshotBar is a window which displays images
 --
 
-local snapshotBar = Window:new{ class = "snapshot" , title = snapText[1] , wResizable = true }
+local snapshotBar = Window:new{ class = "snapshot" , title = snapText[1] , wResizable = true , download = true }
 
 function snapshotBar:new( t ) -- create from w, h, x, y
   local new = t or {}
@@ -28,6 +28,12 @@ function snapshotBar:new( t ) -- create from w, h, x, y
   new.currentSnap = 1 
   return new
 end
+
+function snapshotBar:download()
+	-- someone has clicked on 'download' button in the button bar
+	-- this should toggle the visibility of urlWindow.
+	layout:toggleWindow(layout.uWindow)
+	end
 
 function snapshotBar:draw()
 
@@ -146,13 +152,15 @@ function snapshotBar:update(dt)
 
 function snapshotBar:click(x,y)
 
-  local zx,zy = -( self.x * 1/self.mag - self.layout.W / 2), -( self.y * 1/self.mag - self.layout.H / 2)
+  local zx,zy = -( self.x - self.layout.W / 2), -( self.y - self.layout.H / 2)
   local snapshotSize = self.layout.snapshotSize
   local snapshotMargin = self.layout.snapshotMargin
   
   Window.click(self,x,y)
- 
-  if y > zy then mouseMove = false end -- Window.click() above might set mouseMove improperly
+
+  if y < zy then return end -- clicking on the button bar should not select an image... 
+  
+  mouseMove = false -- Window.click() above might set mouseMove improperly. We force it now
  
     --arrowMode = false
     -- check if there is a snapshot there

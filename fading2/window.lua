@@ -30,8 +30,11 @@ local Window = {class = "window", w = 0, h = 0, mag = 1.0, x = 0, y = 0 , title 
 		markForSink = false,							-- event to sink (gradually disappear)
 	        alwaysOnTop = false, alwaysBottom = false , 				-- force layering
 		wResizable = false, hResizable = false, whResizable = false, 		-- resizable for w and h
-		widgets = {},
-		layout = nil
+		widgets = {},								-- list of widgets in the window. Important: Inherited classes from Window
+											-- should redeclare this table explicitely, otherwise all will share the same
+											-- which is probably not the desired effect.
+		layout = nil,								-- layout (although it is also global variable, at least for the moment)
+		download = false,							-- download icon ? no by default
 	  }
 
 function Window:new( t ) 
@@ -91,9 +94,6 @@ function Window:unsink(sx, sy, sw, x, y, mag)
 	self.layout:setDisplay(self,true)
 	end
 
---function Window:cx( zx ) local W,H=self.layout.W, self.layout.H; return (-zx + W/2)*self.mag end
---function Window:cy( zy ) local W,H=self.layout.W, self.layout.H; return (-zy + H/2)*self.mag - theme.iconSize end
-
 -- return true if the point (x,y) (expressed in layout coordinates system,
 -- typically the mouse), is inside the window frame (whatever the display or
 -- layer value, managed at higher-level)
@@ -101,7 +101,7 @@ function Window:isInside(x,y)
   local W,H=self.layout.W, self.layout.H;
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
   return x >= zx and x <= zx + self.w / self.mag and 
-  	 y >= zy - theme.iconSize and y <= zy + self.h / self.mag -- iconSize needed to take window bar into account
+  	 y >= zy - theme.iconSize and y <= zy + self.h / self.mag -- iconSize needed here to take window bar into account
 end
 
 function Window:zoom( mag ) if self.zoomable then self.mag = mag end end
@@ -112,7 +112,7 @@ function Window:setTitle( title ) self.title = title end
 function Window:drawBar( )
 
  local W,H=self.layout.W, self.layout.H 
- -- reserve space for 3 buttons (today 2 used)
+ -- reserve space for 3 buttons 
  local reservedForButtons = theme.iconSize*3
  -- reserve space on maps for mask symbol (circle or rect)
  local marginForRect = 0
@@ -129,18 +129,26 @@ function Window:drawBar( )
  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
  love.graphics.rectangle( "fill", zx , zy - theme.iconSize , self.w / self.mag , theme.iconSize )
 
- -- draw icons
+ -- draw icons. Positions are expressed from right to left, 1 is the rightmost one
  love.graphics.setFont(theme.fontRound)
- if not self.alwaysVisible then -- close
+ if not self.alwaysVisible then 		-- close, in position 1
    love.graphics.draw( theme.iconClose, zx + self.w / self.mag - theme.iconSize + 3, zy - theme.iconSize + 3)
  end
- if self.alwaysOnTop then -- always on top
+ if self.alwaysOnTop then 			-- always on top, in position 2
  	love.graphics.draw( theme.iconOnTopActive, zx + self.w / self.mag - 2*theme.iconSize+3 , zy - theme.iconSize+3)
  else
  	love.graphics.draw( theme.iconOnTopInactive, zx + self.w / self.mag - 2*theme.iconSize+3 , zy - theme.iconSize+3)
  end
- if self.class == "map" and self.quad then -- expand
+ if self.class == "map" and self.quad then 	-- expand (only for maps). If present, in position 3
    love.graphics.draw( theme.iconExpand, zx + self.w / self.mag - 3 * theme.iconSize + 3, zy - theme.iconSize + 3)
+ end
+ if self.download then 				-- download (only for snapshot bar). If present, in position 3 
+   local active = layout:getDisplay(layout.uWindow)
+   if active then
+   	love.graphics.draw( theme.iconWWWActive, zx + self.w / self.mag - 3 * theme.iconSize + 3, zy - theme.iconSize + 3)
+   else
+   	love.graphics.draw( theme.iconWWWInactive, zx + self.w / self.mag - 3 * theme.iconSize + 3, zy - theme.iconSize + 3)
+   end
  end
 
  -- print title
@@ -215,6 +223,12 @@ function Window:click(x,y)
 		arrowMode = false
 		arrowStartX, arrowStartY = x, y
 		arrowModeMap = nil
+	end
+
+	-- click on Download
+	if self.download and x >= zx + self.w / self.mag - 3 * theme.iconSize and x <= zx + self.w / self.mag - 2 * theme.iconSize and
+                y >= zy - theme.iconSize and y <= zy then
+		self:download()
 	end
 
 	return nil
