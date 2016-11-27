@@ -36,7 +36,7 @@ function urlWindow:loadURL()
   -- load and check result
   local http = require("socket.http")
   local b, c = http.request( url )
-  io.write("downloading " .. url .. " HTTP status = " .. tostring(c) .. "\n")
+  io.write("downloading " .. url .. " HTTP status = " .. tostring(c) .. ", " .. string.len(tostring(b)) .. " bytes\n")
   if (not b) or (c ~= 200) then
 	layout.notificationWindow:addMessage("HTTP status " .. c .. ". Could not load image at " .. url )
 	return 
@@ -54,7 +54,7 @@ function urlWindow:loadURL()
 
   -- write it to a file
   local filename = self.path .. "downloadFromWWW-"..os.date("%Y%m%d%H%M%S") .. extension
-  local f = io.open(filename,"w")
+  local f = io.open(filename,"wb")
   if not f then layout.notificationWindow:addMessage("Sorry, could not load image at " .. url ); return end
   f:write(b)
   f:close()
