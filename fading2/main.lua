@@ -246,7 +246,7 @@ function love.filedropped(file)
 			table.insert( layout.snapshotWindow.snapshots[1].s , snap )
 			snap.kind = "image"	
 	  		-- set the local image
-	  		pWindow.currentImage = snap.im 
+	  		layout.pWindow.currentImage = snap.im 
 			-- remove the 'visible' flag from maps (eventually)
 			atlas:removeVisible()
 		  	tcpsend(projector,"ERAS") 	-- remove all pawns (if any) 
