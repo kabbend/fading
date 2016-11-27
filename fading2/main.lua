@@ -174,11 +174,12 @@ function tcpsendBinary( t )
         	data, size = file:read( chunksize )
  	end
  else
+	if __WINDOWS__ then filename = codepage.utf8tocp1252(filename) end
   	file = assert( io.open( filename, 'rb' ) )
   	local data = file:read(chunksize)
  	while data do
        		c:send(data) -- send chunk
-		io.write("sending " .. string.len(size) .. " bytes. \n")
+		io.write("sending " .. string.len(data) .. " bytes. \n")
         	data = file:read( chunksize )
  	end
  end

@@ -655,31 +655,16 @@ function love.keypressed( key )
  if key == "q" then love.event.quit() end
 end
 
-options = { { opcode="-b", longopcode="--base", mandatory=false, varname="baseDirectory", value=true, default="" },
-            { opcode="-d", longopcode="--debug", mandatory=false, varname="debug", value=false, default=false },
-            { opcode="-l", longopcode="--log", mandatory=false, varname="log", value=false, default=false },
-            { opcode="-i", longopcode="--ip", mandatory=false, varname="address", value=true, default="localhost" },
-            { opcode="-p", longopcode="--port", mandatory=false, varname="port", value=true, default="12345" },
-	   }
-
 --
 -- Main function
 --
 function love.load( args )
 
- local parse = doParse( args )
+ dofile("pconf.lua")
 
- -- log file
- if parse.log then
-   logFile = io.open("proj.log","w")
-   io.output(logFile)
-   io.write("starting log...\n")
- end
-
- address = parse.address 
- baseDirectory = parse.baseDirectory 
- port = parse.port ; portbin = port + 1
- --debug = parse.debug
+ address = serverip 
+ port = serverport 
+ portbin = serverport + 1
  debug = true
 
  -- no directory provided, we will request full binary mode to the server
@@ -692,7 +677,6 @@ function love.load( args )
 
  -- create socket and connect to the server
  tcp = socket.tcp()
- assert(tcp)
  tcp:settimeout(0)
  -- trying to reach server
  tcp:connect(address, port) 
