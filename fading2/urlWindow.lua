@@ -44,10 +44,10 @@ function urlWindow:loadURL()
 
   -- guess image format by name. FIXME a bit naive. How could we do that ?
   local extension = ""
-  local _,_,png = string.find( url , "%.png" )
-  local _,_,jpg = string.find( url , "%.jpg" )
-  local _,_,jpeg = string.find( url , "%.jpeg" )
-  local _,_,bmp = string.find( url , "%.bmp" )
+  local png = string.find( url , "%.png" )
+  local jpg = string.find( url , "%.jpg" )
+  local jpeg = string.find( url , "%.jpeg" )
+  local bmp = string.find( url , "%.bmp" )
   if png then extension = ".png" end
   if jpg or jpeg then extension = ".jpg" end
   if bmp then extension = ".bmp" end
