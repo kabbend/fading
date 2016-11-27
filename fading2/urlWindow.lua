@@ -42,8 +42,18 @@ function urlWindow:loadURL()
 	return 
   end
 
+  -- guess image format by name. FIXME a bit naive. How could we do that ?
+  local extension = ""
+  local _,_,png = string.find( url , "%.png" )
+  local _,_,jpg = string.find( url , "%.jpg" )
+  local _,_,jpeg = string.find( url , "%.jpeg" )
+  local _,_,bmp = string.find( url , "%.bmp" )
+  if png then extension = ".png" end
+  if jpg or jpeg then extension = ".jpg" end
+  if bmp then extension = ".bmp" end
+
   -- write it to a file
-  local filename = self.path .. "downloadFromWWW-"..os.date("%Y%m%d%H%M%S")
+  local filename = self.path .. "downloadFromWWW-"..os.date("%Y%m%d%H%M%S") .. extension
   local f = io.open(filename,"w")
   if not f then layout.notificationWindow:addMessage("Sorry, could not load image at " .. url ); return end
   f:write(b)

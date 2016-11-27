@@ -1475,17 +1475,19 @@ function init()
       fadingDirectoryCp1252 =   codepage.utf8tocp1252( fadingDirectory )
       io.write("cp1252 scenario directory : " .. fadingDirectoryCp1252 .. "\n")
 
-      local uWindow = urlWindow:new{w=1000,h=35,layout=layout, path=baseDirectoryCp1252..sep..fadingDirectoryCp1252..sep}
-      layout:addWindow( uWindow , 	true, "uWindow" )
+      local uWindow = urlWindow:new{w=1000,h=38,x=1000-layout.W/2,layout=layout, path=baseDirectoryCp1252..sep..fadingDirectoryCp1252..sep,
+					y= -layout.H/2+theme.iconSize+layout.intW+2*layout.snapshotSize }
+      layout:addWindow( uWindow , false, "uWindow" )
 
     else
 
-      local uWindow = urlWindow:new{w=1000,h=35,layout=layout, path=baseDirectory..sep..fadingDirectory..sep}
-      layout:addWindow( uWindow , 	true, "uWindow" )
+      local uWindow = urlWindow:new{w=1000,h=38,x=1000-layout.W/2,layout=layout, path=baseDirectory..sep..fadingDirectory..sep,
+					y= -layout.H/2+theme.iconSize+layout.intW+2*layout.snapshotSize }
+      layout:addWindow( uWindow , false, "uWindow" )
 
     end
 
-    -- create a new empty atlas (an array of maps), and tell him where to project
+    -- create a new empty atlas (a reference for maps), and tell it where to project the maps
     atlas = Atlas.new( layout.pWindow )
 
     -- create socket and listen to any client
@@ -1500,9 +1502,9 @@ function init()
     tcpbin:bind(address, serverport+1)
     tcpbin:listen(1)
 
-    -- initialize class template list  and dropdown list (opt{}) at the same time
-    -- later on, we might attach some images to these classes if we find them
-    -- try 2 locations to find data. Merge results if 2 files 
+    -- initialize PNJ class list 
+    -- later on, we might attach some images (snapshots) to these classes if we find them.
+    -- try 2 locations to find class data. The loadClasses() function is assumed to merge all results if 2 files are present 
     local directory, scenarioDirectory = baseDirectory, fadingDirectory
     if __WINDOWS__ then directory, scenarioDirectory = baseDirectoryCp1252, fadingDirectoryCp1252 end
 
@@ -1522,7 +1524,7 @@ function init()
 
     end
 
-    -- load various data files
+    -- load rest of data files (ie. images and maps)
     parseDirectory{ path = baseDirectory .. sep .. fadingDirectory }
     parseDirectory{ path = baseDirectory .. sep .. "pawns" , kind = "pawns" }
 
