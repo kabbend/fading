@@ -195,11 +195,13 @@ function Combat:createPNJGUIFrame()
               if (PNJTable[i].is_dead) then return end
               PNJTable[i].hits = PNJTable[i].hits - 1
               -- remove DEF if allowed
+		--[[
               if PNJTable[i].acceptDefLoss then
                 rpg.changeDefense(i,-1,nil)
                 PNJTable[i].lasthit = 0
                 PNJTable[i].acceptDefLoss = false
               end
+		--]]
               if (PNJTable[i].hits == 0) then 
                 PNJTable[i].is_dead = true; 
 
@@ -230,7 +232,7 @@ function Combat:createPNJGUIFrame()
               self.parent.goal.text = PNJTable[i].final_goal
               self.parent.hits.text = PNJTable[i].hits 
             end}),
-
+	--[[
         yui.HorizontalSpacing({w=3}),
         yui.Button({name="shot", text = '0', size=size-2,
             onClick = function(self) 
@@ -244,7 +246,7 @@ function Combat:createPNJGUIFrame()
               end
               PNJTable[i].final_goal = PNJTable[i].goal + PNJTable[i].malus + PNJTable[i].goalstancebonus
             end}),
-
+	--]]
         yui.HorizontalSpacing({w=3}),
         yui.Button({name="kill", text = 'kill', size=size-2, 
             onClick = function(self)
