@@ -6,11 +6,13 @@ local codepage = require 'codepage'
 if love.system.getOS() == "Windows" then __WINDOWS__ = true end
 
 -- the address and port of the server
-defaultAddress, port, portbin 	= "localhost", 12345, 12346
-connect 			= false		-- connection status to server
-timer 				= 0
-connectRetryTime 		= 5
-serverOS			= nil
+defaultAddress, port, portbin 	= "localhost", 12345, 12346	-- default for primary server
+connect = 		{ false, false }		-- connection status to primary and secondary server
+serverOS = 		{ nil, nil }
+tcp = 			{}
+server			= 1				-- primary server by default
+timer 			= 0
+connectRetryTime 	= 5
 
 -- image information
 currentImage = nil	-- displayed image
@@ -38,8 +40,8 @@ arrowX, arrowY	= nil, nil		-- current end point
 local oldiowrite = io.write
 function io.write( data ) if debug then oldiowrite( data ) end end
 
-function redressFilename( filename )
-  if serverOS == love.system.getOS() then return filename end -- nothing to redress
+function redressFilename( filename, server )
+  if serverOS[server] == love.system.getOS() then return filename end -- nothing to redress
   local f = ""
   local i = 1
   repeat 
@@ -54,13 +56,13 @@ end
   Pawn object 
 --]]
 Pawn = {}
-function Pawn:new( id, filename, sizex, x, y , pj )
+function Pawn:new( server, id, filename, sizex, x, y , pj )
 
   local new = {}
   setmetatable(new,self)
   self.__index = self
 
-  filename = redressFilename( baseDirectory .. sep .. filename )
+  filename = redressFilename( baseDirectory .. sep .. filename, server )
 
   -- set basic data
   new.id = id
@@ -198,7 +200,7 @@ function love.mousereleased (x,y)
                 if target and target ~= pawnMove then
 
                         -- we have a target
-                        tcp:send( "TARG " .. pawnMove.id .. " " ..  target.id .. "\n") 
+                        tcp[server]:send( "TARG " .. pawnMove.id .. " " ..  target.id .. "\n") 
 
                 else
 
@@ -221,7 +223,7 @@ function love.mousereleased (x,y)
 
 			pawnMove.timer = tween.new( pawnMovingTime, pawnMove, { y = pawnMove.moveToY, x = pawnMove.moveToX } )
 
-                        tcp:send("MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.moveToX) .. " " .. math.floor(pawnMove.moveToY) .. "\n")
+                        tcp[server]:send("MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.moveToX) .. " " .. math.floor(pawnMove.moveToY) .. "\n")
 
                 end
                 pawnMove = nil;
@@ -345,6 +347,13 @@ function love.draw()
 
 function love.update( dt )
 
+ 	if secondary then
+		-- alternate server if applicable
+		if server == 1 then server = 2 else server = 1 end
+	else
+		server = 1 -- only primary
+	end
+
 	-- store current mouse position in arrow mode
         if arrowMode then
                 arrowX, arrowY = love.mouse.getPosition()
@@ -366,18 +375,25 @@ function love.update( dt )
 	-- socket communication
 	timer = timer + dt
 
-	if not connect and timer > connectRetryTime then
+	if (not connect[1]) and timer > connectRetryTime then
 		-- nobody was listening, probably. we retry
-		io.write("calling server...\n")
-		if fullBinary then tcp:send("CONNECTB\n") else tcp:send("CONNECT\n") end
+		io.write("calling primary server...\n")
+		if fullBinary then tcp[1]:send("CONNECTB\n") else tcp[1]:send("CONNECT\n") end
 		timer = 0
 	end
 
-  	local data, msg = tcp:receive()
+	if secondary and (not connect[2]) and timer > connectRetryTime then
+		-- nobody was listening, probably. we retry
+		io.write("calling secondary server...\n")
+		if fullBinary then tcp[2]:send("CONNECTB\n") else tcp[2]:send("CONNECT\n") end
+		timer = 0
+	end
+
+  	local data, msg = tcp[server]:receive()
 
 	if data then 
 
-	  io.write("receiving data: " .. data .. "\n")
+	  io.write("receiving data from server " .. server .. " : " .. data .. "\n")
 
 	-- supported commands are:
 	--
@@ -518,19 +534,19 @@ function love.update( dt )
 	
 	  if command == "CONN MAC" then
  	  	io.write("Connected to " .. address .. " " .. port .. ", Mac server\n")
-		serverOS = "OS X"
-		connect = true
+		serverOS[server] = "OS X"
+		connect[server] = true
 	  elseif command == "CONN WIN" or command == "CONN" then
  	  	io.write("Connected to " .. address .. " " .. port .. ", Windows server\n")
-		serverOS = "Windows"
-		connect = true
+		serverOS[server] = "Windows"
+		connect[server] = true
 	  end
 
 	  if command == "OPEN" then
 
 		local rawfilename = string.sub( data , 6)
 
-		local filename = redressFilename ( rawfilename )
+		local filename = redressFilename ( rawfilename, server )
 
 		io.write("redressing filename, from " .. rawfilename .. " to " .. filename .. "\n")
 
@@ -662,25 +678,45 @@ function love.load( args )
 
  dofile("pconf.lua")
 
+ -- PRIMARY SERVER
  address = serverip 
  port = serverport 
  portbin = serverport + 1
+
+ -- (OPTIONAL) SECONDARY SERVER
+ if secondaryserverip and secondaryserverip ~= "" then
+   addressSec = secondaryserverip 
+   portSec = secondaryserverport 
+   portbinSec = secondaryserverport + 1
+   secondary = true
+ end
+
  debug = true
 
  -- no directory provided, we will request full binary mode to the server
  if baseDirectory == "" then fullBinary = true end
 
  io.write("IP address = " .. address .. "\n")
+ if secondary then io.write("secondary IP address = " .. addressSec .. "\n") end
  io.write("base directory = " .. baseDirectory .. "\n")
  
  if love.system.getOS() == "OS X" then sep = "/"; antisep = "\\";  else sep = "\\" ; antisep = "/" end
 
  -- create socket and connect to the server
- tcp = socket.tcp()
- tcp:settimeout(0)
+ tcp[1] = socket.tcp()
+ tcp[1]:settimeout(0)
  -- trying to reach server
- tcp:connect(address, port) 
- if fullBinary then tcp:send("CONNECTB\n") else tcp:send("CONNECT\n") end
+ tcp[1]:connect(address, port) 
+ if fullBinary then tcp[1]:send("CONNECTB\n") else tcp[1]:send("CONNECT\n") end
+
+ if secondary then
+   tcp[2] = socket.tcp()
+   tcp[2]:settimeout(0)
+   -- trying to reach server
+   tcp[2]:connect(addressSec, portSec) 
+   if fullBinary then tcp[2]:send("CONNECTB\n") else tcp[2]:send("CONNECT\n") end
+ end
+
  
  -- GUI initializations
  -- in remote: we go to 1st display fullscreen
