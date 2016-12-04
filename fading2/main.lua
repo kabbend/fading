@@ -23,7 +23,7 @@ local projectorWindow		= require 'projector'		-- project images to players
 local snapshotBar		= require 'snapshot'		-- all kinds of images 
 local Map			= require 'map'			-- maps 
 local Combat			= require 'combat'		-- main combat window (with PNJ list) 
-local urlWindow			= require 'urlwindow'		-- provide an URL to load 
+local urlWindow			= require 'urlWindow'		-- provide an URL to load 
 
 -- specific object classes
 local Snapshot			= require 'snapshotClass'	-- store and display one image 
