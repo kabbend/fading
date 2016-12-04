@@ -542,6 +542,7 @@ function love.draw()
 
   -- if drag & drop, draw a small snapshot at mouse position
   if dragMove then
+  	love.graphics.setColor(255,255,255)
 	local x,y = love.mouse.getPosition()
 	local s = dragObject.snapshot
 	love.graphics.draw(s.im, x, y, 0, s.snapmag, s.snapmag)

@@ -17,7 +17,7 @@ local iconSize = theme.iconSize
 -- a snapshotBar is a window which displays images
 --
 
-local snapshotBar = Window:new{ class = "snapshot" , title = snapText[1] , wResizable = true , download = true }
+local snapshotBar = Window:new{ class = "snapshot" , title = snapText[1] , wResizable = true , hResizable = true, download = true }
 
 function snapshotBar:new( t ) -- create from w, h, x, y
   local new = t or {}
@@ -26,6 +26,8 @@ function snapshotBar:new( t ) -- create from w, h, x, y
   new.snapshots = snapshots
   new.snapText = snapText
   new.currentSnap = 1 
+  new.lines = 1
+  new.maxPerLine = #snapshots[1].s
   return new
 end
 
@@ -39,21 +41,26 @@ function snapshotBar:draw()
 
   self:drawBack()
 
+  love.graphics.setColor(255,255,255)
+
   local snapshotSize = self.layout.snapshotSize
   local snapshotMargin = self.layout.snapshotMargin
-
   local zx,zy = -( self.x * 1/self.mag - self.layout.W / 2), -( self.y * 1/self.mag - self.layout.H / 2)
-  love.graphics.setColor(255,255,255)
-  for i=snapshots[self.currentSnap].index, #snapshots[self.currentSnap].s do
-	local x = zx + snapshots[self.currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1) - (snapshots[self.currentSnap].s[i].w * snapshots[self.currentSnap].s[i].snapmag - snapshotSize) / 2
+  --local basex = zx + snapshots[self.currentSnap].offset
+  for line = 1, self.lines do
+
+    for i=1 + self.maxPerLine * (line - 1), (self.maxPerLine * line) do
+	if i > #snapshots[self.currentSnap].s then break end
+    	local relativeIndex = i - self.maxPerLine * (line - 1)
+	local x = zx + snapshots[self.currentSnap].offset + (snapshotSize + snapshotMargin) * (relativeIndex-1) - (snapshots[self.currentSnap].s[i].w * snapshots[self.currentSnap].s[i].snapmag - snapshotSize) / 2
 	if x > zx + self.w / self.mag  + snapshotSize then break end
 	if x >= zx - snapshotSize then 
   		love.graphics.setScissor( zx, zy, self.w / self.mag, self.h / self.mag ) 
 		if snapshots[self.currentSnap].s[i].selected then
   			love.graphics.setColor(unpack(theme.color.red))
 			love.graphics.rectangle("line", 
-				zx + snapshots[self.currentSnap].offset + (snapshotSize + snapshotMargin) * (i-1),
-				zy + 5, 
+				zx + snapshots[self.currentSnap].offset + (snapshotSize + snapshotMargin) * (relativeIndex-1),
+				zy + 5 + (line-1)*(snapshotSize + snapshotMargin), 
 				snapshotSize, 
 				snapshotSize)
 		end
@@ -65,17 +72,19 @@ function snapshotBar:draw()
 			love.graphics.draw( 	snapshots[self.currentSnap].s[i].im , 
 				snapshots[self.currentSnap].s[i].quad,
 				x ,
-				zy - ( snapshots[self.currentSnap].s[i].h * snapshots[self.currentSnap].s[i].snapmag - snapshotSize ) / 2 + 2, 
+				zy + (line-1)*(snapshotSize + snapshotMargin) - ( snapshots[self.currentSnap].s[i].h * snapshots[self.currentSnap].s[i].snapmag - snapshotSize ) / 2 + 2, 
 			    	0 , snapshots[self.currentSnap].s[i].snapmag, snapshots[self.currentSnap].s[i].snapmag )
 			else
 			love.graphics.draw( 	snapshots[self.currentSnap].s[i].im , 
 				x ,
-				zy - ( snapshots[self.currentSnap].s[i].h * snapshots[self.currentSnap].s[i].snapmag - snapshotSize ) / 2 + 2, 
+				zy + (line-1)*(snapshotSize + snapshotMargin) - ( snapshots[self.currentSnap].s[i].h * snapshots[self.currentSnap].s[i].snapmag - snapshotSize ) / 2 + 2, 
 			    	0 , snapshots[self.currentSnap].s[i].snapmag, snapshots[self.currentSnap].s[i].snapmag )
 			end
 		end
   		love.graphics.setScissor() 
 	end
+   end
+
   end
  
    -- print bar
@@ -90,7 +99,8 @@ function snapshotBar:draw()
 	
    if x > left and x < right and y > zy and y < zy + self.h then
 	-- display text is over a class image
-    	local index = math.floor(((x-zx) - snapshots[self.currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
+	local line = math.floor((y - zy) / (snapshotSize + snapshotMargin)) + 1
+    	local index = (line - 1) * self.maxPerLine + math.floor(((x-zx) - snapshots[self.currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
     	if index >= 1 and index <= #snapshots[self.currentSnap].s then
 		if self.currentSnap == 3 then
 			local size = theme.fontRound:getWidth( RpgClasses[index].class )
@@ -120,15 +130,21 @@ end
 
 function snapshotBar:update(dt)
 	
-	Window.update(self,dt)
-
-  	local zx,zy = -( self.x - self.layout.W / 2), -( self.y - self.layout.H / 2)
   	local snapshotSize = self.layout.snapshotSize
   	local snapshotMargin = self.layout.snapshotMargin
 
+	Window.update(self,dt)
+
+	-- recompute in case window was resized
+	self.lines = math.floor(self.h / (snapshotSize + snapshotMargin))
+	if self.lines == 0 then self.lines = 1 end
+	self.maxPerLine = math.ceil(#snapshots[self.currentSnap].s / self.lines)
+
+  	local zx,zy = -( self.x - self.layout.W / 2), -( self.y - self.layout.H / 2)
+
 	-- change snapshot offset if mouse  at bottom right or left
-	--local snapMax = #snapshots[self.currentSnap].s * (snapshotSize + snapshotMargin) - self.layout.W
-	local snapMax = #snapshots[self.currentSnap].s * (snapshotSize + snapshotMargin) - self.w
+	--local snapMax = #snapshots[self.currentSnap].s * (snapshotSize + snapshotMargin) - self.w
+	local snapMax = self.maxPerLine * (snapshotSize + snapshotMargin) - self.w
 	if snapMax < 0 then snapMax = 0 end
 	local x,y = love.mouse.getPosition()
 	local left = math.max(zx,0)
@@ -164,7 +180,8 @@ function snapshotBar:click(x,y)
  
     --arrowMode = false
     -- check if there is a snapshot there
-    local index = math.floor(((x-zx) - snapshots[self.currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
+    local line = math.floor((y - zy) / (snapshotSize + snapshotMargin)) + 1
+    local index = (line - 1) * self.maxPerLine + math.floor(((x-zx) - snapshots[self.currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
     -- 2 possibilities: if this image is already selected, then use it
     -- otherwise, just select it (and deselect any other eventually)
     if index >= 1 and index <= #snapshots[self.currentSnap].s then
