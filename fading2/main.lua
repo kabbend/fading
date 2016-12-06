@@ -24,6 +24,7 @@ local snapshotBar		= require 'snapshot'		-- all kinds of images
 local Map			= require 'map'			-- maps 
 local Combat			= require 'combat'		-- main combat window (with PNJ list) 
 local urlWindow			= require 'urlWindow'		-- provide an URL to load 
+local graphWindow		= require 'graphScenarioWindow'	--  
 
 -- specific object classes
 local Snapshot			= require 'snapshotClass'	-- store and display one image 
@@ -1071,8 +1072,13 @@ if not initialized then return end
 -- 'lctrl + d' : open dialog window
 -- 'lctrl + f' : open setup window
 -- 'lctrl + h' : open help window
+-- 'lctrl + g' : open graph scenario window
 -- 'lctrl + tab' : give focus to the next window if any
 -- 'escape' : hide or restore all windows 
+if key == "g" and love.keyboard.isDown("lctrl") then
+  layout:toggleWindow( layout.sWindow )
+  return
+end
 if key == "d" and love.keyboard.isDown("lctrl") then
   layout:toggleWindow( layout.dialogWindow )
   return
@@ -1444,6 +1450,8 @@ function init()
 					y=-(layout.H-layout.snapshotSize-2*iconSize)+layout.H/2 - theme.iconSize ,layout=layout }
 
 
+    local sWindow = graphWindow:new{ w=600, h=400, x=300,y=layout.H/2-100, init=true,layout=layout} 
+
     -- do not display them yet
     -- basic windows (as opposed to maps, for instance) are also stored by name, so we can retrieve them easily elsewhere in the code
     layout:addWindow( combatWindow , 	false, "combatWindow" ) 
@@ -1453,6 +1461,7 @@ function init()
     layout:addWindow( dialogWindow , 	false, "dialogWindow" )
     layout:addWindow( helpWindow , 	false, "helpWindow" ) 
     layout:addWindow( dataWindow , 	false, "dataWindow" )
+    layout:addWindow( sWindow , 	false, "sWindow" )
 
     layout:addWindow( storyWindow , 	true , "storyWindow" )
     layout:addWindow( actionWindow , 	true , "actionWindow" )

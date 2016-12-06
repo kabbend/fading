@@ -7,12 +7,14 @@ Le repository contient 3 programmes qui fonctionnent ensemble :
 - le serveur, sous le repertoire fading2. Le serveur contient aussi l'interface qui tourne sur le PC du MJ, et qui contient la majeure partie des fonctionnalites. Le
   serveur peut tourner sans les 2 autres. Tapez 'Left-Control + h' pour avoir la fenêtre d'aide et un résumé des commandes.
 
-- le projecteur, sous le repertoire proj2c. Le projecteur est en visibilite des joueurs, depuis un 2nd moniteur du PC serveur, ou bien sur un autre PC. 
+- le projecteur, sous le repertoire proj2c. Le projecteur est en visibilite des joueurs, depuis un 2nd moniteur du PC serveur, ou bien sur un autre PC (eventuellement
+  connecte a un projecteur video). Le projecteur peut se connecter a un serveur (principal) ou deux serveurs (par exemple un pour le combat tracker, un pour les maps). Il
+  faut indiquer les serveurs avec les parametres 'serverip' et 'secondaryserverip' dans le fichier de conf 'pconf.lua'
 
 - le client mobile, sous le repertoire fsmob. Permet d'envoyer et recevoir de courts messages au MJ
 
 ## Prerequis:
-- un compilateur/interpreteur Lua
+- Lua
 - le moteur graphique LÖVE (love2d, version à partir de 0.10.2)
 - pour l'application mobile, le framework Corona SDK (qui permet de developper egalement en Lua)
 
@@ -20,7 +22,7 @@ Le repository contient 3 programmes qui fonctionnent ensemble :
 le lancement se fait depuis le repertoire parent qui contient fading2/ et proj2c/.
 Pour le serveur, la configuration se fait dans l'application (fenêtre de setup accessible par 'CTRL+f') ou bien directement dans le fichier de configuration 'fsconf.lua' à la
 racine (voir le paragraphe 'Unicode Hell' ci dessous)
-Pour le projecteur, il n'y a pas encore de fichier de configuration, les options sont passées en ligne de commande. 
+Pour le projecteur, la configuration se fait dans le fichier 'pconf.lua'
 
 ##Lancement
 Serveur
@@ -32,13 +34,7 @@ love fading2
 Projecteur:
 ```
 #!c
-love proj2c [options]
-[-b|--base baseDirectory] : Path to a base directory, common with server. If no base directory is given, the projector will request
-                            full binary mode to the server, ie. meaning that all files will be sent over the network
-[-d|--debug] :              Run in debug mode
-[-l|--log] :                Log to file (proj.log) instead of stdout
-[-i|--ip address] :         server IP 
-[-p|--port port] :          server port (default 12345)
+love proj2c
 ```
 ## Filesystem structure
 Le serveur s'appuie sur un répertoire principal qui sert de banque d'images. Il s'attend à une structure comme ci-dessous, et à ce qu'on lui designe un ou deux
