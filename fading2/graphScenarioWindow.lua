@@ -2,63 +2,93 @@
 local Window 		= require 'window'	-- Window class & system
 local theme		= require 'theme'	-- global theme
 local widget		= require 'widget'	-- widgets components
+local SLAXML 		= require 'slaxml'	-- XML parser
 local GraphLibrary 	= require('graph').Graph
-local SLAXML 		= require 'slaxml'
+
+local graph = GraphLibrary.new()
+
+local translation = nil		-- are we currently translating within the window ?
 
 --
 -- graphScenarioWindow class
 --
 local graphScenarioWindow = Window:new{ class = "graph" , wResizable = true, hResizable = true , movable = true }
-local graph = GraphLibrary.new()
 
 function graphScenarioWindow:new( t ) -- create from w, h, x, y
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
-  new:loadGraph("s.mm")
+  new.offsetX, new.offsetY = 0, 0	-- this offset is applied each time we manipulate nodes, it represents the translation
+					-- we do with the mouse within the window
+  new:loadGraph("s.mm")			-- FIXME hardcoded
   return new
 end
 
+--
+-- Load a scenario from a freemind.mm XML file
+--
 function graphScenarioWindow:loadGraph(filename)
-  myxml = io.open(filename):read('*all')
-  local nodeID = {}
-  local id = 1 
-  local x,y = 100, 100
-  local step = 10 
-  local currentID = nil
+
+  -- open XML file and read it completely (exit if no file)
+  local xmlfile = io.open(filename)
+  if not xmlfile then return end
+  local myxml = xmlfile:read('*all')
+
+  -- create the parser and appropriate callbacks
+  local nodeID = {} 			-- stack to store current id at this level
+  local id = 1 				-- incremental ID for the nodes, starting at 1
+  local x,y,step = 10, 10, 10
+  local currentID = nil			-- current id at this level
+  local color = { 0, 0, 0 }
+
   local parser = SLAXML:parser{
+
     startElement = function(name,nsURI,nsPrefix) 
 	if name == "node" then 
 	  currentID = nodeID[#nodeID] 
 	  table.insert(nodeID,id)
 	end
-        end, -- When "<foo" or <x:foo is seen
+        end, 
+
     attribute    = function(name,value,nsURI,nsPrefix) 
-	if name == "TEXT" then	
-	graph:addNode(tostring(id),value,x,y)
-	-- create an edge 
-	if currentID then graph:connectIDs(tostring(currentID), tostring(id)) end 
-	id = id + 1
-	x,y = x + step, y + step
+	if name == "COLOR" then
+	  -- color is a string of the form '#rrggbb' with rr,gg,bb in hexadecimal
+	  local r,g,b = string.sub(value,2,3), string.sub(value,4,5), string.sub(value,6,7)	
+	  color = { "0x"..r, "0x"..g, "0x"..b }  
 	end
-	end, -- attribute found on current element
+	if name == "TEXT" then	
+	  local n = graph:addNode(tostring(id),value,x,y)
+	  n.color = color 
+	  -- create an edge 
+	  if currentID then graph:connectIDs(tostring(currentID), tostring(id)) end 
+	  id = id + 1
+	  x,y = x + step, y + step
+	end
+	end, 
+
     closeElement = function(name,nsURI)
 	if name == "node" then
 	  table.remove(nodeID)   
-        end -- When "</foo>" or </x:foo> or "/>" is seen
+        end
 	end,
+
+    -- unused callbacks, for the moment
     text         = function(text)                      end, -- text and CDATA nodes
     comment      = function(content)                   end, -- comments
     pi           = function(target,content)            end, -- processing instructions e.g. "<?yes mon?>"
   }
+
+  -- parse file
   parser:parse(myxml,{stripWhitespace=true})
 
+  -- center on the first node
   graph:getNode("1"):setPosition(self.w/2,self.h/2)
   graph:getNode("1"):setAnchor(true)
 
   end
 
 function graphScenarioWindow:draw()
+
   self:drawBack()
   self:drawBar()
   self:drawResize()
@@ -69,13 +99,15 @@ function graphScenarioWindow:draw()
   love.graphics.setScissor(zx,zy,self.w,self.h)
   graph:draw( function( node )
                 local x, y = node:getPosition()
-                love.graphics.circle( 'fill', zx+x, zy+y, 10 )
-		love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400)
+		love.graphics.setColor(unpack(node.color))
+                love.graphics.circle( 'fill', zx+x+self.offsetX, zy+y+self.offsetY, 10 )
+		love.graphics.printf( node.getName(), zx+x+5+self.offsetX, zy+y+5+self.offsetY, 400)
             end,
             function( edge )
                 local ox, oy = edge.origin:getPosition()
                 local tx, ty = edge.target:getPosition()
-                love.graphics.line( zx+ox, zy+oy, zx+tx, zy+ty )
+		love.graphics.setColor(unpack(edge.origin.color))
+                love.graphics.line( zx+ox+self.offsetX, zy+oy+self.offsetY, zx+tx+self.offsetX, zy+ty+self.offsetY )
             end)
   love.graphics.setScissor()
   end
@@ -88,9 +120,9 @@ function graphScenarioWindow:click(x,y)
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
 
   if nodeMove then 
-	nodeMove:setAnchor(true)
 	nodeMove = nil 
   	Window.click(self,x,y)
+  	if y > zy then mouseMove = false end
 	return
 	end
 
@@ -99,14 +131,29 @@ function graphScenarioWindow:click(x,y)
 
   local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
-  nodeMove = graph:getNodeAt(x-zx,y-zy,10)
+
+  nodeMove = graph:getNodeAt(x-zx-self.offsetX,y-zy-self.offsetY,10)
+
+  translation = not nodeMove
+
+  end
+
+function graphScenarioWindow:mousemoved(x,y,dx,dy)
+  if translation then
+    self.offsetX = self.offsetX + dx
+    self.offsetY = self.offsetY + dy
+  end
+  end
+
+function graphScenarioWindow:mousereleased()
+  translation = false
   end
 
 function graphScenarioWindow:update(dt)
   local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
   local x,y = love.mouse.getPosition()
-  if nodeMove then nodeMove:setPosition(x-zx,y-zy) end 
+  if nodeMove then nodeMove:setPosition(x-zx-self.offsetX,y-zy-self.offsetY) end 
   graph:update( dt )
   end
 

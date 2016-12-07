@@ -167,5 +167,13 @@ function mainLayout:update(dt)
 	for k,v in pairs(self.windows) do v.w:update(dt) end
 	end
 
+function mainLayout:mousemoved(x,y,dx,dy)
+	for k,v in pairs(self.windows) do if v.w.mousemoved then v.w:mousemoved(x,y,dx,dy) end end 
+	end
+
+function mainLayout:mousereleased(x,y)
+	for k,v in pairs(self.windows) do if v.w.mousereleased then v.w:mousereleased(x,y) end end 
+	end
+
 return mainLayout
 

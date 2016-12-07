@@ -629,6 +629,8 @@ function computeTriangle( x1, y1, x2, y2 )
 -- handle all possible actions when mouse is released 
 function love.mousereleased( x, y )   
 
+	layout:mousereleased(x,y)
+
 	-- check if we must close a window (ie. we were pressing the 'close' icon)
 	local x,y = love.mouse.getPosition()
 	local w = layout:getWindow(x,y)
@@ -993,6 +995,8 @@ function findPNJ( id )
   end
 
 function love.mousemoved(x,y,dx,dy)
+
+layout:mousemoved(x,y,dx,dy)
 
 local w = layout:getFocus()
 if not w then return end
