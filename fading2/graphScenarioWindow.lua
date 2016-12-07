@@ -9,6 +9,8 @@ local graph = GraphLibrary.new()
 
 local translation = nil		-- are we currently translating within the window ?
 
+local nodeMove = nil 
+
 --
 -- graphScenarioWindow class
 --
@@ -26,10 +28,10 @@ function graphScenarioWindow:new( t ) -- create from w, h, x, y
 end
 
 function graphScenarioWindow:zoom(v)
-  if v < 0 or self.z < 1.0 then v = v / 10 end
+  if v < 0 then v = -0.05 else v = 0.05 end 
   self.z = self.z + v
-  if self.z <= 0 then self.z = 0.1 end
-  if self.z >= 10 then self.z = 10 end 
+  if self.z <= 0 then self.z = 0.05 end
+  if self.z >= 5 then self.z = 5 end 
   end
 
 --
@@ -45,9 +47,9 @@ function graphScenarioWindow:loadGraph(filename)
   -- create the parser and appropriate callbacks
   local nodeID = {} 			-- stack to store current id at this level
   local id = 1 				-- incremental ID for the nodes, starting at 1
-  local x,y,step = 10, 10, 10
+  local x,y,step = 0, 0, 10
   local currentID = nil			-- current id at this level
-  local color = { 0, 0, 0 }
+  local color = { 255, 0, 0 }
 
   local parser = SLAXML:parser{
 
@@ -64,10 +66,12 @@ function graphScenarioWindow:loadGraph(filename)
 	  local r,g,b = string.sub(value,2,3), string.sub(value,4,5), string.sub(value,6,7)	
 	  color = { "0x"..r, "0x"..g, "0x"..b }  
 	end
-	if name == "TEXT" then	
+	if name == "TEXT" then
 	  local n = graph:addNode(tostring(id),value,x,y)
-  	  n:setMass(string.len(value)/30)
 	  n.color = color 
+	  n.size = math.max(24 - 2 * #nodeID , 4)
+	  n.level = #nodeID
+  	  n:setMass(10/n.level+string.len(value)/30)
 	  -- create an edge 
 	  if currentID then graph:connectIDs(tostring(currentID), tostring(id)) end 
 	  id = id + 1
@@ -111,8 +115,16 @@ function graphScenarioWindow:draw()
 		x, y = x * self.z+self.offsetX, y * self.z+self.offsetY
 		if x < 0 or x > self.w or y < 0 or y > self.h then return end
 		love.graphics.setColor(unpack(node.color))
-                love.graphics.circle( 'fill', zx+x, zy+y, 10 )
-		love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400 , "left", 0, self.z, self.z )
+		if node.level <= 2 then
+                  love.graphics.rectangle( 'fill', zx+x-node.size/2, zy+y-node.size/2, node.size, node.size )
+		else
+                  love.graphics.circle( 'fill', zx+x, zy+y, node.size )
+		end
+		if nodeMove == node then
+		  love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400 )
+		else
+		  love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400 , "left", 0, self.z * node.size / 8, self.z * node.size / 8 )
+		end
             end,
             function( edge )
                 local ox, oy = edge.origin:getPosition()
@@ -128,8 +140,6 @@ function graphScenarioWindow:draw()
             end)
   love.graphics.setScissor()
   end
-
-local nodeMove = nil 
 
 function graphScenarioWindow:click(x,y)
 
@@ -150,7 +160,7 @@ function graphScenarioWindow:click(x,y)
   local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
 
-  nodeMove = graph:getNodeAt((x-(zx+self.offsetX))/self.z,(y-(zy+self.offsetY))/self.z,10/self.z)
+  nodeMove = graph:getNodeAt((x-(zx+self.offsetX))/self.z,(y-(zy+self.offsetY))/self.z,1/self.z)
 
   translation = not nodeMove
 

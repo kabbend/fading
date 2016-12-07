@@ -244,9 +244,10 @@ function Graph.new()
     -- @param y - The y coordinate to check.
     -- @param range - The range in which to check around the given coordinates.
     --
-    function self:getNodeAt(x, y, range)
+    function self:getNodeAt(x, y, sizefactor )
         for _, node in pairs( nodes ) do
             local nx, ny = node:getPosition();
+	    local range = node.size * sizefactor
             if x < nx + range and x > nx - range and y < ny + range and y > ny - range then
                 return node;
             end
