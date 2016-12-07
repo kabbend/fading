@@ -108,18 +108,23 @@ function graphScenarioWindow:draw()
   love.graphics.setScissor(zx,zy,self.w,self.h)
   graph:draw( function( node )
                 local x, y = node:getPosition()
-		x, y = x * self.z, y * self.z
+		x, y = x * self.z+self.offsetX, y * self.z+self.offsetY
+		if x < 0 or x > self.w or y < 0 or y > self.h then return end
 		love.graphics.setColor(unpack(node.color))
-                love.graphics.circle( 'fill', zx+x+self.offsetX, zy+y+self.offsetY, 10 )
-		love.graphics.printf( node.getName(), zx+x+5+self.offsetX, zy+y+5+self.offsetY, 400)
+                love.graphics.circle( 'fill', zx+x, zy+y, 10 )
+		love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400 , "left", 0, self.z, self.z )
             end,
             function( edge )
                 local ox, oy = edge.origin:getPosition()
                 local tx, ty = edge.target:getPosition()
-		ox, oy = ox * self.z, oy * self.z
-		tx, ty = tx * self.z, ty * self.z
+		ox, oy = ox * self.z + self.offsetX, oy * self.z + self.offsetY
+		tx, ty = tx * self.z + self.offsetX, ty * self.z + self.offsetY
+		local out1, out2 = false, false
+		if ox < 0 or ox > self.w or oy < 0 or oy > self.h then out1 = true end
+		if tx < 0 or tx > self.w or ty < 0 or ty > self.h then out2 = true end
+		if out1 and out2 then return end
 		love.graphics.setColor(unpack(edge.origin.color))
-                love.graphics.line( zx+ox+self.offsetX, zy+oy+self.offsetY, zx+tx+self.offsetX, zy+ty+self.offsetY )
+                love.graphics.line( zx+ox, zy+oy, zx+tx, zy+ty )
             end)
   love.graphics.setScissor()
   end
@@ -145,7 +150,7 @@ function graphScenarioWindow:click(x,y)
   local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
 
-  nodeMove = graph:getNodeAt((x-(zx+self.offsetX))/self.z,(y-(zy+self.offsetY))/self.z,10)
+  nodeMove = graph:getNodeAt((x-(zx+self.offsetX))/self.z,(y-(zy+self.offsetY))/self.z,10/self.z)
 
   translation = not nodeMove
 
@@ -163,6 +168,7 @@ function graphScenarioWindow:mousereleased()
   end
 
 function graphScenarioWindow:update(dt)
+  if not layout:getDisplay(self) then return end
   local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
   local x,y = love.mouse.getPosition()
