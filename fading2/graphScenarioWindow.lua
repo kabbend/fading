@@ -21,8 +21,16 @@ function graphScenarioWindow:new( t ) -- create from w, h, x, y
   new.offsetX, new.offsetY = 0, 0	-- this offset is applied each time we manipulate nodes, it represents the translation
 					-- we do with the mouse within the window
   new:loadGraph("s.mm")			-- FIXME hardcoded
+  new.z = 1.0
   return new
 end
+
+function graphScenarioWindow:zoom(v)
+  if v < 0 or self.z < 1.0 then v = v / 10 end
+  self.z = self.z + v
+  if self.z <= 0 then self.z = 0.1 end
+  if self.z >= 10 then self.z = 10 end 
+  end
 
 --
 -- Load a scenario from a freemind.mm XML file
@@ -58,6 +66,7 @@ function graphScenarioWindow:loadGraph(filename)
 	end
 	if name == "TEXT" then	
 	  local n = graph:addNode(tostring(id),value,x,y)
+  	  n:setMass(string.len(value)/30)
 	  n.color = color 
 	  -- create an edge 
 	  if currentID then graph:connectIDs(tostring(currentID), tostring(id)) end 
@@ -99,6 +108,7 @@ function graphScenarioWindow:draw()
   love.graphics.setScissor(zx,zy,self.w,self.h)
   graph:draw( function( node )
                 local x, y = node:getPosition()
+		x, y = x * self.z, y * self.z
 		love.graphics.setColor(unpack(node.color))
                 love.graphics.circle( 'fill', zx+x+self.offsetX, zy+y+self.offsetY, 10 )
 		love.graphics.printf( node.getName(), zx+x+5+self.offsetX, zy+y+5+self.offsetY, 400)
@@ -106,6 +116,8 @@ function graphScenarioWindow:draw()
             function( edge )
                 local ox, oy = edge.origin:getPosition()
                 local tx, ty = edge.target:getPosition()
+		ox, oy = ox * self.z, oy * self.z
+		tx, ty = tx * self.z, ty * self.z
 		love.graphics.setColor(unpack(edge.origin.color))
                 love.graphics.line( zx+ox+self.offsetX, zy+oy+self.offsetY, zx+tx+self.offsetX, zy+ty+self.offsetY )
             end)
@@ -120,6 +132,7 @@ function graphScenarioWindow:click(x,y)
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
 
   if nodeMove then 
+	if love.keyboard.isDown("lctrl") then nodeMove:setAnchor( not nodeMove:isAnchor() ) end
 	nodeMove = nil 
   	Window.click(self,x,y)
   	if y > zy then mouseMove = false end
@@ -132,7 +145,7 @@ function graphScenarioWindow:click(x,y)
   local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
 
-  nodeMove = graph:getNodeAt(x-zx-self.offsetX,y-zy-self.offsetY,10)
+  nodeMove = graph:getNodeAt((x-(zx+self.offsetX))/self.z,(y-(zy+self.offsetY))/self.z,10)
 
   translation = not nodeMove
 
@@ -153,7 +166,7 @@ function graphScenarioWindow:update(dt)
   local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
   local x,y = love.mouse.getPosition()
-  if nodeMove then nodeMove:setPosition(x-zx-self.offsetX,y-zy-self.offsetY) end 
+  if nodeMove then nodeMove:setPosition((x-(zx+self.offsetX))/self.z,(y-(zy+self.offsetY))/self.z) end 
   graph:update( dt )
   end
 

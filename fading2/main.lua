@@ -1141,6 +1141,16 @@ if window then
 	  doDialog()
   	end
 	
+  elseif window.class == "graph" then
+
+    	if key == keyZoomIn then
+		window:zoom( 1 )
+    	end 
+
+    	if key == keyZoomOut then
+		window:zoom( -1 )
+    	end 
+
   elseif window.class == "snapshot" then
   
   	-- 'space' to change snapshot list
