@@ -55,8 +55,9 @@ base Directory                -- banque globale d'images, de data, de maps. Peut
  !                            -- et aussi, sera associe automatiquement à une classe de PNJ si le nom matche avec celui indique dans le fichier data
  !
  +--- scenario Directory      -- repertoire du scenario en cours
-       +--- scenario.txt      -- facultatif: texte (structure) associe au scenario Coggle
-       +--- scenario.jpg      -- facultatif: image du scenario Coggle
+       +--- scenario.txt      -- (obsolete) texte (structure) associe au scenario Coggle
+       +--- scenario.jpg      -- (obsolete) image du scenario Coggle                    
+       +--- scenario.mm       -- facultatif: scenario au format XML freemind (.mm)
        +--- pawnDefault.jpg   -- image par defaut pour les pions
        +--- pawn*.jpg/png     -- sera associe automatiquement à un PJ si le nom matche (sinon, stocke comme une image classique)
        +--- map*.jpg/png      -- map: sera stockee en memoire et utilisable durant la partie (destinee à être projetee aux joueurs, et porter des pions) 

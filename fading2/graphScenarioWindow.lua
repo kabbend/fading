@@ -2,6 +2,7 @@
 local Window 		= require 'window'	-- Window class & system
 local theme		= require 'theme'	-- global theme
 local widget		= require 'widget'	-- widgets components
+local Snapshot		= require 'snapshotClass'-- widgets components
 local SLAXML 		= require 'slaxml'	-- XML parser
 local GraphLibrary 	= require('graph').Graph
 
@@ -16,13 +17,13 @@ local nodeMove = nil
 --
 local graphScenarioWindow = Window:new{ class = "graph" , wResizable = true, hResizable = true , movable = true }
 
-function graphScenarioWindow:new( t ) -- create from w, h, x, y
+function graphScenarioWindow:new( t ) -- create from w, h, x, y, filename
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
   new.offsetX, new.offsetY = 0, 0	-- this offset is applied each time we manipulate nodes, it represents the translation
 					-- we do with the mouse within the window
-  new:loadGraph("s.mm")			-- FIXME hardcoded
+  new:loadGraph(t.filename)		-- load XML file
   new.z = 1.0
   return new
 end
@@ -32,6 +33,25 @@ function graphScenarioWindow:zoom(v)
   self.z = self.z + v
   if self.z <= 0.02 then self.z = 0.02 end
   if self.z >= 5 then self.z = 5 end 
+  end
+
+local function loadimage(url,size)
+  -- load and check result
+  local http = require("socket.http")
+  local b, c = http.request( url )
+  io.write("downloading " .. url .. " HTTP status = " .. tostring(c) .. ", " .. string.len(tostring(b)) .. " bytes\n")
+  if (not b) or (c ~= 200) then return nil end
+
+  -- write it to a file
+  local filename = ".localtmpimage"
+  local f = io.open(filename,"wb")
+  if not f then return nil end
+  f:write(b)
+  f:close()
+
+  -- store the content of the file to a snapshot
+  local s = Snapshot:new{ filename = filename , size = size }
+  return s 
   end
 
 --
@@ -67,11 +87,20 @@ function graphScenarioWindow:loadGraph(filename)
 	  color = { "0x"..r, "0x"..g, "0x"..b }  
 	end
 	if name == "TEXT" then
-	  local n = graph:addNode(tostring(id),value,x,y)
+	  local n
+	  local a,b = string.find(value, "!%[uploaded image%]")
+	  if a then
+	    n = graph:addNode(tostring(id),"",x,y)
+	    local _,_,url,w,h = string.find( string.sub(value,b+2), "(https?://.*[^ ]) (%d+)x(%d+)")
+	    io.write("loading graph image : " .. tostring(url) .. "\n")
+	    n.im = loadimage(url,w)
+	  else
+	    n = graph:addNode(tostring(id),value,x,y)
+ 	  end
 	  n.color = color 
-	  n.size = math.max(20 - 2 * #nodeID , 2)
 	  n.level = #nodeID
-  	  n:setMass(10/n.level+string.len(value)/50)
+	  n.size = math.max(12 - #nodeID , 2)
+  	  n:setMass(15/n.level)
 	  -- create an edge 
 	  if currentID then graph:connectIDs(tostring(currentID), tostring(id)) end 
 	  id = id + 1
@@ -114,12 +143,17 @@ function graphScenarioWindow:draw()
                 local x, y = node:getPosition()
 		x, y = x * self.z+self.offsetX, y * self.z+self.offsetY
 		if x < 0 or x > self.w or y < 0 or y > self.h then return end
-		love.graphics.setColor(unpack(node.color))
-                love.graphics.circle( 'fill', zx+x, zy+y, node.size )
+                if not node.im then
+		  love.graphics.setColor(unpack(node.color))
+		  love.graphics.circle( 'fill', zx+x, zy+y, node.size )
+		else
+		  love.graphics.setColor(255,255,255)
+		  love.graphics.draw( node.im.im , zx+x, zy+y, 0, node.im.snapmag * self.z, node.im.snapmag * self.z )
+		end
 		if nodeMove == node then
 		  love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400 )
 		else
-		  love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400 , "left", 0, self.z * node.size / 10 , self.z * node.size / 10 )
+		  love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400 , "left", 0, self.z * node.size / 8 , self.z * node.size / 8 )
 		end
             end
 	
@@ -133,8 +167,11 @@ function graphScenarioWindow:draw()
 		if tx < 0 or tx > self.w or ty < 0 or ty > self.h then out2 = true end
 		if out1 and out2 then return end
 		love.graphics.setColor(unpack(edge.origin.color))
-		love.graphics.setLineWidth(edge.origin.size/2)
-                love.graphics.line( zx+ox, zy+oy, zx+tx, zy+ty )
+		love.graphics.setLineWidth(edge.origin.size/3)
+		local c1x, c1y = (ox + tx) / 2 , oy
+		local c2x, c2y = (ox + tx) / 2 , ty
+		local curve = love.math.newBezierCurve(zx+ox,zy+oy,zx+c1x,zy+c1y,zx+c2x,zy+c2y,zx+tx,zy+ty)
+		love.graphics.line( curve:render() )
             end
 
   graph:draw( drawnode, drawedge )
@@ -178,7 +215,7 @@ function graphScenarioWindow:mousereleased()
   -- stick/unstick node
   if nodeMove and love.keyboard.isDown("lctrl") then nodeMove:setAnchor( not nodeMove:isAnchor() ) end
   -- center node
-  if nodeMove and love.keyboard.isDown("c") then 
+  if nodeMove and love.keyboard.isDown("lshift") then 
     self.offsetX, self.offsetY = nodeMove:getPosition()
     self.offsetX, self.offsetY = - self.offsetX + self.w / 2, - self.offsetY + self.h / 2
     self.z = 1.0

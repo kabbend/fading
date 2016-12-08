@@ -1463,9 +1463,6 @@ function init()
     local snapshotWindow = snapshotBar:new{ w=layout.W-2*layout.intW, h=layout.snapshotSize+2, x=-layout.intW+layout.W/2, 
 					y=-(layout.H-layout.snapshotSize-2*iconSize)+layout.H/2 - theme.iconSize ,layout=layout }
 
-
-    local sWindow = graphWindow:new{ w=600, h=400, x=300,y=layout.H/2-100, init=true,layout=layout} 
-
     -- do not display them yet
     -- basic windows (as opposed to maps, for instance) are also stored by name, so we can retrieve them easily elsewhere in the code
     layout:addWindow( combatWindow , 	false, "combatWindow" ) 
@@ -1475,7 +1472,6 @@ function init()
     layout:addWindow( dialogWindow , 	false, "dialogWindow" )
     layout:addWindow( helpWindow , 	false, "helpWindow" ) 
     layout:addWindow( dataWindow , 	false, "dataWindow" )
-    layout:addWindow( sWindow , 	false, "sWindow" )
 
     layout:addWindow( storyWindow , 	true , "storyWindow" )
     layout:addWindow( actionWindow , 	true , "actionWindow" )
@@ -1504,11 +1500,19 @@ function init()
 					y= -layout.H/2+theme.iconSize+layout.intW+2*layout.snapshotSize }
       layout:addWindow( uWindow , false, "uWindow" )
 
+      local sWindow = graphWindow:new{ w=600, h=400, x=300,y=layout.H/2-100, init=true,layout=layout,
+					filename=baseDirectoryCp1252..sep..fadingDirectoryCp1252..sep.."scenario.mm"} 
+      layout:addWindow( sWindow , 	false, "sWindow" )
+
     else
 
       local uWindow = urlWindow:new{w=1000,h=38,x=1000-layout.W/2,layout=layout, path=baseDirectory..sep..fadingDirectory..sep,
 					y= -layout.H/2+theme.iconSize+layout.intW+2*layout.snapshotSize }
       layout:addWindow( uWindow , false, "uWindow" )
+
+      local sWindow = graphWindow:new{ w=600, h=400, x=300,y=layout.H/2-100, init=true,layout=layout,
+					filename=baseDirectory..sep..fadingDirectory..sep.."scenario.mm"} 
+      layout:addWindow( sWindow , 	false, "sWindow" )
 
     end
 
