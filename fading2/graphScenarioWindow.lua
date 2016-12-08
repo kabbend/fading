@@ -150,10 +150,15 @@ function graphScenarioWindow:draw()
 		  love.graphics.setColor(255,255,255)
 		  love.graphics.draw( node.im.im , zx+x, zy+y, 0, node.im.snapmag * self.z, node.im.snapmag * self.z )
 		end
+		local bigger = 1
+		if string.sub(node.getName(),1,3) == "###" then bigger = 1.3 
+		elseif string.sub(node.getName(),1,2) == "##" then bigger = 1.6 
+		elseif string.sub(node.getName(),1,1) == "#" then bigger = 2 
+		end 
 		if nodeMove == node then
 		  love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400 )
 		else
-		  love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400 , "left", 0, self.z * node.size / 8 , self.z * node.size / 8 )
+		  love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400 , "left", 0, self.z * node.size / 8 * bigger , self.z * node.size / 8 * bigger )
 		end
             end
 	
@@ -166,7 +171,7 @@ function graphScenarioWindow:draw()
 		if ox < 0 or ox > self.w or oy < 0 or oy > self.h then out1 = true end
 		if tx < 0 or tx > self.w or ty < 0 or ty > self.h then out2 = true end
 		if out1 and out2 then return end
-		love.graphics.setColor(unpack(edge.origin.color))
+		love.graphics.setColor(unpack(edge.target.color))
 		love.graphics.setLineWidth(edge.origin.size/3)
 		local c1x, c1y = (ox + tx) / 2 , oy
 		local c2x, c2y = (ox + tx) / 2 , ty
