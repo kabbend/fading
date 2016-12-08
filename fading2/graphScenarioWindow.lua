@@ -28,9 +28,9 @@ function graphScenarioWindow:new( t ) -- create from w, h, x, y
 end
 
 function graphScenarioWindow:zoom(v)
-  if v < 0 then v = -0.05 else v = 0.05 end 
+  if v < 0 then v = -0.02 else v = 0.02 end 
   self.z = self.z + v
-  if self.z <= 0 then self.z = 0.05 end
+  if self.z <= 0.02 then self.z = 0.02 end
   if self.z >= 5 then self.z = 5 end 
   end
 
@@ -69,9 +69,9 @@ function graphScenarioWindow:loadGraph(filename)
 	if name == "TEXT" then
 	  local n = graph:addNode(tostring(id),value,x,y)
 	  n.color = color 
-	  n.size = math.max(24 - 2 * #nodeID , 4)
+	  n.size = math.max(20 - 2 * #nodeID , 2)
 	  n.level = #nodeID
-  	  n:setMass(10/n.level+string.len(value)/30)
+  	  n:setMass(10/n.level+string.len(value)/50)
 	  -- create an edge 
 	  if currentID then graph:connectIDs(tostring(currentID), tostring(id)) end 
 	  id = id + 1
@@ -102,31 +102,28 @@ function graphScenarioWindow:loadGraph(filename)
 
 function graphScenarioWindow:draw()
 
+  local W,H=self.layout.W, self.layout.H
+  local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
+
   self:drawBack()
   self:drawBar()
   self:drawResize()
   
-  local W,H=self.layout.W, self.layout.H
-  local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
-
   love.graphics.setScissor(zx,zy,self.w,self.h)
-  graph:draw( function( node )
+  local function drawnode( node )
                 local x, y = node:getPosition()
 		x, y = x * self.z+self.offsetX, y * self.z+self.offsetY
 		if x < 0 or x > self.w or y < 0 or y > self.h then return end
 		love.graphics.setColor(unpack(node.color))
-		if node.level <= 2 then
-                  love.graphics.rectangle( 'fill', zx+x-node.size/2, zy+y-node.size/2, node.size, node.size )
-		else
-                  love.graphics.circle( 'fill', zx+x, zy+y, node.size )
-		end
+                love.graphics.circle( 'fill', zx+x, zy+y, node.size )
 		if nodeMove == node then
 		  love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400 )
 		else
-		  love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400 , "left", 0, self.z * node.size / 8, self.z * node.size / 8 )
+		  love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400 , "left", 0, self.z * node.size / 10 , self.z * node.size / 10 )
 		end
-            end,
-            function( edge )
+            end
+	
+       local function drawedge( edge )
                 local ox, oy = edge.origin:getPosition()
                 local tx, ty = edge.target:getPosition()
 		ox, oy = ox * self.z + self.offsetX, oy * self.z + self.offsetY
@@ -136,8 +133,11 @@ function graphScenarioWindow:draw()
 		if tx < 0 or tx > self.w or ty < 0 or ty > self.h then out2 = true end
 		if out1 and out2 then return end
 		love.graphics.setColor(unpack(edge.origin.color))
+		love.graphics.setLineWidth(edge.origin.size/2)
                 love.graphics.line( zx+ox, zy+oy, zx+tx, zy+ty )
-            end)
+            end
+
+  graph:draw( drawnode, drawedge )
   love.graphics.setScissor()
   end
 
@@ -175,6 +175,15 @@ function graphScenarioWindow:mousemoved(x,y,dx,dy)
 
 function graphScenarioWindow:mousereleased()
   translation = false
+  -- stick/unstick node
+  if nodeMove and love.keyboard.isDown("lctrl") then nodeMove:setAnchor( not nodeMove:isAnchor() ) end
+  -- center node
+  if nodeMove and love.keyboard.isDown("c") then 
+    self.offsetX, self.offsetY = nodeMove:getPosition()
+    self.offsetX, self.offsetY = - self.offsetX + self.w / 2, - self.offsetY + self.h / 2
+    self.z = 1.0
+  end
+  nodeMove = nil
   end
 
 function graphScenarioWindow:update(dt)
