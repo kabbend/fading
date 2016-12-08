@@ -1500,7 +1500,7 @@ function init()
 					y= -layout.H/2+theme.iconSize+layout.intW+2*layout.snapshotSize }
       layout:addWindow( uWindow , false, "uWindow" )
 
-      local sWindow = graphWindow:new{ w=600, h=400, x=300,y=layout.H/2-100, init=true,layout=layout,
+      local sWindow = graphWindow:new{  w=layout.WC, h=layout.HC, x=-layout.intW+layout.W/2, y=-layout.intW+layout.H/2-theme.iconSize,layout=layout,
 					filename=baseDirectoryCp1252..sep..fadingDirectoryCp1252..sep.."scenario.mm"} 
       layout:addWindow( sWindow , 	false, "sWindow" )
 
@@ -1510,7 +1510,7 @@ function init()
 					y= -layout.H/2+theme.iconSize+layout.intW+2*layout.snapshotSize }
       layout:addWindow( uWindow , false, "uWindow" )
 
-      local sWindow = graphWindow:new{ w=600, h=400, x=300,y=layout.H/2-100, init=true,layout=layout,
+      local sWindow = graphWindow:new{  w=layout.WC, h=layout.HC, x=-layout.intW+layout.W/2, y=-layout.intW+layout.H/2-theme.iconSize,layout=layout,
 					filename=baseDirectory..sep..fadingDirectory..sep.."scenario.mm"} 
       layout:addWindow( sWindow , 	false, "sWindow" )
 
