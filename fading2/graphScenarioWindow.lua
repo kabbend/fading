@@ -8,9 +8,15 @@ local GraphLibrary 	= require('graph').Graph
 
 local graph = GraphLibrary.new()
 
-local translation = nil		-- are we currently translating within the window ?
+local translation 	= false		-- are we currently translating within the window ?
+local nodeMove 		= nil		-- are we currently moving a node ? If yes, points to the node, nil otherwise 
+local fonts 		= {}		-- same font with different sizes
 
-local nodeMove = nil 
+local MAX_TEXT_W_AT_SCALE_1	= 400
+local BIGGER_SHARP		= 2
+local BIGGER_2_SHARP		= 1.6
+local BIGGER_3_SHARP		= 1.3
+local ALIGN 			= "left"
 
 --
 -- graphScenarioWindow class
@@ -24,7 +30,10 @@ function graphScenarioWindow:new( t ) -- create from w, h, x, y, filename
   new.offsetX, new.offsetY = 0, 0	-- this offset is applied each time we manipulate nodes, it represents the translation
 					-- we do with the mouse within the window
   new:loadGraph(t.filename)		-- load XML file
-  new.z = 1.0
+  new.z = 1.0				-- zoom factor
+  for i=4,40 do 			-- load same font with different sizes
+    fonts[i] = love.graphics.newFont( "yui/yaoui/fonts/georgia.ttf" , i ) 
+  end
   return new
 end
 
@@ -35,6 +44,7 @@ function graphScenarioWindow:zoom(v)
   if self.z >= 5 then self.z = 5 end 
   end
 
+-- load an image from Internet
 local function loadimage(url,size)
   -- load and check result
   local http = require("socket.http")
@@ -151,14 +161,45 @@ function graphScenarioWindow:draw()
 		  love.graphics.draw( node.im.im , zx+x, zy+y, 0, node.im.snapmag * self.z, node.im.snapmag * self.z )
 		end
 		local bigger = 1
-		if string.sub(node.getName(),1,3) == "###" then bigger = 1.3 
-		elseif string.sub(node.getName(),1,2) == "##" then bigger = 1.6 
-		elseif string.sub(node.getName(),1,1) == "#" then bigger = 2 
-		end 
+		if string.sub(node.getName(),1,3) 	== "###" then 	bigger = BIGGER_3_SHARP 
+		elseif string.sub(node.getName(),1,2) 	== "##" then 	bigger = BIGGER_2_SHARP 
+		elseif string.sub(node.getName(),1,1)  	== "#" then 	bigger = BIGGER_SHARP 
+		end
 		if nodeMove == node then
-		  love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400 )
+		  -- the node with current focus is printed bigger
+		  local fontSize = math.floor(12 * (node.size / 4) * bigger)
+		  if fontSize < 4 then fontSize = 4 elseif fontSize > 40 then fontSize = 40 end
+		  ALIGN = "left"
+		  local xposition = 5  
+		  -- if node is a leaf, the text direction is opposite to the edge direction (left or right)
+		  if node.nConnected == 1 then
+			local nx,ny = node.lastConnected:getPosition() 
+			local ox,oy = node:getPosition() 
+			if (ox - nx) < 0 then 
+			  ALIGN = "right"
+		  	  local width, wrappedtext = fonts[fontSize]:getWrap( node:getName(), MAX_TEXT_W_AT_SCALE_1 )
+		  	  xposition = -width  
+		  	end
+		  end
+		  love.graphics.setFont( fonts[fontSize] )
+		  love.graphics.printf( node.getName(), zx+x+xposition, zy+y+5, MAX_TEXT_W_AT_SCALE_1 , ALIGN )
 		else
-		  love.graphics.printf( node.getName(), zx+x+5, zy+y+5, 400 , "left", 0, self.z * node.size / 8 * bigger , self.z * node.size / 8 * bigger )
+		  local fontSize = math.floor(12 * self.z * (node.size / 8) * bigger)
+		  if fontSize < 4 then fontSize = 4 elseif fontSize > 40 then fontSize = 40 end
+		  ALIGN = "left"
+		  local xposition = 5  
+		  -- if node is a leaf, the text direction is opposite to the edge direction (left or right)
+		  if node.nConnected == 1 then
+			local nx,ny = node.lastConnected:getPosition() 
+			local ox,oy = node:getPosition() 
+			if (ox - nx) < 0 then 
+			  ALIGN = "right"
+		  	  local width, wrappedtext = fonts[fontSize]:getWrap( node:getName(), MAX_TEXT_W_AT_SCALE_1 * self.z )
+		  	  xposition = -width  
+		  	end
+		  end
+		  love.graphics.setFont( fonts[fontSize] )
+		  love.graphics.printf( node.getName(), zx+x+xposition, zy+y+5, MAX_TEXT_W_AT_SCALE_1 * self.z , ALIGN )
 		end
             end
 	
