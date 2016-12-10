@@ -1144,12 +1144,22 @@ if window then
   elseif window.class == "graph" then
 
     	if key == keyZoomIn then
+		ignoreLastChar = true
 		window:zoom( 1 )
     	end 
 
     	if key == keyZoomOut then
+		ignoreLastChar = true
 		window:zoom( -1 )
     	end 
+
+   	if key == "tab" then
+	  window:iterate()
+   	end
+
+   	if key == "return" then
+	  window:doSearch()
+   	end
 
   elseif window.class == "snapshot" then
   

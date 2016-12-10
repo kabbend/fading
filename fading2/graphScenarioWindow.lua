@@ -1,10 +1,12 @@
 
 local Window 		= require 'window'	-- Window class & system
 local theme		= require 'theme'	-- global theme
+local utf8		= require 'utf8'	-- utf8 support 
 local widget		= require 'widget'	-- widgets components
 local Snapshot		= require 'snapshotClass'-- widgets components
 local SLAXML 		= require 'slaxml'	-- XML parser
 local GraphLibrary 	= require('graph').Graph
+local http 		= require("socket.http")
 
 local graph = GraphLibrary.new()
 
@@ -18,6 +20,103 @@ local BIGGER_2_SHARP		= 1.6
 local BIGGER_3_SHARP		= 1.3
 local ALIGN 			= "left"
 
+-- for scenario search
+local textBase                = "Search: "
+local text                    = textBase              -- text printed on the screen when typing search keywords
+local searchIterator          = nil                   -- iterator on the results, when search is done
+local searchPertinence        = 0                     -- will be set by using the iterator, and used during draw
+local searchIndex             = 0                     -- will be set by using the iterator, and used during draw
+local searchSize              = 0                     -- idem
+local currentSearchNode	      = nil
+
+dictionnary 		= {}			-- dictionnary indexed by word
+
+-- perform a search in the scenario text on one or several words, and return an iterator on the results (or nil 
+-- if no results). each call to the iterator returns 
+--   id node id
+--   p the pertinence value of the result
+--   i the rank in the result list
+--   s the total number of results
+-- sorted by descending pertinence
+function doSearch( sentence )
+
+	local searchResults = {} -- will be part of the iterator
+
+	-- intermediate iresult is an array indexed with node id,  
+	-- and value a pertinence integer value p depending on the number of occurences in the node
+	local iresult = {} 	
+	for word in string.gmatch( sentence , "%a+" ) do
+		word = string.lower( word )
+    		if dictionnary[word] then
+	  		for k,v in pairs(dictionnary[word]) do
+				if iresult[ v ] then iresult[ v ] = iresult[ v ] + 1 else iresult[ v ] = 1 end
+	  		end
+		end
+	end
+
+	-- create flat array of (id,pertinence,level) from this
+	for k,v in pairs(iresult) do
+		local node = graph:getNode(k)
+		table.insert( searchResults , { id=k , p=v , l=node.level } ) 
+	end
+
+ 	-- sort them by decreasing pertinence, then decreasing level
+	table.sort ( searchResults, function(a,b) if a.p == b.p then return a.l > b.l else return a.p > b.p end end )
+
+	-- create and return iterator, or nil if no results
+	if not searchResults or table.getn( searchResults ) == 0 then return nil end
+
+	local i = 0
+	local iter = function()
+	  i = i + 1
+	  if i > table.getn( searchResults ) then i = 1 end
+	  local u = searchResults[ i ]
+	  return u.id, u.p , i, table.getn( searchResults ) 
+	  end
+
+	return iter
+
+	end
+
+local tableAccents = {}
+    tableAccents["à"] = "a" tableAccents["á"] = "a" tableAccents["â"] = "a" tableAccents["ã"] = "a"
+    tableAccents["ä"] = "a" tableAccents["ç"] = "c" tableAccents["è"] = "e" tableAccents["é"] = "e"
+    tableAccents["ê"] = "e" tableAccents["ë"] = "e" tableAccents["ì"] = "i" tableAccents["í"] = "i"
+    tableAccents["î"] = "i" tableAccents["ï"] = "i" tableAccents["ñ"] = "n" tableAccents["ò"] = "o"
+    tableAccents["ó"] = "o" tableAccents["ô"] = "o" tableAccents["õ"] = "o" tableAccents["ö"] = "o"
+    tableAccents["ù"] = "u" tableAccents["ú"] = "u" tableAccents["û"] = "u" tableAccents["ü"] = "u"
+    tableAccents["ý"] = "y" tableAccents["ÿ"] = "y" tableAccents["À"] = "A" tableAccents["Á"] = "A"
+    tableAccents["Â"] = "A" tableAccents["Ã"] = "A" tableAccents["Ä"] = "A" tableAccents["Ç"] = "C"
+    tableAccents["È"] = "E" tableAccents["É"] = "E" tableAccents["Ê"] = "E" tableAccents["Ë"] = "E"
+    tableAccents["Ì"] = "I" tableAccents["Í"] = "I" tableAccents["Î"] = "I" tableAccents["Ï"] = "I"
+    tableAccents["Ñ"] = "N" tableAccents["Ò"] = "O" tableAccents["Ó"] = "O" tableAccents["Ô"] = "O"
+    tableAccents["Õ"] = "O" tableAccents["Ö"] = "O" tableAccents["Ù"] = "U" tableAccents["Ú"] = "U"
+    tableAccents["Û"] = "U" tableAccents["Ü"] = "U" tableAccents["Ý"] = "Y"
+ 
+-- Strip accents from a string
+function string.stripAccents( str )
+        
+    local normalizedString = ""
+ 
+    for strChar in string.gfind(str, "([%z\1-\127\194-\244][\128-\191]*)") do
+        if tableAccents[strChar] ~= nil then
+            normalizedString = normalizedString..tableAccents[strChar]
+        else
+            normalizedString = normalizedString..strChar
+        end
+    end
+        
+    return normalizedString
+ 
+    end
+
+local ignore = { "le", "la" , "les", "un" , "une", "des", "ce", "cet", "cette", "ces", "celles", "ca" , "si", "se" , "son", "de" ,
+			 "sans", "dans", "pour", "par", "l", "a", "y", "d", "m", "n", "il", "elle", "elles", "ils", "du", "mais", "pour", 
+			 "quand", "quoi", "ma", "ta", "ton", "tes", "ni", "ne" , "qui", "que", "qu"
+			}
+
+local reject = function(word) for _,v in ipairs(ignore) do if v == word then return true end end return false end 
+ 
 --
 -- graphScenarioWindow class
 --
@@ -47,7 +146,6 @@ function graphScenarioWindow:zoom(v)
 -- load an image from Internet
 local function loadimage(url,size)
   -- load and check result
-  local http = require("socket.http")
   local b, c = http.request( url )
   io.write("downloading " .. url .. " HTTP status = " .. tostring(c) .. ", " .. string.len(tostring(b)) .. " bytes\n")
   if (not b) or (c ~= 200) then return nil end
@@ -59,9 +157,8 @@ local function loadimage(url,size)
   f:write(b)
   f:close()
 
-  -- store the content of the file to a snapshot
-  local s = Snapshot:new{ filename = filename , size = size }
-  return s 
+  -- store the content of the file in a snapshot with proper size
+  return Snapshot:new{ filename = filename , size = size }
   end
 
 --
@@ -100,21 +197,34 @@ function graphScenarioWindow:loadGraph(filename)
 	  local n
 	  local a,b = string.find(value, "!%[uploaded image%]")
 	  if a then
-	    n = graph:addNode(tostring(id),"",x,y)
-	    local _,_,url,w,h = string.find( string.sub(value,b+2), "(https?://.*[^ ]) (%d+)x(%d+)")
-	    io.write("loading graph image : " .. tostring(url) .. "\n")
-	    n.im = loadimage(url,w)
+		-- the text is contains an hyperlink for an image (coggle format). Create a node with no text and 
+		-- attach the image 
+	        n = graph:addNode(tostring(id),"",x,y)
+	        local _,_,url,w,h = string.find( string.sub(value,b+2), "(https?://.*[^ ]) (%d+)x(%d+)")
+	        n.im = loadimage(url,w)
 	  else
-	    n = graph:addNode(tostring(id),value,x,y)
+		-- create node with text
+	    	n = graph:addNode(tostring(id),value,x,y)
+		-- parse all words of the text (convert it lowercase, and ignore all common words)
+		-- insert them in the dictionnary, with the node id 
+		local text = string.stripAccents( value ) -- remove all accented characters to ease future search
+		for word in string.gmatch( text , "%a+" ) do
+   			word = string.lower( word )
+			if not reject(word) then -- we do not store common words 
+   			 if dictionnary[word] then table.insert( dictionnary[word] , tostring(id) )
+   			 else dictionnary[word] = { tostring(id) } end
+			end
+		end
  	  end
+	  -- complement the node with some information
 	  n.color = color 
 	  n.level = #nodeID
 	  n.size = math.max(12 - #nodeID , 2)
   	  n:setMass(15/n.level)
-	  -- create an edge 
+	  -- create an edge between this new node and the one currently on top of stack (it's parent)
 	  if currentID then graph:connectIDs(tostring(currentID), tostring(id)) end 
 	  id = id + 1
-	  x,y = x + step, y + step
+	  x,y = x + step, y + step -- naive initial positioning
 	end
 	end, 
 
@@ -165,21 +275,33 @@ function graphScenarioWindow:draw()
 		elseif string.sub(node.getName(),1,2) 	== "##" then 	bigger = BIGGER_2_SHARP 
 		elseif string.sub(node.getName(),1,1)  	== "#" then 	bigger = BIGGER_SHARP 
 		end
-		if nodeMove == node then
+		if (nodeMove == node) or (currentSearchNode == node) then
 		  -- the node with current focus is printed bigger
 		  local fontSize = math.floor(12 * (node.size / 4) * bigger)
 		  if fontSize < 4 then fontSize = 4 elseif fontSize > 40 then fontSize = 40 end
 		  ALIGN = "left"
 		  local xposition = 5  
+		  local width, wrappedtext
 		  -- if node is a leaf, the text direction is opposite to the edge direction (left or right)
 		  if node.nConnected == 1 then
 			local nx,ny = node.lastConnected:getPosition() 
 			local ox,oy = node:getPosition() 
 			if (ox - nx) < 0 then 
 			  ALIGN = "right"
-		  	  local width, wrappedtext = fonts[fontSize]:getWrap( node:getName(), MAX_TEXT_W_AT_SCALE_1 )
+		  	  width, wrappedtext = fonts[fontSize]:getWrap( node:getName(), MAX_TEXT_W_AT_SCALE_1 )
 		  	  xposition = -width  
 		  	end
+		  end
+		  -- draw a rectangle to highlight search result
+		  if currentSearchNode == node then
+		    if not wrappedtext then 
+			  width, wrappedtext = fonts[fontSize]:getWrap( node:getName(), MAX_TEXT_W_AT_SCALE_1 )
+		  	  xposition = -width  
+			  end
+		    local height = table.getn(wrappedtext)*(fontSize+3)
+		    love.graphics.setColor(255,255,255)
+		    love.graphics.rectangle("fill",zx+x+xposition, zy+y+5,width,height)	
+		    love.graphics.setColor(0,0,0)
 		  end
 		  love.graphics.setFont( fonts[fontSize] )
 		  love.graphics.printf( node.getName(), zx+x+xposition, zy+y+5, MAX_TEXT_W_AT_SCALE_1 , ALIGN )
@@ -222,6 +344,15 @@ function graphScenarioWindow:draw()
 
   graph:draw( drawnode, drawedge )
   love.graphics.setScissor()
+
+  -- print search zone 
+  love.graphics.setColor(0,0,0)
+  love.graphics.setFont(theme.fontSearch)
+  love.graphics.printf(text, zx + 20, zy + self.h - 20, 400)
+  -- print number of the search result is needed
+  if searchIterator then love.graphics.printf( "( " .. searchIndex .. " [" .. string.format("%.2f", searchPertinence) .. "] out of " ..
+                                                           searchSize .. " )", zx + string.len(text)*8 + 20, zy + self.h - 20, 400) end
+
   end
 
 function graphScenarioWindow:click(x,y)
@@ -278,5 +409,46 @@ function graphScenarioWindow:update(dt)
   graph:update( dt )
   end
 
+function graphScenarioWindow:getFocus()
+                textActiveCallback = function(t) text = text .. t ; searchIterator = nil; currentSearchNode = nil end
+                textActiveBackspaceCallback = function ()
+                        if text == textBase then return end
+                	searchIterator = nil; currentSearchNode = nil 
+                        -- get the byte offset to the last UTF-8 character in the string.
+                        local byteoffset = utf8.offset(text, -1)
+                        if byteoffset then text = string.sub(text, 1, byteoffset - 1) end
+			end
+        end
+
+function graphScenarioWindow:looseFocus()
+                textActiveCallback = nil
+                textActiveBackspaceCallback = nil
+        end
+
+function graphScenarioWindow:iterate()
+        if searchIterator then 
+		local id
+		id,searchPertinence,searchIndex,searchSize = searchIterator() 
+		currentSearchNode = graph:getNode(id)
+    		self.offsetX, self.offsetY = currentSearchNode:getPosition()
+    		self.offsetX, self.offsetY = - self.offsetX + self.w / 2, - self.offsetY + self.h / 2
+		self.z = 1.0
+	end
+        end
+
+function graphScenarioWindow:doSearch()
+          searchIterator = doSearch( string.gsub( text, textBase, "" , 1) )
+          text = textBase
+          if searchIterator then 
+		local id
+		id,searchPertinence,searchIndex,searchSize = searchIterator() 
+		currentSearchNode = graph:getNode(id)
+    		self.offsetX, self.offsetY = currentSearchNode:getPosition()
+    		self.offsetX, self.offsetY = - self.offsetX + self.w / 2, - self.offsetY + self.h / 2
+		self.z = 1.0
+	  end
+          end
+
 return graphScenarioWindow
+
 
