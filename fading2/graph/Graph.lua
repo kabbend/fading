@@ -57,10 +57,8 @@ function Graph.new()
 
         assert( origin ~= target, "Tried to connect a node with itself." );
         edges[edgeIDs] = Edge.new( edgeIDs, origin, target );
-	if not origin.nConnected then origin.nConnected = 1 else origin.nConnected = origin.nConnected + 1 end
-	if not target.nConnected then target.nConnected = 1 else target.nConnected = target.nConnected + 1 end
-	origin.lastConnected = target
-	target.lastConnected = origin
+	table.insert( origin.connected , target )
+	table.insert( target.connected , origin )
         edgeIDs = edgeIDs + 1;
     end
 

@@ -161,6 +161,39 @@ local function loadimage(url,size)
   return Snapshot:new{ filename = filename , size = size }
   end
 
+function luastrsanitize(str)
+	str=str:gsub('\\','\\\\') 
+	str=str:gsub('"','&quot;')  
+	return str
+end
+
+
+local function writeNode( file, node )
+  local text = luastrsanitize(node:getName())
+  file:write("<node TEXT=\"" .. text .. "\" >\n")
+  if node.level ~= 1 then file:write("<edge COLOR=\"#" .. string.sub(node.color[1],3,4) .. string.sub(node.color[2],3,4) .. string.sub(node.color[3],3,4) .. "\" />\n") end
+  for _,c in pairs( node.connected ) do
+	if c.level == node.level + 1 then writeNode( file, c ) end
+  end
+  file:write("</node>\n")
+  end
+
+function graphScenarioWindow:saveGraph()
+
+  local savefile = "save.mm"
+  if self.filename then savefile = self.filename .. ".save" end
+  local xmlfile = io.open(savefile,"w")
+  if not xmlfile then return end
+
+  -- start with node 1 (at level 1) and write all nodes with level immediately higher
+  local node = graph:getNode("1")
+  writeNode( xmlfile, node )
+  xmlfile:close()
+
+  layout.notificationWindow:addMessage("Saved scenario file to " .. savefile )
+
+  end
+
 --
 -- Load a scenario from a freemind.mm XML file
 --
@@ -170,6 +203,7 @@ function graphScenarioWindow:loadGraph(filename)
   local xmlfile = io.open(filename)
   if not xmlfile then return end
   local myxml = xmlfile:read('*all')
+  self.filename = filename
 
   -- create the parser and appropriate callbacks
   local nodeID = {} 			-- stack to store current id at this level
@@ -283,8 +317,8 @@ function graphScenarioWindow:draw()
 		  local xposition = 5  
 		  local width, wrappedtext
 		  -- if node is a leaf, the text direction is opposite to the edge direction (left or right)
-		  if node.nConnected == 1 then
-			local nx,ny = node.lastConnected:getPosition() 
+		  if #node.connected == 1 then
+			local nx,ny = node.connected[1]:getPosition() 
 			local ox,oy = node:getPosition() 
 			if (ox - nx) < 0 then 
 			  ALIGN = "right"
@@ -311,8 +345,8 @@ function graphScenarioWindow:draw()
 		  ALIGN = "left"
 		  local xposition = 5  
 		  -- if node is a leaf, the text direction is opposite to the edge direction (left or right)
-		  if node.nConnected == 1 then
-			local nx,ny = node.lastConnected:getPosition() 
+		  if #node.connected == 1 then
+			local nx,ny = node.connected[1]:getPosition() 
 			local ox,oy = node:getPosition() 
 			if (ox - nx) < 0 then 
 			  ALIGN = "right"

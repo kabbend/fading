@@ -1161,6 +1161,10 @@ if window then
 	  window:doSearch()
    	end
 
+  	if key == "s" and love.keyboard.isDown("lctrl") then
+	  window:saveGraph()
+	end
+
   elseif window.class == "snapshot" then
   
   	-- 'space' to change snapshot list

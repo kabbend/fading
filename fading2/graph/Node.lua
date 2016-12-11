@@ -24,6 +24,7 @@ function Node.new( id, name, x, y, anchor )
     local ax, ay = 0, 0;
     local vx, vy = 0, 0;
     local mass = DEFAULT_MASS;
+    self.connected = {}
 
     ---
     -- Clamps a value to a certain range.
