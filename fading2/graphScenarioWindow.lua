@@ -170,7 +170,7 @@ end
 
 local function writeNode( file, node )
   local text = luastrsanitize(node:getName())
-  file:write("<node TEXT=\"" .. text .. "\" >\n")
+  file:write("<node ID=\"" .. node:getID() .. "\" TEXT=\"" .. text .. "\" >\n")
   if node.level ~= 1 then file:write("<edge COLOR=\"#" .. string.sub(node.color[1],3,4) .. string.sub(node.color[2],3,4) .. string.sub(node.color[3],3,4) .. "\" />\n") end
   for _,c in pairs( node.connected ) do
 	if c.level == node.level + 1 then writeNode( file, c ) end
@@ -210,43 +210,55 @@ function graphScenarioWindow:loadGraph(filename)
   local id = 1 				-- incremental ID for the nodes, starting at 1
   local x,y,step = 0, 0, 10
   local currentID = nil			-- current id at this level
-  local color = { 255, 0, 0 }
+  local color = { "0xff", "0x00", "0x00" }
+  local givenID = nil
 
   local parser = SLAXML:parser{
 
     startElement = function(name,nsURI,nsPrefix) 
 	if name == "node" then 
-	  currentID = nodeID[#nodeID] 
-	  table.insert(nodeID,id)
+	  currentID = nodeID[#nodeID] 		-- we are about to create a child node. Get the parent id ( = head of stack )
+	  givenID = nil				-- we don't know yet if an ID is provided for this node. We assume none
 	end
         end, 
 
     attribute    = function(name,value,nsURI,nsPrefix) 
+
+	if name == "ID" then
+	  -- an ID is provided for the node we parse. Store it
+	  givenID = value			
+	end
+
 	if name == "COLOR" then
 	  -- color is a string of the form '#rrggbb' with rr,gg,bb in hexadecimal
 	  local r,g,b = string.sub(value,2,3), string.sub(value,4,5), string.sub(value,6,7)	
 	  color = { "0x"..r, "0x"..g, "0x"..b }  
 	end
+
 	if name == "TEXT" then
+	  -- Now we have text, it's time to actually create the node
+
+	  local i = givenID or tostring(id)	-- if we don't have an ID in the XML, take a sequential one
+	  table.insert(nodeID,i)		-- insert this ID on top of the stack. It will become the new basis for further creations
+
+	  local a,b = string.find(value, "!%[uploaded image%]")		-- is the text a link to an image, or a real text ?
 	  local n
-	  local a,b = string.find(value, "!%[uploaded image%]")
 	  if a then
-		-- the text is contains an hyperlink for an image (coggle format). Create a node with no text and 
-		-- attach the image 
-	        n = graph:addNode(tostring(id),"",x,y)
+		-- the text is contains an hyperlink for an image (coggle format). Create a node with no text and attach the image 
+	        n = graph:addNode(i,"",x,y)
 	        local _,_,url,w,h = string.find( string.sub(value,b+2), "(https?://.*[^ ]) (%d+)x(%d+)")
 	        n.im = loadimage(url,w)
 	  else
 		-- create node with text
-	    	n = graph:addNode(tostring(id),value,x,y)
+	    	n = graph:addNode(i,value,x,y)
 		-- parse all words of the text (convert it lowercase, and ignore all common words)
 		-- insert them in the dictionnary, with the node id 
 		local text = string.stripAccents( value ) -- remove all accented characters to ease future search
 		for word in string.gmatch( text , "%a+" ) do
    			word = string.lower( word )
 			if not reject(word) then -- we do not store common words 
-   			 if dictionnary[word] then table.insert( dictionnary[word] , tostring(id) )
-   			 else dictionnary[word] = { tostring(id) } end
+   			 if dictionnary[word] then table.insert( dictionnary[word] , i )
+   			 else dictionnary[word] = { i } end
 			end
 		end
  	  end
@@ -256,16 +268,22 @@ function graphScenarioWindow:loadGraph(filename)
 	  n.size = math.max(12 - #nodeID , 2)
   	  n:setMass(15/n.level)
 	  -- create an edge between this new node and the one currently on top of stack (it's parent)
-	  if currentID then graph:connectIDs(tostring(currentID), tostring(id)) end 
-	  id = id + 1
+	  if currentID then graph:connectIDs(tostring(currentID), i) end 
+
+	  if not givenID then id = id + 1 end -- increment the sequential id if used
+
 	  x,y = x + step, y + step -- naive initial positioning
+
 	end
 	end, 
 
     closeElement = function(name,nsURI)
+
 	if name == "node" then
+	  -- closing tag for node. We remove it's ID from the top of stack
 	  table.remove(nodeID)   
         end
+
 	end,
 
     -- unused callbacks, for the moment
