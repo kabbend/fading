@@ -31,6 +31,8 @@ local currentSearchNode	      = nil
 
 dictionnary 		= {}			-- dictionnary indexed by word
 
+local CREATEDID		= 1000			-- FIXME harcoded
+
 -- perform a search in the scenario text on one or several words, and return an iterator on the results (or nil 
 -- if no results). each call to the iterator returns 
 --   id node id
@@ -205,19 +207,19 @@ function graphScenarioWindow:loadGraph(filename)
   local myxml = xmlfile:read('*all')
   self.filename = filename
 
-  -- create the parser and appropriate callbacks
-  local nodeID = {} 			-- stack to store current id at this level
+  local stack = {} 			-- stack to store current id at this level
   local id = 1 				-- incremental ID for the nodes, starting at 1
   local x,y,step = 0, 0, 10
   local currentID = nil			-- current id at this level
   local color = { "0xff", "0x00", "0x00" }
   local givenID = nil
 
+  -- create the parser and appropriate callbacks
   local parser = SLAXML:parser{
 
     startElement = function(name,nsURI,nsPrefix) 
 	if name == "node" then 
-	  currentID = nodeID[#nodeID] 		-- we are about to create a child node. Get the parent id ( = head of stack )
+	  currentID = stack[#stack] 		-- we are about to create a child node. Get the parent id ( = head of stack )
 	  givenID = nil				-- we don't know yet if an ID is provided for this node. We assume none
 	end
         end, 
@@ -239,7 +241,7 @@ function graphScenarioWindow:loadGraph(filename)
 	  -- Now we have text, it's time to actually create the node
 
 	  local i = givenID or tostring(id)	-- if we don't have an ID in the XML, take a sequential one
-	  table.insert(nodeID,i)		-- insert this ID on top of the stack. It will become the new basis for further creations
+	  table.insert(stack,i)		-- insert this ID on top of the stack. It will become the new basis for further creations
 
 	  local a,b = string.find(value, "!%[uploaded image%]")		-- is the text a link to an image, or a real text ?
 	  local n
@@ -264,8 +266,8 @@ function graphScenarioWindow:loadGraph(filename)
  	  end
 	  -- complement the node with some information
 	  n.color = color 
-	  n.level = #nodeID
-	  n.size = math.max(12 - #nodeID , 2)
+	  n.level = #stack
+	  n.size = math.max(12 - #stack , 2)
   	  n:setMass(15/n.level)
 	  -- create an edge between this new node and the one currently on top of stack (it's parent)
 	  if currentID then graph:connectIDs(tostring(currentID), i) end 
@@ -281,7 +283,7 @@ function graphScenarioWindow:loadGraph(filename)
 
 	if name == "node" then
 	  -- closing tag for node. We remove it's ID from the top of stack
-	  table.remove(nodeID)   
+	  table.remove(stack)   
         end
 
 	end,
@@ -318,6 +320,10 @@ function graphScenarioWindow:draw()
                 if not node.im then
 		  love.graphics.setColor(unpack(node.color))
 		  love.graphics.circle( 'fill', zx+x, zy+y, node.size )
+		  if nodeSelected == node then
+		  	love.graphics.setColor(0,0,0)
+		  	love.graphics.circle( 'line', zx+x, zy+y, node.size*1.5 )
+		  end
 		else
 		  love.graphics.setColor(255,255,255)
 		  love.graphics.draw( node.im.im , zx+x, zy+y, 0, node.im.snapmag * self.z, node.im.snapmag * self.z )
@@ -426,7 +432,34 @@ function graphScenarioWindow:click(x,y)
   local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
 
-  nodeMove = graph:getNodeAt((x-(zx+self.offsetX))/self.z,(y-(zy+self.offsetY))/self.z,1/self.z)
+  local n = graph:getNodeAt((x-(zx+self.offsetX))/self.z,(y-(zy+self.offsetY))/self.z,1/self.z)
+  if n then
+	  if love.keyboard.isDown("lalt") then
+		  if nodeSelected == n then
+			-- this node was already selected ! this means we must create a child node
+			local x,y = n:getPosition()
+			local newNode = graph:addNode( tostring(CREATEDID), "", zx + x + 10 , zy + y + 10 )
+			newNode.color = n.color
+			newNode.level = n.level + 1
+			newNode.size  = math.max(n.size - 1, 2) 
+			newNode:setMass(15/newNode.level)
+			graph:connectIDs( newNode:getID() , n:getID() )
+			CREATEDID = CREATEDID + 1
+			nodeSelected = nil
+		  elseif nodeSelected then
+			-- we want to connect 2 nodes
+			graph:connectIDs( nodeSelected:getID() , n:getID() )
+			nodeSelected = nil
+		  else
+		  	nodeMove = nil 
+			nodeSelected = n
+		  end
+	  else 
+		  nodeMove = n ; nodeSelected = nil 
+	  end
+  else
+	  nodeMove = nil
+  end
 
   translation = not nodeMove
 
