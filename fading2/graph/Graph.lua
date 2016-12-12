@@ -49,13 +49,11 @@ function Graph.new()
     -- @param target - The node to which the edge is pointing to.
     --
     local function addEdge( origin, target )
+        if origin == target then return end
         for _, edge in pairs( edges ) do
-            if edge.origin == origin and edge.target == target then
-                error "Trying to connect nodes which are already connected.";
-            end
+            if edge.origin == origin and edge.target == target then return end
         end
 
-        assert( origin ~= target, "Tried to connect a node with itself." );
         edges[edgeIDs] = Edge.new( edgeIDs, origin, target );
 	table.insert( origin.connected , target )
 	table.insert( target.connected , origin )
@@ -65,6 +63,8 @@ function Graph.new()
     -- ------------------------------------------------
     -- Public Functions
     -- ------------------------------------------------
+
+    function self:resetWrittenFlag() for _,n in pairs( nodes ) do n.written = false end end
 
     ---
     -- Adds a node to the graph.

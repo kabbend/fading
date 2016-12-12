@@ -170,12 +170,20 @@ function luastrsanitize(str)
 end
 
 
-local function writeNode( file, node )
+local function writeNode( file, parent, node )
+  node.written = true	-- mark the node as written
   local text = luastrsanitize(node:getName())
   file:write("<node ID=\"" .. node:getID() .. "\" TEXT=\"" .. text .. "\" >\n")
   if node.level ~= 1 then file:write("<edge COLOR=\"#" .. string.sub(node.color[1],3,4) .. string.sub(node.color[2],3,4) .. string.sub(node.color[3],3,4) .. "\" />\n") end
   for _,c in pairs( node.connected ) do
-	if c.level == node.level + 1 then writeNode( file, c ) end
+	if c ~= parent then -- Avoid to write the same parent node again...
+	 if not c.written then 
+		writeNode( file, node, c ) -- Write the children recursively. 
+	  else
+		-- the node already exists. Just write a link 
+  		file:write("<link FROM=\"" .. node:getID() .. "\" TO=\"" .. c:getID() .. "\" />\n")
+	  end
+        end
   end
   file:write("</node>\n")
   end
@@ -187,9 +195,12 @@ function graphScenarioWindow:saveGraph()
   local xmlfile = io.open(savefile,"w")
   if not xmlfile then return end
 
+  -- reset written flag on all nodes
+  graph:resetWrittenFlag()
+
   -- start with node 1 (at level 1) and write all nodes with level immediately higher
   local node = graph:getNode("1")
-  writeNode( xmlfile, node )
+  writeNode( xmlfile, nil, node )	-- nil means no parent
   xmlfile:close()
 
   layout.notificationWindow:addMessage("Saved scenario file to " .. savefile )
@@ -434,7 +445,7 @@ function graphScenarioWindow:click(x,y)
 
   local n = graph:getNodeAt((x-(zx+self.offsetX))/self.z,(y-(zy+self.offsetY))/self.z,1/self.z)
   if n then
-	  if love.keyboard.isDown("lalt") then
+  	if love.keyboard.isDown("lalt") then
 		  if nodeSelected == n then
 			-- this node was already selected ! this means we must create a child node
 			local x,y = n:getPosition()
@@ -452,11 +463,11 @@ function graphScenarioWindow:click(x,y)
 			nodeSelected = nil
 		  else
 		  	nodeMove = nil 
-			nodeSelected = n
 		  end
-	  else 
-		  nodeMove = n ; nodeSelected = nil 
-	  end
+	 else 
+		  nodeMove = n 
+	 end
+	 nodeSelected = n
   else
 	  nodeMove = nil
   end
