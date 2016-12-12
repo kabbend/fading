@@ -323,7 +323,6 @@ function graphScenarioWindow:draw()
   self:drawBar()
   self:drawResize()
   
-  love.graphics.setScissor(zx,zy,self.w,self.h)
   local function drawnode( node )
                 local x, y = node:getPosition()
 		x, y = x * self.z+self.offsetX, y * self.z+self.offsetY
@@ -411,8 +410,17 @@ function graphScenarioWindow:draw()
 		love.graphics.line( curve:render() )
             end
 
+  love.graphics.setScissor(zx,zy,self.w,self.h)
+
   graph:draw( drawnode, drawedge )
-  love.graphics.setScissor()
+
+  -- print icons
+  love.graphics.setColor(255,255,255)
+  love.graphics.draw( theme.iconPencil , zx + 5, zy + 5 )
+  love.graphics.draw( theme.iconNew , zx + 5, zy + 35 )
+  love.graphics.draw( theme.iconLink , zx + 5, zy + 65 )
+  love.graphics.draw( theme.iconStop , zx + 5, zy + 95 )
+  love.graphics.draw( theme.iconCentre , zx + 5, zy + 125 )
 
   -- print search zone 
   love.graphics.setColor(0,0,0)
@@ -421,6 +429,7 @@ function graphScenarioWindow:draw()
   -- print number of the search result is needed
   if searchIterator then love.graphics.printf( "( " .. searchIndex .. " [" .. string.format("%.2f", searchPertinence) .. "] out of " ..
                                                            searchSize .. " )", zx + string.len(text)*8 + 20, zy + self.h - 20, 400) end
+  love.graphics.setScissor()
 
   end
 

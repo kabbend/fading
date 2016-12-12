@@ -21,6 +21,11 @@ theme.iconReduce 	= love.graphics.newImage( "icons/reduce16x16.png" )
 theme.iconExpand 	= love.graphics.newImage( "icons/expand16x16.png" )
 theme.iconWWWInactive 	= love.graphics.newImage( "icons/wwwblack16x16.png" )
 theme.iconWWWActive	= love.graphics.newImage( "icons/wwwred16x16.png" )
+theme.iconPencil	= love.graphics.newImage( "icons/pencil.png" )
+theme.iconNew		= love.graphics.newImage( "icons/new.png" )
+theme.iconCentre	= love.graphics.newImage( "icons/centre.png" )
+theme.iconStop		= love.graphics.newImage( "icons/stop.png" )
+theme.iconLink		= love.graphics.newImage( "icons/link.png" )
 
 return theme
 
