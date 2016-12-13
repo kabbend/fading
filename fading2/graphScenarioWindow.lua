@@ -468,11 +468,19 @@ function graphScenarioWindow:click(x,y)
 	end
 	return
   elseif x > zx + 5 and x < zx + 5 + 24 and y > zy + 65 and y < zy + 65 + 24 then
+	-- link
   elseif x > zx + 5 and x < zx + 5 + 24 and y > zy + 95 and y < zy + 95 + 24 then
 	-- stop 
 	stop = not stop
 	return 
   elseif x > zx + 5 and x < zx + 5 + 24 and y > zy + 125 and y < zy + 125 + 24 then
+	-- centre
+	if nodeSelected then
+    		self.offsetX, self.offsetY = nodeSelected:getPosition()
+    		self.offsetX, self.offsetY = - self.offsetX + self.w / 2, - self.offsetY + self.h / 2
+    		self.z = 1.0
+	end
+	return
   end
 
   -- otherwise, click somewhere in the graph? 
