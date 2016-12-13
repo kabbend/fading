@@ -449,9 +449,28 @@ function graphScenarioWindow:click(x,y)
   Window.click(self,x,y)
   if y > zy then mouseMove = false end
 
-  local W,H=self.layout.W, self.layout.H
-  local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
+  -- click on icon ?
+  if x > zx + 5 and x < zx + 5 + 24 and y > zy + 5 and y < zy + 5 + 24 then
+	-- edit
+  elseif x > zx + 5 and x < zx + 5 + 24 and y > zy + 35 and y < zy + 35 + 24 then
+	-- new node
+	if nodeSelected then
+		local nx, ny = nodeSelected:getPosition()
+		local newNode = graph:addNode( tostring(CREATEDID), "", zx + nx + 10 , zy + ny + 10 )
+		newNode.color = nodeSelected.color
+		newNode.level = nodeSelected.level + 1
+		newNode.size  = math.max(nodeSelected.size - 1, 2) 
+		newNode:setMass(15/newNode.level)
+		graph:connectIDs( newNode:getID() , nodeSelected:getID() )
+		CREATEDID = CREATEDID + 1
+	end
+	return
+  elseif x > zx + 5 and x < zx + 5 + 24 and y > zy + 65 and y < zy + 65 + 24 then
+  elseif x > zx + 5 and x < zx + 5 + 24 and y > zy + 95 and y < zy + 95 + 24 then
+  elseif x > zx + 5 and x < zx + 5 + 24 and y > zy + 125 and y < zy + 125 + 24 then
+  end
 
+  -- otherwise, click somewhere in the graph? 
   local n = graph:getNodeAt((x-(zx+self.offsetX))/self.z,(y-(zy+self.offsetY))/self.z,1/self.z)
   if n then
   	if love.keyboard.isDown("lalt") then
