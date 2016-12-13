@@ -11,6 +11,7 @@ local http 		= require("socket.http")
 local graph = GraphLibrary.new()
 
 local stop		= false		-- no more motion
+local link		= false		-- next node selection creates a link 
 
 local translation 	= false		-- are we currently translating within the window ?
 local nodeMove 		= nil		-- are we currently moving a node ? If yes, points to the node, nil otherwise 
@@ -420,8 +421,11 @@ function graphScenarioWindow:draw()
   love.graphics.setColor(255,255,255)
   love.graphics.draw( theme.iconPencil , zx + 5, zy + 5 )
   love.graphics.draw( theme.iconNew , zx + 5, zy + 35 )
+  if not link then love.graphics.setColor(255,255,255) else love.graphics.setColor(100,100,100) end
   love.graphics.draw( theme.iconLink , zx + 5, zy + 65 )
+  if not stop then love.graphics.setColor(255,255,255) else love.graphics.setColor(100,100,100) end
   love.graphics.draw( theme.iconStop , zx + 5, zy + 95 )
+  love.graphics.setColor(255,255,255)
   love.graphics.draw( theme.iconCentre , zx + 5, zy + 125 )
 
   -- print search zone 
@@ -469,6 +473,8 @@ function graphScenarioWindow:click(x,y)
 	return
   elseif x > zx + 5 and x < zx + 5 + 24 and y > zy + 65 and y < zy + 65 + 24 then
 	-- link
+	link = not link
+	return
   elseif x > zx + 5 and x < zx + 5 + 24 and y > zy + 95 and y < zy + 95 + 24 then
 	-- stop 
 	stop = not stop
@@ -500,13 +506,18 @@ function graphScenarioWindow:click(x,y)
 			nodeSelected = nil
 		  elseif nodeSelected then
 			-- we want to connect 2 nodes
-			graph:connectIDs( nodeSelected:getID() , n:getID() )
+			graph:connectNodes( nodeSelected , n )
 			nodeSelected = nil
 		  else
 		  	nodeMove = nil 
 		  end
 	 else 
 		  nodeMove = n 
+	 end
+	 if nodeSelected and link then
+		-- we want to connect 2 nodes
+		graph:connectNodes( nodeSelected , n )
+		link = false
 	 end
 	 nodeSelected = n
   else
