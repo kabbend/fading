@@ -10,6 +10,8 @@ local http 		= require("socket.http")
 
 local graph = GraphLibrary.new()
 
+local stop		= false		-- no more motion
+
 local translation 	= false		-- are we currently translating within the window ?
 local nodeMove 		= nil		-- are we currently moving a node ? If yes, points to the node, nil otherwise 
 local fonts 		= {}		-- same font with different sizes
@@ -467,6 +469,9 @@ function graphScenarioWindow:click(x,y)
 	return
   elseif x > zx + 5 and x < zx + 5 + 24 and y > zy + 65 and y < zy + 65 + 24 then
   elseif x > zx + 5 and x < zx + 5 + 24 and y > zy + 95 and y < zy + 95 + 24 then
+	-- stop 
+	stop = not stop
+	return 
   elseif x > zx + 5 and x < zx + 5 + 24 and y > zy + 125 and y < zy + 125 + 24 then
   end
 
@@ -530,7 +535,7 @@ function graphScenarioWindow:update(dt)
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
   local x,y = love.mouse.getPosition()
   if nodeMove then nodeMove:setPosition((x-(zx+self.offsetX))/self.z,(y-(zy+self.offsetY))/self.z) end 
-  graph:update( dt )
+  if not stop then graph:update( dt ) end
   end
 
 function graphScenarioWindow:getFocus()
