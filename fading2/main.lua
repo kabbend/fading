@@ -1077,8 +1077,14 @@ if not initialized then return end
 -- 'lctrl + f' : open setup window
 -- 'lctrl + h' : open help window
 -- 'lctrl + g' : open graph scenario window
+-- 'lctrl + r' : restore all windows to initial state
 -- 'lctrl + tab' : give focus to the next window if any
 -- 'escape' : hide or restore all windows 
+
+-- 'lctrl + c' : display combat window 
+-- 'lctrl + b' : display bar (snapshots) window 
+-- 'lctrl + p' : display projector window 
+
 if key == "g" and love.keyboard.isDown("lctrl") then
   layout:toggleWindow( layout.sWindow )
   return
@@ -1095,6 +1101,23 @@ if key == "f" and love.keyboard.isDown("lctrl") then
   layout:toggleWindow( layout.dataWindow )
   return
 end
+if key == "c" and love.keyboard.isDown("lctrl") 
+      and not love.keyboard.isDown("lshift") then 
+  if layout.combatWindow.minimized then layout:restoreBase(layout.combatWindow) end
+  layout:setDisplay( layout.combatWindow, true )
+  layout:setFocus( layout.combatWindow )
+  return
+end
+if key == "b" and love.keyboard.isDown("lctrl") then 
+  layout:setDisplay( layout.snapshotWindow, true )
+  layout:setFocus( layout.snapshotWindow )
+  return
+end
+if key == "p" and love.keyboard.isDown("lctrl") then 
+  layout:setDisplay( layout.pWindow, true )
+  layout:setFocus( layout.pWindow )
+  return
+end
 if key == "escape" then
 	layout:toggleDisplay()
 	return
@@ -1104,12 +1127,12 @@ if key == "tab" and love.keyboard.isDown("lctrl") then
 	return
 end
 if key == "r" and love.keyboard.isDown("lctrl") then
-	if actionWindow.open then
+	if layout.actionWindow.open then
 		layout:hideAll()	
 		layout:restoreBase(layout.pWindow)
 		layout:restoreBase(layout.snapshotWindow)
 		layout:restoreBase(layout.combatWindow)
-	elseif storyWindow.open then
+	elseif layout.storyWindow.open then
 		layout:hideAll()	
 		layout:restoreBase(layout.pWindow)
 		layout:restoreBase(layout.snapshotWindow)
@@ -1122,17 +1145,17 @@ local window = layout:getFocus()
 
 if window then
   -- a window is selected. Keys applicable to any window:
-  -- 'lctrl + c' : recenter window
+  --[[ 'lctrl + C' : recenter window ]]
   -- 'lctrl + x' : close window
   if key == "x" and love.keyboard.isDown("lctrl") then
 	layout:setDisplay( window, false )
 	return
   end
-  if key == "c" and love.keyboard.isDown("lctrl") then
+  if key == "c" and love.keyboard.isDown("lctrl")
+  and love.keyboard.isDown("lshift") then
 	window:move( window.w / 2, window.h / 2 )
 	return
   end
-
   if     window.class == "dialog" then
 	-- 'return' to submit a dialog message
 	-- 'backspace'
@@ -1470,7 +1493,7 @@ function init()
 
     local dialogWindow = Dialog:new{w=800,h=220,x=400,y=110,layout=layout}
 
-    local helpWindow = Help:new{w=1000,h=480,x=500,y=240,layout=layout}
+    local helpWindow = Help:new{w=1000,h=580,x=500,y=240,layout=layout}
 
     local dataWindow = setupWindow:new{ w=600, h=400, x=300,y=layout.H/2-100, init=true,layout=layout} 
 
