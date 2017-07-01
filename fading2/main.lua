@@ -1147,7 +1147,7 @@ if window then
   -- a window is selected. Keys applicable to any window:
   --[[ 'lctrl + C' : recenter window ]]
   -- 'lctrl + x' : close window
-  if key == "x" and love.keyboard.isDown("lctrl") then
+  if not window.alwaysVisible and key == "x" and love.keyboard.isDown("lctrl") then
 	layout:setDisplay( window, false )
 	return
   end
