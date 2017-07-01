@@ -101,11 +101,11 @@ function mainLayout:setFocus( window )
 -- when ctrl+tab is pressed, select the next window to put focus on
 function mainLayout:nextWindow()
  	local t = {}
-	local index = nil
+	local index  = nil
 	if not self.globalDisplay then return end
-	for i=1,#self.sorted do if self.sorted[i].d and self.sorted[i].w.class ~= "icon" then 
-		table.insert( t , self.sorted[i].w ) 
-		if self.sorted[i].w == self:getFocus() then index = i end
+	for w,v in pairs(self.windows) do if v.d and w.class ~= "icon" and w.class ~= "roll" then 
+		table.insert( t , w ) 
+		if w == self:getFocus() then index = #t end
 		end end
 	if not index then
 		if #t >= 1 then index = 1

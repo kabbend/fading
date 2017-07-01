@@ -12,6 +12,7 @@ local graph = GraphLibrary.new()
 
 local stop		= false		-- no more motion
 local link		= false		-- next node selection creates a link 
+local edit		= false		-- we are currently editing a node
 
 local translation 	= false		-- are we currently translating within the window ?
 local nodeMove 		= nil		-- are we currently moving a node ? If yes, points to the node, nil otherwise 
@@ -138,6 +139,8 @@ function graphScenarioWindow:new( t ) -- create from w, h, x, y, filename
   for i=4,40 do 			-- load same font with different sizes
     fonts[i] = love.graphics.newFont( "yui/yaoui/fonts/georgia.ttf" , i ) 
   end
+  new.wText = widget.textWidget:new{ x = 0, y = 0 , w = 500, text = "" }
+  new:addWidget(new.wText)
   return new
 end
 
@@ -341,6 +344,7 @@ function graphScenarioWindow:draw()
 		  love.graphics.setColor(255,255,255)
 		  love.graphics.draw( node.im.im , zx+x, zy+y, 0, node.im.snapmag * self.z, node.im.snapmag * self.z )
 		end
+		if nodeSelected == node and edit then return end -- we don't print text on the node if edition is ongoing
 		local bigger = 1
 		if string.sub(node.getName(),1,3) 	== "###" then 	bigger = BIGGER_3_SHARP 
 		elseif string.sub(node.getName(),1,2) 	== "##" then 	bigger = BIGGER_2_SHARP 
@@ -435,6 +439,10 @@ function graphScenarioWindow:draw()
   -- print number of the search result is needed
   if searchIterator then love.graphics.printf( "( " .. searchIndex .. " [" .. string.format("%.2f", searchPertinence) .. "] out of " ..
                                                            searchSize .. " )", zx + string.len(text)*8 + 20, zy + self.h - 20, 400) end
+
+  -- print edit zone
+  if edit then self.wText:draw() end
+
   love.graphics.setScissor()
 
   end
@@ -458,6 +466,17 @@ function graphScenarioWindow:click(x,y)
   -- click on icon ?
   if x > zx + 5 and x < zx + 5 + 24 and y > zy + 5 and y < zy + 5 + 24 then
 	-- edit
+	if nodeSelected then
+		self.wText.x, self.wText.y = nodeSelected.getPosition()
+		self.wText.x, self.wText.y = self.wText.x * self.z + zx + self.offsetX, self.wText.y * self.z + zy + self.offsetY
+		self.wText.head = nodeSelected:getName()
+		
+		self.wText.tail = ""
+		self.wText:select()
+		edit = true
+		stop = true
+	end
+	return
   elseif x > zx + 5 and x < zx + 5 + 24 and y > zy + 35 and y < zy + 35 + 24 then
 	-- new node
 	if nodeSelected then
@@ -555,6 +574,7 @@ function graphScenarioWindow:update(dt)
   local x,y = love.mouse.getPosition()
   if nodeMove then nodeMove:setPosition((x-(zx+self.offsetX))/self.z,(y-(zy+self.offsetY))/self.z) end 
   if not stop then graph:update( dt ) end
+  self.wText:update(dt)
   end
 
 function graphScenarioWindow:getFocus()
