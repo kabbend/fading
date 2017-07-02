@@ -3,7 +3,7 @@ local theme = {}
 
 theme.iconSize = 20
 theme.size= 19 		-- base font size
-theme.color = { masked = {210,210,210}, black = {0,0,0}, red = {250,80,80}, darkblue = {66,66,238}, purple = {127,0,255}, 
+theme.color = { masked = {220,240,210}, black = {0,0,0}, red = {250,80,80}, darkblue = {66,66,238}, purple = {127,0,255}, 
   orange = {204,102,0},   darkgreen = {0,102,0},   white = {255,255,255} , green = {0,240,0} , darkgrey = {96,96,96} } 
 theme.fontTitle 	= love.graphics.newFont("yui/yaoui/fonts/georgia.ttf",20)
 theme.fontDice 		= love.graphics.newFont("yui/yaoui/fonts/georgia.ttf",90)
