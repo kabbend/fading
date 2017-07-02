@@ -103,7 +103,7 @@ function mainLayout:nextWindow()
  	local t = {}
 	local index  = nil
 	if not self.globalDisplay then return end
-	for w,v in pairs(self.windows) do if v.d and w.class ~= "icon" and w.class ~= "roll" then 
+	for w,v in pairs(self.windows) do if v.d and w.class ~= "icon" and w.class ~= "roll" and w.class ~= "notification" then 
 		table.insert( t , w ) 
 		if w == self:getFocus() then index = #t end
 		end end

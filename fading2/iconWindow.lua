@@ -33,7 +33,7 @@ vec4 effect(vec4 colour, Image tex, vec2 tc, vec2 sc)
 -- and always at bottom
 --
 
-local iconWindow = Window:new{ class = "icon", alwaysBottom = true, alwaysVisible = true, zoomable = false }
+local iconWindow = Window:new{ class = "icon", alwaysBottom = true, alwaysVisible = true, zoomable = false, closable = false }
 
 function iconWindow:new( t ) -- create from w, h, x, y + text, image,  mag
   local new = t or {}
@@ -94,7 +94,8 @@ function iconWindow:click(x,y)
 	end
 
 	-- do not start a sink movement if one already in progress
-	if self.layout.sinkInProgress then return else self.layout.sinkInProgress = true end  
+	--if self.layout.sinkInProgress then return else self.layout.sinkInProgress = true end  
+	if self.layout.sinkInProgress then return end
 
   	local cx,cy = Window.WtoS(self,self.w/2,self.h/2) 
 	self.open = not self.open

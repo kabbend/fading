@@ -24,6 +24,7 @@ local sinkSteps = 25
 
 local Window = {class = "window", w = 0, h = 0, mag = 1.0, x = 0, y = 0 , title = "", 	-- base window information and shape
 		zoomable = false ,							-- can we change the zoom ?
+		closable = true ,							-- can we close it ?
 		movable = true ,							-- can we move the window ?
 	   	sticky = false, stickX = 0, stickY = 0, stickmag = 0 , 			-- FIXME: should be in map ?
 		markForClosure = false,							-- event to close the window
@@ -71,6 +72,7 @@ function Window:sink(tx,ty,w)
 	self.markForSinkDeltaMag = (wratio - self.mag)/sinkSteps
 	self.sinkSteps = 0
 	self.markForSinkTimer = 0
+	self.layout.sinkInProgress = true
 	end
  	
 
@@ -92,6 +94,7 @@ function Window:unsink(sx, sy, sw, x, y, mag)
 	self.sinkSteps = 0
 	self.markForSinkTimer = 0
 	self.layout:setDisplay(self,true)
+	self.layout.sinkInProgress = true
 	end
 
 -- return true if the point (x,y) (expressed in layout coordinates system,

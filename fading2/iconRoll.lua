@@ -6,7 +6,7 @@ local rpg		= require 'rpg'
 --
 -- iconRollWindow class
 -- 
-iconRollWindow = Window:new{ class = "roll", alwaysOnTop = true, alwaysVisible = true, zoomable = false }
+iconRollWindow = Window:new{ class = "roll", alwaysOnTop = true, alwaysVisible = true, zoomable = false, closable = false }
 
 function iconRollWindow:new( t ) -- create from w, h, x, y, image, mag
   local new = t or {}

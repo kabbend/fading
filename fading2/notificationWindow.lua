@@ -10,7 +10,7 @@ local theme 	= require 'theme'
 
 local messages = {}
 
-local notificationWindow = Window:new{ class = "notification", alwaysOnTop = true, zoomable = false, movable = false }
+local notificationWindow = Window:new{ class = "notification", alwaysOnTop = true, zoomable = false, movable = false, closable = false }
 
 function notificationWindow:new( t ) -- create from w, h, x, y
   local new = t or {}
