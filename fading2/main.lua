@@ -530,7 +530,7 @@ function love.draw()
   local alpha = 80
 
   -- draws screen background
-  love.graphics.setColor(255,255,255)
+  love.graphics.setColor(255,255,255,200)
   love.graphics.draw( theme.backgroundImage , 0, 0, 0, layout.W / theme.backgroundImage:getWidth(), layout.H / theme.backgroundImage:getHeight() )
 
   love.graphics.setLineWidth(2)
