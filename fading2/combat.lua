@@ -113,7 +113,19 @@ function Combat:createPNJGUIFrame()
   local t = {name="pnjlist"}
   local width = 60;
   t[1] = yui.Flow({ name="headline",
-      yui.Text({text="Done", w=40, size=size-2, bold=1, center = 1 }),
+      --yui.Text({text="Done", w=40, size=size-2, bold=1, center = 1 }),
+      yui.HorizontalSpacing({w=10}),
+      yui.Checkbox({name = "done", text = '', w = 30, 
+            onClick = function(self) 
+  		for i=1,PNJmax do
+              	  if (PNJTable[i]) then 
+                	PNJTable[i].done = self.checkbox.checked; 
+			t[i+1].done.checkbox.checked = self.checkbox.checked;
+                	cself:updateLineColor(i)
+			cself.nextFlash = rpg.checkForNextRound() 
+		  end
+		end
+            end}),
       yui.Text({text="ID", w=35, size=size, bold=1, center = 1 }),
       yui.Text({text="CLASS", w=width*2.5, bold=1, size=size, center = 1}),
       yui.Text({text="INIT", w=90, bold=1, size=size, center = 1}),
@@ -127,7 +139,6 @@ function Combat:createPNJGUIFrame()
       yui.Text({text="HITS", w=80, bold=1, size=size}),
       yui.HorizontalSpacing({w=30}),
       yui.Text({name="stance", text="STANCE (Agress., Neutre, Def.)", w=220, size=size, center=1}),
-      --yui.Text({text="OPPONENTS", w=40, bold=1, size=size}),
     }) 
 
   for i=1,PNJmax do
@@ -777,6 +788,9 @@ function Combat:nextRound()
 
     end
 
+    -- reset global Done checkbox
+    self.view.s.pnjlist.headline.done.checkbox.checked = false
+ 
     end
 
 return Combat
