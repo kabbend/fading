@@ -400,7 +400,7 @@ function Combat:draw()
     else
       love.graphics.setColor(0,0,0,alpha*1.5)
     end
-    love.graphics.rectangle("fill",PNJtext[1].x+1010,PNJtext[1].y-5,400,(#PNJTable)*43)
+    love.graphics.rectangle("fill",PNJtext[1].x+990,PNJtext[1].y-5,400,(#PNJTable)*43)
   end
   love.graphics.setScissor() 
 
