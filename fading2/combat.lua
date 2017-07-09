@@ -20,7 +20,7 @@ local newRound	= true
 local flashTimer	= 0
 local flashSequence	= false
 
-local size = 19 -- base font size
+local size = 22 -- base font size
 
 -- draw a small colored circle, at position x,y, with 'id' as text
 function drawRound( x, y, kind, id )
@@ -62,41 +62,46 @@ function Combat:new( t ) -- create from w, h, x, y
   new.nextFlash		= false
 
   local viewh = new.layout.HC           -- view height
-  local vieww = new.layout.W - 260      -- view width
+  local vieww = new.layout.W - 400      -- view width
 
   -- create view structure
   new.view = yui.View(0, 0, vieww, viewh, {
          margin_top = 5,
          margin_left = 5,
-         yui.Stack({name="s",
-             yui.Flow({name="t",
-                 yui.HorizontalSpacing({w=10}),
+         yui.Flow({name="t",
+          new:createPNJGUIFrame(),
+          yui.Stack({name="s",
+                 --yui.HorizontalSpacing({w=10}),
+                 yui.VerticalSpacing({h=20}),
                  yui.Button({name="nextround", text="  Next Round  ", size=size, black = true,
                          onClick = function(self) if self.button.black then return end
                                                   if rpg.checkForNextRound() then new:nextRound() end end }),
-                 yui.Text({text="Round #", size=size, bold=1, center = 1}),
-                 yui.Text({name="round", text=tostring(roundNumber), size=32, w = 50, bold=1, color={0,0,0} }),
+                yui.VerticalSpacing({h=20}),
+         	yui.Flow({name="r",
+                  yui.Text({text="Round #", size=size, bold=1, center = 1}),
+                  yui.Text({name="round", text=tostring(roundNumber), size=32, w = 50, bold=1, color={0,0,0} }),
+          	}), -- end of Flow 
                  --yui.FlatDropdown({options = opt, size=size-2, onSelect = function(self, option) current_class = option end}),
                  --yui.HorizontalSpacing({w=10}),
                  --yui.Button({text=" Create ", size=size,
                  --        onClick = function(self) return generateNewPNJ(current_class) and sortAndDisplayPNJ() end }),
-                 yui.HorizontalSpacing({w=50}),
+                 yui.VerticalSpacing({h=20}),
                  yui.Button({name = "rollatt", text="     Roll Attack     ", size=size, black = true,
                         onClick = function(self) if self.button.black then return end rpg.rollAttack("attack") end }),
-                 yui.HorizontalSpacing({w=10}),
+                 --yui.HorizontalSpacing({w=10}),
+                 yui.VerticalSpacing({h=20}),
                  yui.Button({name = "rollarm", text="     Roll  Armor     ", size=size, black = true,
                         onClick = function(self) if self.button.black then return end rpg.rollAttack("armor") end }),
-                 yui.HorizontalSpacing({w=150}),
+                 yui.VerticalSpacing({h=20}),
                  yui.Button({name="cleanup", text="       Cleanup       ", size=size,
                          onClick = function(self) rpg.removeDeadPNJ(); new:sortAndDisplayPNJ(); thereIsDead = false end }),
-               }), -- end of Flow
-             new:createPNJGUIFrame(),
-            }) -- end of Stack
+               }), -- end of stack 
+          }) -- end of Flow 
        })
-     nextButton = new.view.s.t.nextround
-     attButton = new.view.s.t.rollatt
-     armButton = new.view.s.t.rollarm
-     clnButton = new.view.s.t.cleanup
+     nextButton = new.view.t.s.nextround
+     attButton = new.view.t.s.rollatt
+     armButton = new.view.t.s.rollarm
+     clnButton = new.view.t.s.cleanup
      nextButton.button.black = true
      attButton.button.black = true
      armButton.button.black = true
@@ -114,8 +119,8 @@ function Combat:createPNJGUIFrame()
   local width = 60;
   t[1] = yui.Flow({ name="headline",
       --yui.Text({text="Done", w=40, size=size-2, bold=1, center = 1 }),
-      yui.HorizontalSpacing({w=10}),
-      yui.Checkbox({name = "done", text = '', w = 30, 
+      yui.HorizontalSpacing({w=5}),
+      yui.Checkbox({name = "done", text = '', w = 25, 
             onClick = function(self) 
   		for i=1,PNJmax do
               	  if (PNJTable[i]) then 
@@ -126,11 +131,11 @@ function Combat:createPNJGUIFrame()
 		  end
 		end
             end}),
-      yui.Text({text="ID", w=35, size=size, bold=1, center = 1 }),
+      yui.Text({text="ID", w=25, size=size, bold=1, center = 1 }),
       yui.Text({text="CLASS", w=width*2.5, bold=1, size=size, center = 1}),
       yui.Text({text="INIT", w=90, bold=1, size=size, center = 1}),
-      yui.Text({text="INT/END/FOR\nDEX/FIGHT/PER", bold=1, w=125, size=size-2, center = 1}),
-      yui.Text({text="WEAPON", w=width*2, bold=1, size=size, center = 1 }),
+      --yui.Text({text="INT/END/FOR\nDEX/FIGHT/PER", bold=1, w=125, size=size-2, center = 1}),
+      --yui.Text({text="WEAPON", w=width*2, bold=1, size=size, center = 1 }),
       yui.Text({text="GOAL", w=width, bold=1, size=size, center = 1}),
       yui.Text({text="ROLL", w=width, bold=1, size=size, center = 1}),
       yui.Text({text="DMG", w=width, bold=1, size=size, center = 1}),
@@ -145,8 +150,8 @@ function Combat:createPNJGUIFrame()
     t[i+1] = 
     yui.Flow({ name="PNJ"..i,
 
-        yui.HorizontalSpacing({w=10}),
-        yui.Checkbox({name = "done", text = '', w = 30, 
+        yui.HorizontalSpacing({w=5}),
+        yui.Checkbox({name = "done", text = '', w = 25, 
             onClick = function(self) 
               if (PNJTable[i]) then 
                 PNJTable[i].done = self.checkbox.checked; 
@@ -155,8 +160,9 @@ function Combat:createPNJGUIFrame()
               end  
             end}),
 
-        yui.Text({name="id",text="", w=35, bold=1, size=size, center = 1 }),
-        yui.Text({name="class",text="", w=width*2.5, bold=1, size=size, center=false}),
+        yui.Text({name="id",text="", w=25, bold=1, size=size, center = 1 }),
+        yui.Text({name="class",text="", w=width*2, bold=1, size=size, center=true}),
+        yui.HorizontalSpacing({w=30}),
         yui.Text({name="init",text="", w=40, bold=1, size=size, center = 1, color = theme.color.darkblue}),
 
         yui.Button({name="initm", text = '-', size=size-4,
@@ -182,8 +188,8 @@ function Combat:createPNJGUIFrame()
               end
             end}),
 
-        yui.Text({name="endfordexfight", text = "", bold=1, w=width*2, size=size-4, center = 1}),
-        yui.Text({name="weapon",text="", w=width*2, bold=1, size=size, center = 1}),
+        --yui.Text({name="endfordexfight", text = "", bold=1, w=width*2, size=size-4, center = 1}),
+        --yui.Text({name="weapon",text="", w=width*2, bold=1, size=size, center = 1}),
         yui.Text({name="goal",text="", w=width, bold=1, size=size+4, center = 1}),
         yui.Text({name="roll",text="", w=width-20, bold=1, size=size+4, center=1, color = theme.color.darkblue}),
         yui.Text({name="dmg",text="", text2 = "", text3 = "", w=width+25, bold=1, size=size+4, center = 1}),
@@ -226,8 +232,8 @@ function Combat:createPNJGUIFrame()
                 self.parent.goal.text = "--"; 
                 self.parent.armor.text = "--"; 
                 self.parent.dmg.text = "--"; 
-                self.parent.weapon.text = "--"; 
-                self.parent.endfordexfight.text = "--"; 
+                --self.parent.weapon.text = "--"; 
+                --self.parent.endfordexfight.text = "--"; 
                 self.parent.def.text = "--"; 
                 self.parent.dmg.text2 = "";
                 self.parent.dmg.text3 = "";
@@ -276,8 +282,8 @@ function Combat:createPNJGUIFrame()
               self.parent.goal.text = "--"; 
               self.parent.armor.text = "--"; 
               self.parent.dmg.text = "--"; 
-              self.parent.weapon.text = "--"; 
-              self.parent.endfordexfight.text = "--"; 
+              --self.parent.weapon.text = "--"; 
+              --self.parent.endfordexfight.text = "--"; 
               self.parent.def.text = "--"; 
               self.parent.dmg.text2 = "";
               self.parent.dmg.text3 = "";
@@ -344,6 +350,10 @@ function Combat:createPNJGUIFrame()
 end
 function Combat:draw()
 
+  local fillborder = 320
+  local blinkoffset = 750
+  local emph = 500
+
   local alpha = 80
   local zx,zy = -( self.x * 1/self.mag - self.layout.W / 2), -( self.y * 1/self.mag - self.layout.H / 2)
 
@@ -356,7 +366,7 @@ function Combat:draw()
 
   -- draw FOCUS if applicable
   love.graphics.setColor(0,102,0,alpha)
-  if self.focus then love.graphics.rectangle("fill",PNJtext[self.focus].x+2,PNJtext[self.focus].y-5,self.layout.WC - 5,42) end
+  if self.focus then love.graphics.rectangle("fill",PNJtext[self.focus].x+2,PNJtext[self.focus].y-5,self.layout.WC - fillborder,42) end
 
   -- draw ATTACKERS if applicable
   love.graphics.setColor(174,102,0,alpha)
@@ -365,11 +375,11 @@ function Combat:draw()
         if v then
           local index = findPNJ(i)
           if index then 
-		  love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,self.layout.WC - 5,42) 
+		  love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,self.layout.WC - fillborder,42) 
 		  -- emphasize defense value, but only for PNJ
     		  if not PNJTable[index].PJ then
 			  love.graphics.setColor(0,0,0,120)
-		  	  love.graphics.rectangle("line",PNJtext[index].x+743,PNJtext[index].y-3, 26,39) 
+		  	  love.graphics.rectangle("line",PNJtext[index].x+emph,PNJtext[index].y-3, 26,39) 
 		  end
 		  PNJtext[index].def.color = { unpack(theme.color.white) }
     		  love.graphics.setColor(204,102,0,alpha)
@@ -381,7 +391,7 @@ function Combat:draw()
     -- draw TARGET if applicable
     love.graphics.setColor(250,60,60,alpha*1.5)
     local index = findPNJ(self.focusTarget)
-    if index then love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,self.layout.WC - 5,42) end
+    if index then love.graphics.rectangle("fill",PNJtext[index].x+2,PNJtext[index].y-5,self.layout.WC - fillborder,42) end
 
     -- draw PNJ snapshot if applicable
     for i=1,#PNJTable do
@@ -400,7 +410,7 @@ function Combat:draw()
     else
       love.graphics.setColor(0,0,0,alpha*1.5)
     end
-    love.graphics.rectangle("fill",PNJtext[1].x+990,PNJtext[1].y-5,400,(#PNJTable)*43)
+    love.graphics.rectangle("fill",PNJtext[1].x+blinkoffset,PNJtext[1].y-5,210,(#PNJTable)*49)
   end
   love.graphics.setScissor() 
 
@@ -454,8 +464,8 @@ function Combat:update(dt)
          if (newRound) then
                  roundTimer = roundTimer + dt
                  if (roundTimer >= 5) then
-                         self.view.s.t.round.color = theme.color.black
-                         self.view.s.t.round.text = tostring(roundNumber)
+                         self.view.t.s.r.round.color = theme.color.black
+                         self.view.t.s.r.round.text = tostring(roundNumber)
                          newRound = false
                          roundTimer = 0
                  end
@@ -510,7 +520,8 @@ function Combat:click(x,y)
 	local W,H=self.layout.W, self.layout.H
   	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
 
-	if (y - zy) >= 40 then -- clicking on buttons does not change focus
+	--if (y - zy) >= 40 then -- clicking on buttons does not change focus
+	if (x - zx) <= 800 then -- clicking on buttons does not change focus
 
   	-- we assume that the mouse was pressed outside PNJ list, this might change below
   	self.lastFocus = self.focus
@@ -573,7 +584,8 @@ function Combat:click(x,y)
         	arrowMode = false
 	end
 	
-	if (y - zy) < 40 then 
+	--if (y - zy) < 40 then 
+	if (x - zx) > 800 then -- clicking on buttons does not change focus
         	arrowMode = false
 	end
 
@@ -613,8 +625,8 @@ function Combat:updateLineColor( i )
   if (PNJTable[i].done) then
     PNJtext[i].id.color                         = theme.color.masked
     PNJtext[i].class.color                      = theme.color.masked
-    PNJtext[i].endfordexfight.color             = theme.color.masked
-    PNJtext[i].weapon.color                     = theme.color.masked
+    --PNJtext[i].endfordexfight.color             = theme.color.masked
+    --PNJtext[i].weapon.color                     = theme.color.masked
     PNJtext[i].goal.color                       = theme.color.masked
     PNJtext[i].armor.color                      = theme.color.masked
     PNJtext[i].roll.color                       = theme.color.masked
@@ -622,15 +634,15 @@ function Combat:updateLineColor( i )
   elseif PNJTable[i].PJ then
     PNJtext[i].id.color                         = theme.color.purple
     PNJtext[i].class.color                      = theme.color.purple
-    PNJtext[i].endfordexfight.color             = theme.color.purple
-    PNJtext[i].weapon.color                     = theme.color.purple
+    --PNJtext[i].endfordexfight.color             = theme.color.purple
+    --PNJtext[i].weapon.color                     = theme.color.purple
     PNJtext[i].goal.color                       = theme.color.purple
     PNJtext[i].armor.color                      = theme.color.purple
   else
     PNJtext[i].id.color                         = theme.color.black
     PNJtext[i].class.color                      = theme.color.black
-    PNJtext[i].endfordexfight.color             = theme.color.black
-    PNJtext[i].weapon.color                     = theme.color.black
+    --PNJtext[i].endfordexfight.color             = theme.color.black
+    --PNJtext[i].weapon.color                     = theme.color.black
     PNJtext[i].goal.color                       = theme.color.black
     PNJtext[i].armor.color                      = theme.color.black
   end
@@ -667,11 +679,11 @@ function Combat:sortAndDisplayPNJ()
       PNJtext[i].dmg.text = "";
       PNJtext[i].armor.text = "";
       PNJtext[i].hits.text = "";
-      PNJtext[i].endfordexfight.text = ""
+      --PNJtext[i].endfordexfight.text = ""
       PNJtext[i].def.text = ""
       PNJtext[i].goal.text = ""
       PNJtext[i].stance.text = ""
-      PNJtext[i].weapon.text = ""
+      --PNJtext[i].weapon.text = ""
       PNJtext[i].dmg.text2 = ""
       PNJtext[i].dmg.text3 = ""
 
@@ -696,11 +708,11 @@ function Combat:sortAndDisplayPNJ()
         PNJtext[i].dmg.text = "--";
         PNJtext[i].armor.text = "--";
         PNJtext[i].hits.text = "--";
-        PNJtext[i].endfordexfight.text = "--"
+        --PNJtext[i].endfordexfight.text = "--"
         PNJtext[i].def.text = "--"
         PNJtext[i].goal.text = "--"
         PNJtext[i].stance.text = "--"
-        PNJtext[i].weapon.text = "--"
+        --PNJtext[i].weapon.text = "--"
         PNJtext[i].dmg.text2 = ""
         PNJtext[i].dmg.text3 = ""
         
@@ -727,11 +739,11 @@ function Combat:sortAndDisplayPNJ()
 
         if (pnj.armor==0) then PNJtext[i].armor.text = "-" else PNJtext[i].armor.text = pnj.armor .. "D"; end
         PNJtext[i].hits.text = pnj.hits;
-        PNJtext[i].endfordexfight.text = pnj.intelligence .." ".. pnj.endurance .." ".. pnj.force .. "\n" .. pnj.dex .." ".. pnj.fight .. " " .. pnj.perception;
+        --PNJtext[i].endfordexfight.text = pnj.intelligence .." ".. pnj.endurance .." ".. pnj.force .. "\n" .. pnj.dex .." ".. pnj.fight .. " " .. pnj.perception;
         PNJtext[i].def.text = pnj.final_defense;
         PNJtext[i].goal.text = pnj.final_goal;
         PNJtext[i].stance.text = pnj.stance;
-        PNJtext[i].weapon.text = pnj.weapon or "";
+        --PNJtext[i].weapon.text = pnj.weapon or "";
         
       end
     end
@@ -755,8 +767,8 @@ function Combat:nextRound()
 
     -- increase round
     roundNumber = roundNumber + 1
-    self.view.s.t.round.text = tostring(roundNumber)
-    self.view.s.t.round.color= theme.color.red
+    self.view.t.s.r.round.text = tostring(roundNumber)
+    self.view.t.s.r.round.color= theme.color.red
 
     -- set timer
     self.nextFlash = false
@@ -789,7 +801,7 @@ function Combat:nextRound()
     end
 
     -- reset global Done checkbox
-    self.view.s.pnjlist.headline.done.checkbox.checked = false
+    self.view.t.pnjlist.headline.done.checkbox.checked = false
  
     end
 

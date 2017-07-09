@@ -108,7 +108,7 @@ textActiveRightCallback		= nil			-- if set, function to call on right arrow
 -- Maximum number is PNJmax
 -- A Dead PNJ counts as 1, except if explicitely removed from the list
 PNJTable 	= {}		
-PNJmax   	= 13		-- Limit in the number of PNJs (and the GUI frame size as well)
+PNJmax   	= 14		-- Limit in the number of PNJs (and the GUI frame size as well)
 
 -- Direct access (without traversal) to GUI structure:
 -- PNJtext[i] gives a direct access to the i-th GUI line in the GUI PNJ frame
@@ -1479,7 +1479,9 @@ function init()
     local combatWindow = Combat:new{ w=layout.WC, h=layout.HC, x=-layout.intW+layout.W/2, y=-layout.intW+layout.H/2-theme.iconSize,layout=layout}
 
     local pWindow = projectorWindow:new{ w=layout.W1, h=layout.H1, x=-(layout.WC+layout.intW+3)+layout.W/2,
-					y=-(layout.H - 3*iconSize - layout.snapshotSize - 2*layout.intW - layout.H1 - 2 )+layout.H/2 - theme.iconSize ,layout=layout}
+					y=-(layout.H - 3*iconSize - layout.snapshotSize - 2*layout.intW - layout.H1 - 2 )+layout.H/2 
+					- 2*theme.iconSize 
+					,layout=layout}
 
     local storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = theme.storyImage, w=theme.storyImage:getWidth(), 
 				  h=theme.storyImage:getHeight() , x=-1220, y=400,layout=layout}
@@ -1497,8 +1499,9 @@ function init()
 
     local dataWindow = setupWindow:new{ w=600, h=400, x=300,y=layout.H/2-100, init=true,layout=layout} 
 
-    local snapshotWindow = snapshotBar:new{ w=layout.W-2*layout.intW, h=layout.snapshotSize+2, x=-layout.intW+layout.W/2, 
-					y=-(layout.H-layout.snapshotSize-2*iconSize)+layout.H/2 - theme.iconSize ,layout=layout }
+    local snapshotWindow = snapshotBar:new{ w=layout.W-6*layout.intW, h=layout.snapshotSize+2, x=-layout.intW+layout.W/2, 
+					y=-(layout.H-layout.snapshotSize)+layout.H/2 ,
+					layout=layout }
 
     -- do not display them yet
     -- basic windows (as opposed to maps, for instance) are also stored by name, so we can retrieve them easily elsewhere in the code
@@ -1537,7 +1540,7 @@ function init()
 					y= -layout.H/2+theme.iconSize+layout.intW+2*layout.snapshotSize }
       layout:addWindow( uWindow , false, "uWindow" )
 
-      local sWindow = graphWindow:new{  w=layout.WC, h=layout.HC, x=-layout.intW+layout.W/2, y=-layout.intW+layout.H/2-theme.iconSize,layout=layout,
+      local sWindow = graphWindow:new{  w=layout.WC, h=layout.HC, x=-layout.intW+layout.W/2, y=layout.intW+layout.H/2,layout=layout,
 					filename=baseDirectoryCp1252..sep..fadingDirectoryCp1252..sep.."scenario.mm"} 
       layout:addWindow( sWindow , 	false, "sWindow" )
 
@@ -1547,7 +1550,7 @@ function init()
 					y= -layout.H/2+theme.iconSize+layout.intW+2*layout.snapshotSize }
       layout:addWindow( uWindow , false, "uWindow" )
 
-      local sWindow = graphWindow:new{  w=layout.WC, h=layout.HC, x=-layout.intW+layout.W/2, y=-layout.intW+layout.H/2-theme.iconSize,layout=layout,
+      local sWindow = graphWindow:new{  w=layout.WC, h=layout.HC, x=-layout.intW+layout.W/2, y=layout.intW+layout.H/2,layout=layout,
 					filename=baseDirectory..sep..fadingDirectory..sep.."scenario.mm"} 
       layout:addWindow( sWindow , 	false, "sWindow" )
 
@@ -1637,7 +1640,7 @@ function love.load( args )
 
     -- adjust some windows accordingly
     layout.snapshotH = layout.H - layout.snapshotSize - layout.snapshotMargin
-    layout.HC = layout.H - 4 * layout.intW - 3 * iconSize - layout.snapshotSize
+    layout.HC = layout.H - 4 * layout.intW - 2 * iconSize - layout.snapshotSize
     layout.WC = 1290 - 2 * layout.intW
 
     -- launch further init procedure if possible,
