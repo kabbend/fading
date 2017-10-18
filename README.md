@@ -1,6 +1,6 @@
 # README #
 
-### Aide de Jeu Fading Suns (pour le moment) ###
+### Aide de Jeu Fading Suns ###
 
 Le repository contient 3 programmes qui fonctionnent ensemble :
 
@@ -24,7 +24,7 @@ Pour le serveur, la configuration se fait dans l'application (fenêtre de setup 
 racine (voir le paragraphe 'Unicode Hell' ci dessous)
 Pour le projecteur, la configuration se fait dans le fichier 'pconf.lua'
 
-##Lancement
+## Lancement
 Serveur
 ```
 #!c
@@ -69,7 +69,7 @@ base Directory                -- banque globale d'images, de data, de maps. Peut
 Il faut fournir au moins une image pawnDefault.jpg de pion par defaut. Tous les autres fichiers (images, maps, scenario...) sont facultatifs mais, évidemment,
 fortement conseillés.
 
-##Unicode Hell
+## Unicode Hell
 Le serveur et le projecteur sont basés, pour le moment, sur le partage de fichiers stockés sur un filesystem accessible aux deux (donc potentiellement un filesystem
 réseau ou cloud). C'est ainsi que surgit l'enfer d'unicode, en particulier si on mixe une machine OS X et une machine Windows comme serveur et projecteur. 
 
