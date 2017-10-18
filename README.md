@@ -12,7 +12,7 @@ Le repository contient 3 programmes qui fonctionnent ensemble :
 
 ## Prerequis:
 - Lua
-- le moteur graphique LÃ–VE (love2d, version a  partir de 0.10.2)
+- le moteur graphique LOVE (love2d, version a  partir de 0.10.2)
 - pour l'application mobile, le framework Corona SDK (qui permet de developper egalement en Lua)
 
 ## Configuration
@@ -51,16 +51,16 @@ base Directory                -- banque globale d'images, de data, de maps. Peut
        +--- scenario.jpg      -- (obsolete) image du scenario Coggle                    
        +--- scenario.mm       -- facultatif: scenario au format XML freemind (.mm)
        +--- pawnDefault.jpg   -- image par defaut pour les pions
-       +--- pawn*.jpg/png     -- sera associe automatiquement Ã  un PJ si le nom matche (sinon, stocke comme une image classique)
+       +--- pawn*.jpg/png     -- sera associe automatiquement a un PJ si le nom matche (sinon, stocke comme une image classique)
        +--- map*.jpg/png      -- map: sera stockee en memoire et utilisable durant la partie (destinee a etre projetee aux joueurs, et porter des pions) 
        +--- *.jpg/png         -- image generale: sera stocke en memoire et utilisable durant la partie comme une image generale (destinee Ã  Ãªtre projetee aux joueurs) 
-       +--- data              -- fichier (facultatif) qui decrit les classes de PNJ ou les PJ (en principe, dedie Ã  un scenario donne).
+       +--- data              -- fichier (facultatif) qui decrit les classes de PNJ ou les PJ (en principe, dedie a un scenario donne).
                               -- peut completer le fichier data general (avec des classes particulieres, par exemple)
 ```
 
 Il faut fournir au moins une image pawnDefault.jpg de pion par defaut. Tous les autres fichiers (images, maps, scenario...) sont facultatifs mais, evidemment, fortement conseilles.
 
-##Unicode Hell
+## Unicode Hell
 Le serveur et le projecteur sont bases, pour le moment, sur le partage de fichiers stockes sur un filesystem accessible aux deux (donc potentiellement un filesystem reseau ou cloud). C'est ainsi que surgit l'enfer d'unicode, en particulier si on mixe une machine OS X et une machine Windows comme serveur et projecteur. 
 
 En effet, Lua/Love stockent leurs chaines de caracteres en UTF8 (plutot safe), mais Windows utilise par defaut un encodage UTF16. 
@@ -68,7 +68,7 @@ Cela a deux effets indÃ©sirables:
 1. Une fois stocke, un filename ne peut pas etre passe directement du serveur vers la couche Windows OS tel quel (le nom n'est pas reconnu). On ne peut pas non plus passer d'un encodage UTF8 vers UTF16, car de toute facon l'appel a io.open() passe par une couche C qui ne le supporte pas. Une solution perenne serait de passer
 par une API compatible UTF16, eg. winapi. C'est un travail un peu lourd, et pas vraiment une top priorite. 
 En attendant, le serveur et le projecteur - s'ils tournent sous Windows - transforment le filename d'UTF8 vers un code reconnu par le systeme et safe du point de
-vue io.open(): J'ai choisi le codepage 1252 (qui correspond, plus ou moins, Ã  l'Extended ASCII). Cela signifie que l'on supporte uniquement les caracteres speciaux
+vue io.open(): J'ai choisi le codepage 1252 (qui correspond, plus ou moins, a l'Extended ASCII). Cela signifie que l'on supporte uniquement les caracteres speciaux
 de ce codepage: C'est largement suffisant pour un usage normal, mais il faut eviter les caracteres grecs ou cyrilliques dans les noms de fichier, pour le moment...
 2. Au moment de recueillir les noms de fichier (par une commande dir /b en passant par la couche OS), il faut les convertir en UTF8, en positionnant le codepage souhaite (chcp 65001) au moment du lancement de la commande.
 
