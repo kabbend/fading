@@ -21,6 +21,7 @@ function notificationWindow:new( t ) -- create from w, h, x, y
   new.pause   = false
   new.maxX = t.x + t.w - 10 
   new.minX = t.x 
+  new.alpha = 0
   return new
 end
 
@@ -33,7 +34,7 @@ end
 function notificationWindow:draw()
   local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x/self.mag - W / 2), -( self.y/self.mag - H / 2)
-  love.graphics.setColor(255,255,255)
+  love.graphics.setColor(255,255,255,self.alpha)
   love.graphics.rectangle( "fill", zx, zy, self.w, self.h, 10, 10 ) 
   love.graphics.setColor(0,0,0)
   love.graphics.setFont(theme.fontRound)
@@ -47,17 +48,23 @@ function notificationWindow:update(dt)
  	self.opening = true 
 	self.layout:setDisplay(self,true)
   end
-  if self.opening and self.x <= self.maxX then 
-	self.x = self.x + 3 
-	if self.x > self.maxX then self.opening = false; self.pause = true; self.closing = false; self.pauseTimer = 3  end
+  --if self.opening and self.x <= self.maxX then 
+  if self.opening and self.alpha < 255 then 
+	--self.x = self.x + 3 
+	self.alpha = self.alpha + 3 
+	--if self.x > self.maxX then self.opening = false; self.pause = true; self.closing = false; self.pauseTimer = 3  end
+	if self.alpha >= 255 then self.alpha = 255; self.opening = false; self.pause = true; self.closing = false; self.pauseTimer = 3  end
   end
   if self.pause then
 	self.pauseTimer = self.pauseTimer - dt
 	if self.pauseTimer < 0 then self.pause = false; self.closing = true end
   end
-  if self.closing and self.x >= self.minX then 
-	self.x = self.x - 3 
-	if self.x < self.minX then self.closing = false; self.text = nil ; self.layout:setDisplay(self,false) end
+  --if self.closing and self.x >= self.minX then 
+  if self.closing and self.alpha > 0 then 
+	--self.x = self.x - 3 
+	self.alpha = self.alpha - 3 
+	--if self.x < self.minX then self.closing = false; self.text = nil ; self.layout:setDisplay(self,false) end
+	if self.alpha <= 0 then self.alpha = 0; self.closing = false; self.text = nil ; self.layout:setDisplay(self,false) end
   end
   end
 

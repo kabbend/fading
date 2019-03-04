@@ -3,7 +3,7 @@ local utf8 	= require 'utf8'
 local Window 	= require 'window'
 local theme 	= require 'theme'
 
-local dialogBase	= "Message: "
+local dialogBase	= "Command: "
 local dialog 		= dialogBase		-- text printed on the screen when typing dialog 
 local dialogActive	= false
 local dialogLog		= {}			-- store all dialogs for complete display
@@ -11,7 +11,7 @@ local ack		= false			-- automatic acknowledge when message received ?
 
 -- Dialog class
 -- a Dialog is a window which displays some text and let some input. it is not zoomable
-local Dialog = Window:new{ class = "dialog" , title = "DIALOG WITH PLAYERS" }
+local Dialog = Window:new{ class = "dialog" , title = "COMMAND" }
 
 function Dialog:new( t ) -- create from w, h, x, y
   local new = t or {}
@@ -27,7 +27,7 @@ function Dialog:addLine(l) table.insert( dialogLog, l ) end
 function Dialog:draw()
    -- draw window frame
    love.graphics.setFont(theme.fontSearch)
-   love.graphics.setColor(10,10,10,150)
+   love.graphics.setColor(10,10,10,200)
    local zx,zy = -( self.x * 1/self.mag - self.layout.W / 2), -( self.y * 1/self.mag - self.layout.H / 2)
    love.graphics.rectangle( "fill", zx , zy , self.w , self.h )  
    -- print current log text
@@ -72,12 +72,12 @@ function Dialog:update(dt) Window.update(self,dt) end
 function doDialog()
   local text = string.gsub( dialog, dialogBase, "" , 1) 
   dialog = dialogBase
-  local _,_,playername,rest = string.find(text,"(%a+)%A?(.*)")
-  io.write("send message '" .. text .. "': player=" .. tostring(playername) .. ", text=" .. tostring(rest) .. "\n")
-  local tcp = findClientByName( playername )
-  if not tcp then io.write("player not found or not connected\n") return end
-  tcpsend( tcp, rest ) 
-  table.insert( dialogLog , "MJ: " .. string.upper(text) .. "(" .. os.date("%X") .. ")" )
+  --local _,_,playername,rest = string.find(text,"(%a+)%A?(.*)")
+  --io.write("send message '" .. text .. "': player=" .. tostring(playername) .. ", text=" .. tostring(rest) .. "\n")
+  --local tcp = findClientByName( playername )
+  --if not tcp then io.write("player not found or not connected\n") return end
+  --tcpsend( tcp, rest ) 
+  table.insert( dialogLog , text )
   end
 
 return Dialog

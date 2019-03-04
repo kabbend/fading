@@ -121,6 +121,7 @@ function render.die(action, die, star)
     action(z, function()
       if front then 
         if i == upfrontIndex then 
+		if drawDicesKind == "d20" then diceSum = i end
 		love.graphics.setColor(255,0,0) else
         	love.graphics.setColor(unpack(color))
 	end

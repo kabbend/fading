@@ -7,8 +7,8 @@ local snapshots    = {}
 snapshots[1] = { s = {}, index = 1, offset = 0 }        -- small snapshots at the bottom, for general images
 snapshots[2] = { s = {}, index = 1, offset = 0 }        -- small snapshots at the bottom, for scenario & maps
 snapshots[3] = { s = {}, index = 1, offset = 0 }        -- small snapshots at the bottom, for PNJ classes 
-snapshots[4] = { s = {}, index = 1, offset = 0 }        -- small snapshots at the bottom, for pawn images
-local snapText = { "GENERAL IMAGES", "TACTICAL MAPS", "PNJ CLASSES", "PAWN IMAGES" }
+snapshots[4] = { s = {}, index = 1, offset = 0 }        -- small snapshots at the bottom, for windows -- not used so far, reserved
+local snapText = { "PICTURES", "MAPS", "CHARACTERS", "WINDOWS" }
 
 local iconSize = theme.iconSize
 
@@ -17,7 +17,8 @@ local iconSize = theme.iconSize
 -- a snapshotBar is a window which displays images
 --
 
-local snapshotBar = Window:new{ class = "snapshot" , title = snapText[1] , wResizable = true , hResizable = true, download = true }
+local snapshotBar = Window:new{ class = "snapshot" , title = snapText[1] , wResizable = true , hResizable = true, 
+				download = true , buttons = { 'next', 'always', 'close' } }
 
 function snapshotBar:new( t ) -- create from w, h, x, y
   local new = t or {}
@@ -34,7 +35,7 @@ end
 function snapshotBar:download()
 	-- someone has clicked on 'download' button in the button bar
 	-- this should toggle the visibility of urlWindow.
-	layout:toggleWindow(layout.uWindow)
+	--layout:toggleWindow(layout.uWindow)
 	end
 
 function snapshotBar:draw()
@@ -47,7 +48,7 @@ function snapshotBar:draw()
   local snapshotMargin = self.layout.snapshotMargin
   local zx,zy = -( self.x * 1/self.mag - self.layout.W / 2), -( self.y * 1/self.mag - self.layout.H / 2)
   --local basex = zx + snapshots[self.currentSnap].offset
-  for line = 1, self.lines do
+  for line = 1, self.lines do 
 
     for i=1 + self.maxPerLine * (line - 1), (self.maxPerLine * line) do
 	if i > #snapshots[self.currentSnap].s then break end
@@ -63,23 +64,21 @@ function snapshotBar:draw()
 				zy + 5 + (line-1)*(snapshotSize + snapshotMargin), 
 				snapshotSize, 
 				snapshotSize)
+		elseif snapshots[self.currentSnap].s[i].highlight then
+  			love.graphics.setColor(unpack(theme.color.darkblue))
+			love.graphics.rectangle("line", 
+				zx + snapshots[self.currentSnap].offset + (snapshotSize + snapshotMargin) * (relativeIndex-1),
+				zy + 5 + (line-1)*(snapshotSize + snapshotMargin), 
+				snapshotSize, 
+				snapshotSize)
 		end
 		if self.currentSnap == 2 and snapshots[self.currentSnap].s[i].kind == "scenario" then
 			-- do not draw scenario, ... 
 		else
   			love.graphics.setColor(255,255,255)
-			if self.currentSnap == 2 and snapshots[self.currentSnap].s[i].quad then
-			love.graphics.draw( 	snapshots[self.currentSnap].s[i].im , 
-				snapshots[self.currentSnap].s[i].quad,
-				x ,
-				zy + (line-1)*(snapshotSize + snapshotMargin) - ( snapshots[self.currentSnap].s[i].h * snapshots[self.currentSnap].s[i].snapmag - snapshotSize ) / 2 + 2, 
-			    	0 , snapshots[self.currentSnap].s[i].snapmag, snapshots[self.currentSnap].s[i].snapmag )
-			else
-			love.graphics.draw( 	snapshots[self.currentSnap].s[i].im , 
-				x ,
-				zy + (line-1)*(snapshotSize + snapshotMargin) - ( snapshots[self.currentSnap].s[i].h * snapshots[self.currentSnap].s[i].snapmag - snapshotSize ) / 2 + 2, 
-			    	0 , snapshots[self.currentSnap].s[i].snapmag, snapshots[self.currentSnap].s[i].snapmag )
-			end
+			--love.graphics.draw( 	snapshots[self.currentSnap].s[i].im , x , zy + (line-1)*(snapshotSize + snapshotMargin) - ( snapshots[self.currentSnap].s[i].h * snapshots[self.currentSnap].s[i].snapmag - snapshotSize ) / 2 + 2, 0 , snapshots[self.currentSnap].s[i].snapmag, snapshots[self.currentSnap].s[i].snapmag )
+			love.graphics.draw( 	snapshots[self.currentSnap].s[i].thumb , x , zy + (line-1)*(snapshotSize + snapshotMargin) - ( snapshots[self.currentSnap].s[i].h * snapshots[self.currentSnap].s[i].snapmag - snapshotSize ) / 2 + 2 )
+
 		end
   		love.graphics.setScissor() 
 	end
@@ -91,13 +90,14 @@ function snapshotBar:draw()
    self:drawBar()
 
    -- print over text eventually
+   if layout:getFocus() == self then
  
-   love.graphics.setFont(theme.fontRound)
-   local x,y = love.mouse.getPosition()
-   local left = math.max(zx,0)
-   local right = math.min(zx+self.w,self.layout.W)
+     love.graphics.setFont(theme.fontRound)
+     local x,y = love.mouse.getPosition()
+     local left = math.max(zx,0)
+     local right = math.min(zx+self.w,self.layout.W)
 	
-   if x > left and x < right and y > zy and y < zy + self.h then
+     if x > left and x < right and y > zy and y < zy + self.h then
 	-- display text is over a class image
 	local line = math.floor((y - zy) / (snapshotSize + snapshotMargin)) + 1
     	local index = (line - 1) * self.maxPerLine + math.floor(((x-zx) - snapshots[self.currentSnap].offset) / ( snapshotSize + snapshotMargin)) + 1
@@ -122,6 +122,8 @@ function snapshotBar:draw()
 			end
 		end
 	end
+     end
+ 
    end
 
    self:drawResize()
@@ -142,29 +144,34 @@ function snapshotBar:update(dt)
 
   	local zx,zy = -( self.x - self.layout.W / 2), -( self.y - self.layout.H / 2)
 
-	-- change snapshot offset if mouse  at bottom right or left
-	--local snapMax = #snapshots[self.currentSnap].s * (snapshotSize + snapshotMargin) - self.w
-	local snapMax = self.maxPerLine * (snapshotSize + snapshotMargin) - self.w
-	if snapMax < 0 then snapMax = 0 end
-	local x,y = love.mouse.getPosition()
-	local left = math.max(zx,0)
-	local right = math.min(zx+self.w,self.layout.W)
-	
-	if x > left and x < right then
+   	if layout:getFocus() == self then
 
-	  if (x < left + snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h) then
+	  -- change snapshot offset if mouse  at bottom right or left
+	  --local snapMax = #snapshots[self.currentSnap].s * (snapshotSize + snapshotMargin) - self.w
+	  local snapMax = self.maxPerLine * (snapshotSize + snapshotMargin) - self.w
+	  if snapMax < 0 then snapMax = 0 end
+	  local x,y = love.mouse.getPosition()
+	  local left = math.max(zx,0)
+	  local right = math.min(zx+self.w,self.layout.W)
+	
+	  if x > left and x < right then
+
+	    if (x < left + snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h) then
 	  	snapshots[self.currentSnap].offset = snapshots[self.currentSnap].offset + snapshotMargin * 2
 	  	if snapshots[self.currentSnap].offset > 0 then snapshots[self.currentSnap].offset = 0  end
-	  end
+	    end
 
-	  if (x > right - snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h - iconSize) then
+	    if (x > right - snapshotMargin * 4 ) and (y > zy) and (y < zy + self.h - iconSize) then
 	  	snapshots[self.currentSnap].offset = snapshots[self.currentSnap].offset - snapshotMargin * 2
 	  	if snapshots[self.currentSnap].offset < -snapMax then snapshots[self.currentSnap].offset = -snapMax end
+	    end
+
 	  end
 
-	
 	end
+
 	end
+
 
 function snapshotBar:click(x,y)
 
@@ -190,9 +197,9 @@ function snapshotBar:click(x,y)
       dragMove = true
       dragObject = { originWindow = self, snapshot = snapshots[self.currentSnap].s[index] }
       if self.currentSnap == 1 then dragObject.object = { class = "image" } end
-      if self.currentSnap == 2 then dragObject.object = { class = "map" } end
+      if self.currentSnap == 2 then dragObject.object = { class = "map" , map = snapshots[self.currentSnap].s[index] } end
       if self.currentSnap == 3 then dragObject.object = { class = "pnj", rpgClass = RpgClasses[index] } end
-      if self.currentSnap == 4 then dragObject.object = { class = "pawn" } end
+      --if self.currentSnap == 4 then dragObject.object = { class = "pawn" } end
 
       if snapshots[self.currentSnap].s[index].selected then
 	      -- already selected
@@ -203,6 +210,7 @@ function snapshotBar:click(x,y)
 	      -- 1: general image, sent it to projector
 	      if self.currentSnap == 1 then
 	      	layout.pWindow.currentImage = snapshots[self.currentSnap].s[index].im
+	      	layout.pWindow.o = nil
 	      	-- remove the 'visible' flag from maps (eventually)
 	      	atlas:removeVisible()
 		tcpsend(projector,"ERAS") 	-- remove all pawns (if any) 
@@ -226,7 +234,8 @@ function snapshotBar:click(x,y)
 	
 	      -- 3: Pawn. If focus is set, use this image as PJ/PNJ pawn image 
 	      else
-			if focus then PNJTable[ focus ].snapshot = snapshots[self.currentSnap].s[index] end
+			--if focus then PNJTable[ focus ].snapshot = snapshots[self.currentSnap].s[index] end
+			io.write("internal error. should not come here")
 
 	      end
 
@@ -242,6 +251,12 @@ function snapshotBar:click(x,y)
       end
   end
 
+  end
+
+function snapshotBar:getNext()
+  self.currentSnap = self.currentSnap + 1
+  if self.currentSnap == 4 then self.currentSnap = 1 end -- we ignore snapshots[4], not used for the moment
+  self:setTitle( self.snapText[self.currentSnap] )
   end
 
 return snapshotBar

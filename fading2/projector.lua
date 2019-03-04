@@ -4,14 +4,19 @@ local theme		= require 'theme'	-- global theme
 
 -- projectorWindow class
 -- a projectorWindow is a window which displays images. it is not zoomable
-local projectorWindow = Window:new{ class = "projector" , title = "PROJECTOR" }
+local projectorWindow = Window:new{ class = "projector" , title = "DISPLAY", buttons = { 'always', 'close'}  }
 
 function projectorWindow:new( t ) -- create from w, h, x, y
   local new = t or {}
   setmetatable( new , self )
   self.__index = self
   self.currentImage = nil
+  self.dice = nil
   return new
+end
+
+function projectorWindow:drawDicesResult(d)
+  self.dice = d;
 end
 
 function projectorWindow:draw()
@@ -20,7 +25,7 @@ function projectorWindow:draw()
 
   local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
-  if self.currentImage then 
+  if self.currentImage and not self.dice then 
     local w, h = self.currentImage:getDimensions()
     -- compute magnifying factor f to fit to screen, with max = 2
     local xfactor = (self.layout.W1) / w
@@ -30,6 +35,18 @@ function projectorWindow:draw()
     w , h = f * w , f * h
     love.graphics.draw( self.currentImage , zx +  (self.layout.W1 - w) / 2, zy + ( self.layout.H1 - h ) / 2, 0 , f, f )
   end
+
+  -- print dice result eventually
+  if self.dice then
+      love.graphics.setColor(unpack(theme.color.white))
+      love.graphics.rectangle("fill",zx, zy, self.layout.W1 , self.layout.H1 );
+      love.graphics.setColor(unpack(theme.color.black))
+      love.graphics.setFont(theme.fontDice)
+      local w = theme.fontDice:getWidth( self.dice );
+      local h = theme.fontDice:getHeight( self.dice );
+      love.graphics.print(self.dice, zx +  (self.layout.W1 - w) / 2, zy + ( self.layout.H1 - h ) / 2 - 15);
+  end
+
   -- print bar
   self:drawBar()
   end

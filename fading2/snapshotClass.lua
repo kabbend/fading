@@ -19,6 +19,23 @@ local function loadLocalImage( file )
   return image
 end
 
+local lfn = love.filesystem.newFileData
+local lin = love.image.newImageData
+local lgn = love.graphics.newImage
+
+function createThumbnail(img,scale)
+	local canvas = love.graphics.newCanvas(img:getWidth()*scale , img:getHeight()*scale)
+	love.graphics.push("all")
+	local wasCanvas = love.graphics.getCanvas()
+	love.graphics.setCanvas(canvas)
+	love.graphics.clear()
+	love.graphics.draw(img,0,0,0,scale)
+	love.graphics.pop()
+	love.graphics.setCanvas(wasCanvas)
+	local imageData = canvas:newImageData()
+	return lgn(imageData)
+end
+
 -- Snapshot class
 -- a snapshot holds an image, displayed in the bottom part of the screen.
 -- Snapshots are used for general images, and for pawns. For maps, use the
@@ -47,15 +64,17 @@ function Snapshot:new( t ) -- create from filename or file object (one mandatory
 	new.baseFilename = new.file:getFilename() 
 	new.displayFilename = splitFilename(new.file:getFilename())
   end
-  local lfn = love.filesystem.newFileData
-  local lin = love.image.newImageData
-  local lgn = love.graphics.newImage
+
   local img = lgn(lin(lfn(image, 'img', 'file')), { mipmaps=true } ) 
   pcall( function() img:setMipmapFilter( "nearest" ) end )
   new.im = img
+
   new.w, new.h = new.im:getDimensions()
   local f1, f2 = new.snapshotSize / new.w, new.snapshotSize / new.h
   new.snapmag = math.min( f1, f2 )
+
+  new.thumb = createThumbnail( new.im, new.snapmag )
+
   new.selected = false
   return new
 end

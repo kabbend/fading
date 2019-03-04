@@ -49,7 +49,7 @@ function mainLayout:setOnTop( window , onTop )
 	if not onTop then 
 		layout.windows[window].l = layout.maxWindowLayer+1
 	else 
-		layout.windows[window].l = 10e5
+		layout.windows[window].l = layout.maxWindowLayer + 10e5
 	end
 	table.sort( self.sorted , function(a,b) return a.l < b.l end )
 	end

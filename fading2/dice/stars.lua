@@ -37,7 +37,7 @@ function box:update(dt)
 		end
 	end
       end
-
+	
       if math.abs(s.angular[3])<0.1 then s.angular[3]=0 end
  
       end

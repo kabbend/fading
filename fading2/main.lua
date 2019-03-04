@@ -1,4 +1,8 @@
 
+-- all fonts used by edition mode in Maps
+fonts = {}
+fontsBold = {}
+
 local utf8 		= require 'utf8'
 local codepage		= require 'codepage'	-- windows cp1252 support
 local socket 		= require 'socket'	-- general networking
@@ -24,7 +28,7 @@ local snapshotBar		= require 'snapshot'		-- all kinds of images
 local Map			= require 'map'			-- maps 
 local Combat			= require 'combat'		-- main combat window (with PNJ list) 
 local urlWindow			= require 'urlWindow'		-- provide an URL to load 
-local graphWindow		= require 'graphScenarioWindow'	--  
+--local graphWindow		= require 'graphScenarioWindow'	--  
 
 -- specific object classes
 local Snapshot			= require 'snapshotClass'	-- store and display one image 
@@ -34,7 +38,27 @@ local Atlas			= require 'atlas'		-- store some information on maps (eg. which on
 layout = mainLayout:new()		-- one instance of the global layout
 atlas = nil 				-- one instance of the atlas. Will be set in init()
 
+-- text dictionary, loaded with Maps
+local textDict = { }    -- key = lua filename, value = { array-of-node }
+
+function inTable(tbl, item)
+    for key, value in pairs(tbl) do
+        if value == item then return key end
+    end
+    return false
+end
+
 if love.system.getOS() == "Windows" then __WINDOWS__ = true end
+
+-- flag and timer to draw dices
+dice 		    = {}	-- list of dices
+drawDicesTimer      = 0
+drawDices           = false	-- flag to draw dices
+drawDicesResult     = false	-- flag to draw dices result (in a 2nd step)	
+--diceKind 	    = ""	-- kind of dice (black for 'attack', white for 'armor') -- unused at the moment
+diceSum		    = 0		-- result to be displayed on screen
+lastDiceSum	    = 0		-- store previous result, to detect stabilization
+diceStableTimer	    = 0
 
 -- dice3d code
 require	'./dice/base'
@@ -84,6 +108,9 @@ fullBinary		= false			-- if true, the server will systematically send binary fil
 -- various mouse movements
 mouseMove		= false			-- a window is being moved
 pawnMove 		= nil			-- pawn currently moved by mouse movement
+moveText                = nil
+resizeText              = nil
+editingNode             = false
 
 -- drag & drop data
 dragMove		= false
@@ -108,22 +135,12 @@ textActiveRightCallback		= nil			-- if set, function to call on right arrow
 -- Maximum number is PNJmax
 -- A Dead PNJ counts as 1, except if explicitely removed from the list
 PNJTable 	= {}		
-PNJmax   	= 14		-- Limit in the number of PNJs (and the GUI frame size as well)
+PNJmax   	= 17		-- Limit in the number of PNJs (and the GUI frame size as well)
 
 -- Direct access (without traversal) to GUI structure:
 -- PNJtext[i] gives a direct access to the i-th GUI line in the GUI PNJ frame
 -- this corresponds to the i-th PNJ as stored in PNJTable[i]
 PNJtext 	= {}		
-
--- flag and timer to draw dices
-dice 		    = {}	-- list of dices
-drawDicesTimer      = 0
-drawDices           = false	-- flag to draw dices
-drawDicesResult     = false	-- flag to draw dices result (in a 2nd step)	
-diceKind 	    = ""	-- kind of dice (black for 'attack', white for 'armor') -- unused at the moment
-diceSum		    = 0		-- result to be displayed on screen
-lastDiceSum	    = 0		-- store previous result, to detect stabilization
-diceStableTimer	    = 0
 
 -- information to draw the arrow in combat mode
 arrowMode 		 = false	-- draw an arrow with mouse, yes or no
@@ -441,15 +458,36 @@ function love.update(dt)
 		end
 	end
 
+	if moveText then
+                -- check that we are in the map...
+                local map = layout:getFocus()
+                if (not map) or (not map:isInside(arrowX,arrowY)) then return end
+
+                -- check if we are just over another text
+                local target = map:isInsideText(arrowX,arrowY)
+
+                if target and target ~= moveText then
+                        -- we are targeting someone, draw the target in red color !
+                        target.backgroundColor = theme.color.red
+                        target.color = theme.color.white
+                end
+        end
+
   	-- draw dices if requested
 	-- there are two phases of 1 second each: drawDices (all dices) then drawDicesResult (does not count failed ones)
   	if drawDices then
 
-  		box:update(dt)
+		box:update(dt) 
+
+		box.gravity = box.gravity - 1;
+	   	if box.gravity < 40 then box.gravity = 40 end
 
 		if drawDicesKind == "d20" then
+
+			drawDicesResult = true
+
 			-- d20 dices need to be stopped somehow, their geometry prevent them to stop easily...
-			if drawDicesTimer > 4 then
+			if drawDicesTimer > 2 then
 				-- reduce dice velocity, to stabilize it
 				box[1].angular = vector{0,0,0}
 				box[1].velocity[1] = 0.3 * box[1].velocity[1] 
@@ -457,15 +495,20 @@ function love.update(dt)
 				box[1].velocity[3] = -1 
 			end
 		else
+
+			local immobile = false   
+
 			-- For d6 dices, we detect when they are almost immobile
-		 	local immobile = false   
 		 	for i=1,#box do
-  		  	  if box[i].velocity:abs() > 0.8 then break end -- at least one alive !
+  		  	  if box[i].velocity:abs() > 0.7 then break end -- at least one alive !
   			  immobile = true
+			  box.gravity = 40;
 			  drawDicesResult = true
 		 	end
 
+
 		 	if immobile then
+
   			-- for each die, retrieve the 4 points with positive z coordinate
   			-- there should always be 4 (and exactly 4) such points, unless 
   			-- very unlikely situations for the die (not horizontal...). 
@@ -546,7 +589,7 @@ function love.draw()
   	love.graphics.setColor(255,255,255)
 	local x,y = love.mouse.getPosition()
 	local s = dragObject.snapshot
-	love.graphics.draw(s.im, x, y, 0, s.snapmag, s.snapmag)
+	love.graphics.draw(s.thumb, x, y)
   end
 
   -- draw arrow eventually
@@ -566,8 +609,10 @@ function love.draw()
 	local w = distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY)
 	love.graphics.setColor(255,255,255,180)
 	local s = defaultPawnSnapshot
-	local f = w / s.im:getWidth() 
-	love.graphics.draw( s.im, arrowStartX, arrowStartY, 0, f, f )
+	if (s) then
+                local f = w / s.im:getWidth()
+                love.graphics.draw( s.im, arrowStartX, arrowStartY, 0, f, f )
+        end
       end
  
       if arrowModeMap == "RECT" then 
@@ -598,14 +643,11 @@ function love.draw()
 
   love.graphics.pop()
 
-    -- draw dice number result if needed
-    if drawDicesResult then
-      love.graphics.setColor(unpack(theme.color.white))
-      love.graphics.setFont(theme.fontDice)
-      love.graphics.print(diceSum,650,3.5*layout.H/5)
-    end
-
   end 
+
+  -- draw dice number result if needed
+  if drawDicesResult then layout.pWindow:drawDicesResult(diceSum); else layout.pWindow:drawDicesResult(nil); end
+
 
 end
 
@@ -632,12 +674,55 @@ function love.mousereleased( x, y )
 	layout:mousereleased(x,y)
 
 	-- check if we must close a window (ie. we were pressing the 'close' icon)
-	local x,y = love.mouse.getPosition()
-	local w = layout:getWindow(x,y)
-	if w and w.markForClosure then 
-		w.markForClosure = false
-		layout:setDisplay(w,false) 
-	end
+        local x,y = love.mouse.getPosition()
+        local w = layout:getWindow(x,y)
+        if w and w.markForClosure then
+                w.markForClosure = false
+                layout:setDisplay(w,false)
+                -- if it's a map, we release image memory. Image will be eventually reloaded if needed
+                if w.class == "map" then io.write("releasing memory for map " .. w.title .. "\n"); w.im = nil end
+        end
+
+	-- we were resizing a text (within a Map). We stop now
+        if resizeText then
+                resizeText = false
+                --if w then w:saveText() end
+                if w then w:textChanged() end
+                return
+        end
+
+        -- we were moving a Text (within a Map). We stop now
+        if w and w.isEditing and moveText then
+                local sourcemap = layout:getFocus()
+                local targetmap = layout:getWindow( x , y )
+                -- check that we are in same map...
+                if targetmap and targetmap == sourcemap then
+
+                        local map = targetmap
+                        local targetText = map:isInsideText(x,y)
+
+                        if targetText and targetText ~= moveText then
+                                -- we are managing connections between 2 nodes
+                                map:manageEdge( moveText.id, targetText.id )
+                        else
+                                -- we are just moving a node within the map
+                                --local zx,zy = -( map.x * 1/map.mag - layout.W / 2), -( map.y * 1/map.mag - layout.H / 2)
+                                local dx, dy = ( x - arrowStartX ) * map.mag , ( y - arrowStartY ) * map.mag
+                                --moveText.x , moveText.y = (x-zx)*map.mag, (y-zy)*map.mag
+                                moveText.x , moveText.y = moveText.x + dx, moveText.y + dy
+
+                        end
+                        -- in both cases, we save the text/edges associated to that Map
+                        -- map:saveText()
+                        map:textChanged()
+                end
+                -- in any case...
+                arrowMode = false
+                moveText = nil
+                editingNode = false
+                return
+        end
+
 
 	-- we were dragging an object, we drop it 
 	if dragMove then
@@ -786,19 +871,20 @@ function love.mousereleased( x, y )
 
 	-- if we were drawing a pawn, we stop it now
 	if arrowPawn then
-		-- this gives the required size for the pawns
-  	  	--local map = atlas:getMap()
-		local map = layout:getFocus()
-		local w = distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY)
-		if map.basePawnSize then
-			map:createPawns( arrowX, arrowY, w )
-			table.sort( map.pawns, function(a,b) return a.layer < b.layer end )
-		else
-			map:setPawnSize(w)
-		end
-		arrowPawn = false
-		return
-	end
+                -- this gives the required size for the pawns
+                --local map = atlas:getMap()
+                local map = layout:getFocus()
+                local w = distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY)
+                --if map.basePawnSize then
+                        --map:createPawns( arrowX, arrowY, w )
+                        --table.sort( map.pawns, function(a,b) return a.layer < b.layer end )
+                --else
+                        -- this always redefines the pawn size
+                        map:setPawnSize(w)
+                --end
+                arrowPawn = false
+                return
+        end
 
 	-- if we were drawing a mask shape as well, we terminate it now (even if we are outside the map)
 	if arrowModeMap and not arrowQuad then
@@ -900,27 +986,52 @@ function love.mousereleased( x, y )
 	end
 
 -- handle all actions when the mouse is pressed	
-function love.mousepressed( x, y , button )   
+function love.mousepressed( x, y , button )
 
-	local window = layout:click(x,y)
+        local window = layout:click(x,y)
 
-	-- clicking somewhere in the map, this starts either a Move or a Mask	
-	if window and window.class == "map" then
+        -- clicking somewhere in the map, this starts either a Move or a Mask
+        if window and window.class == "map" then
 
-		local map = window
+                local map = window
 
-		local p = map:isInsidePawn(x,y)
+                if moveText then
+                        pawnMove = nil
+                        arrowMode = true
+                        arrowStartX, arrowStartY = x, y
+                        mouseMove = false
+                        arrowModeMap = nil
+                        return
+                end
 
-		if p then
+                if editingNode then return end
 
-		  -- clicking on a pawn will start an arrow that will represent
-		  -- * either an attack, if the arrow ends on another pawn
-		  -- * or a move, if the arrow ends somewhere else on the map
-		  pawnMove = p
-	   	  arrowMode = true
-	   	  arrowStartX, arrowStartY = x, y
-	   	  mouseMove = false 
-		  arrowModeMap = nil 
+                local p, hitClicked , _ , action = map:isInsidePawn(x,y)
+
+                if p and not (hitClicked or action) then
+                  -- clicking on a pawn will start an arrow that will represent
+                  -- * either an attack, if the arrow ends on another pawn
+                  -- * or a move, if the arrow ends somewhere else on the map
+                  pawnMove = p
+                  arrowMode = true
+                  arrowStartX, arrowStartY = x, y
+                  mouseMove = false
+                  arrowModeMap = nil
+
+                elseif p and hitClicked then
+                  -- if hit symbol was clicked, we decrease it...
+                  local i = findPNJ( p.id )
+                  if i then
+                        is_dead = rpg.hitPNJ( i )
+                        if is_dead and atlas:isVisible( map ) then tcpsend( projector , "KILL " .. p.id ) end
+                        end
+
+                elseif p and action then
+                  -- if action symbol was clicked, we increase it...
+                  local i = findPNJ( p.id )
+                  if i then
+                        rpg.increaseAction( i )
+                  end
 
 		-- not clicking a pawn, it's either a map move or an rect/circle mask...
 		elseif button == 1 then --Left click
@@ -1001,7 +1112,20 @@ layout:mousemoved(x,y,dx,dy)
 local w = layout:getFocus()
 if not w then return end
 
-if mouseResize then
+if resizeText then
+
+        local font = nil
+        if resizeText.bold then
+                font = fontsBold[ resizeText.fontSize ]
+        else
+                font = fonts[ resizeText.fontSize ]
+        end
+        resizeText.w = resizeText.w + dx * w.mag
+        if resizeText.w <= MIN_TEXT_W_AT_SCALE_1 then resizeText.w = MIN_TEXT_W_AT_SCALE_1 end
+        local width, wrappedtext = font:getWrap( resizeText.text , resizeText.w )
+        resizeText.h = (table.getn(wrappedtext))*(font:getHeight())
+
+elseif mouseResize then
 
 	local zx,zy = w:WtoS(0,0)
 	local mx,my = w:WtoS(w.w, w.h)
@@ -1050,8 +1174,6 @@ elseif mouseMove then
 	-- move the map 
 	if (newx ~= oldx or newy ~= oldy) then
 		w:move( newx, newy )
-		if w == layout.storyWindow then layout.actionWindow:move( layout.actionWindow.x + deltax, layout.actionWindow.y + deltay ) end
-		if w == layout.actionWindow then layout.storyWindow:move( layout.storyWindow.x + deltax, layout.storyWindow.y + deltay ) end
 	end
 
 end
@@ -1085,10 +1207,10 @@ if not initialized then return end
 -- 'lctrl + b' : display bar (snapshots) window 
 -- 'lctrl + p' : display projector window 
 
-if key == "g" and love.keyboard.isDown("lctrl") then
-  layout:toggleWindow( layout.sWindow )
-  return
-end
+--if key == "g" and love.keyboard.isDown("lctrl") then
+--  layout:toggleWindow( layout.sWindow )
+--  return
+--end
 if key == "d" and love.keyboard.isDown("lctrl") then
   layout:toggleWindow( layout.dialogWindow )
   return
@@ -1125,19 +1247,6 @@ end
 if key == "tab" and love.keyboard.isDown("lctrl") then
 	layout:nextWindow()
 	return
-end
-if key == "r" and love.keyboard.isDown("lctrl") then
-	if layout.actionWindow.open then
-		layout:hideAll()	
-		layout:restoreBase(layout.pWindow)
-		layout:restoreBase(layout.snapshotWindow)
-		layout:restoreBase(layout.combatWindow)
-	elseif layout.storyWindow.open then
-		layout:hideAll()	
-		layout:restoreBase(layout.pWindow)
-		layout:restoreBase(layout.snapshotWindow)
-		layout:restoreBase(layout.scenarioWindow)
-	end
 end
 
 -- other keys applicable 
@@ -1189,13 +1298,13 @@ if window then
 	end
 
   elseif window.class == "snapshot" then
-  
+ 
   	-- 'space' to change snapshot list
 	if key == 'space' then
-	  window.currentSnap = window.currentSnap + 1
-	  if window.currentSnap == 5 then window.currentSnap = 1 end
-	  window:setTitle( window.snapText[window.currentSnap] ) 
+
+	  window:getNext();
 	  return
+
   	end
 
   elseif window.class == "combat" then
@@ -1367,7 +1476,23 @@ function parseDirectory( t )
 
       io.write("scanning file '" .. f .. "'\n")
 
-      if kind == "pawns" then
+      if string.sub(f,-4) == '.lua' then
+
+        -- it's a text nodes file associated to a Map. We store it for further use
+        io.write("Loading Nodes file for map '" .. f .. " (real path='" .. path .. sep .. f .."')\n")
+        textDict[ f ] = loadfile( path .. sep .. f )
+
+      elseif kind == "maps" then
+
+        -- all (image) files are considered as maps
+        if string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
+                local s = Map:new()
+                s:load{ filename= path .. sep .. f, layout=layout }
+                layout:addWindow( s , false )
+                table.insert( layout.snapshotWindow.snapshots[2].s, s )
+        end
+
+      elseif kind == "pawns" then
 
 	-- all (image) files are considered as pawn images
 	if string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
@@ -1404,28 +1529,6 @@ function parseDirectory( t )
 
 	end
  
-      elseif f == 'scenario.txt' then 
-
-      	--   SCENARIO IMAGE: 	named scenario.jpg
-      	--   SCENARIO TEXT:	associated to this image, named scenario.txt
-      	--   MAPS: 		map*jpg or map*png, they are considered as maps and loaded as such
-      	--   PJ IMAGE:		pawnPJname.jpg or .png, they are considered as images for corresponding PJ
-      	--   PNJ DEFAULT IMAGE:	pawnDefault.jpg
-      	--   PAWN IMAGE:		pawn*.jpg or .png
-      	--   SNAPSHOTS:		*.jpg or *.png, all are snapshots displayed at the bottom part
-
-	      readScenario( path .. sep .. f ) 
-	      io.write("Loaded scenario at " .. path .. sep .. f .. "\n")
-
-      elseif f == 'scenario.jpg' then
-
-	local s = Map:new()
-	s:load{ kind="scenario",filename = path .. sep .. f , layout=layout }
-	layout:addWindow( s , false )
-	atlas.scenario = s
-	io.write("Loaded scenario image file at " .. path .. sep .. f .. "\n")
-	--table.insert( snapshots[2].s, s )  -- don't insert in snapshots anymore
-
       elseif f == 'pawnDefault.jpg' then
 
 	defaultPawnSnapshot = Snapshot:new{ filename = path .. sep .. f , size=layout.snapshotSize }
@@ -1463,35 +1566,33 @@ function parseDirectory( t )
 
     end
 
-    -- all classes are loaded with a snapshot
-    -- add them to snapshotBar
-    for i=1,#RpgClasses do
-	if not RpgClasses[i].snapshot then RpgClasses[i].snapshot = defaultPawnSnapshot end
-	if not RpgClasses[i].PJ then table.insert( layout.snapshotWindow.snapshots[3].s, RpgClasses[i].snapshot ) end
-    end
-
-    
+ 
 end
 
 function init() 
 
+    -- load fonts for map text edition
+    for i=MIN_FONT_SIZE,MAX_FONT_SIZE do                -- load same font with different sizes
+      fonts[i] = love.graphics.newFont("yui/yaoui/fonts/PlayfairDisplay-Regular.otf",i)
+      fonts[i]:setFilter( "nearest", "nearest" )
+    end
+
+    for i=MIN_FONT_SIZE,MAX_FONT_SIZE do                -- load same font with different sizes
+      fontsBold[i] = love.graphics.newFont("yui/yaoui/fonts/PlayfairDisplay-Bold.otf",i)
+      fontsBold[i]:setFilter( "nearest", "nearest" )
+    end
+
     -- create basic windows
-    local combatWindow = Combat:new{ w=layout.WC, h=layout.HC, x=-layout.intW+layout.W/2, y=-layout.intW+layout.H/2-theme.iconSize,layout=layout}
+    local combatWindow = Combat:new{ w=765, h=layout.HC, x=-layout.intW+layout.W/2, y=-layout.intW+layout.H/2-theme.iconSize,layout=layout}
 
     local pWindow = projectorWindow:new{ w=layout.W1, h=layout.H1, x=-(layout.WC+layout.intW+3)+layout.W/2,
 					y=-(layout.H - 3*iconSize - layout.snapshotSize - 2*layout.intW - layout.H1 - 2 )+layout.H/2 
 					- 2*theme.iconSize 
 					,layout=layout}
 
-    local storyWindow = iconWindow:new{ mag=2.1, text = "L'Histoire", image = theme.storyImage, w=theme.storyImage:getWidth(), 
-				  h=theme.storyImage:getHeight() , x=-1220, y=400,layout=layout}
-
-    local actionWindow = iconWindow:new{ mag=2.1, text = "L'Action", image = theme.actionImage, w=theme.actionImage:getWidth(), 
-				   h=theme.actionImage:getHeight(), x=-1220,y=700,layout=layout} 
-
     local rollWindow = iconRollWindow:new{ mag=3.5, image = theme.dicesImage, w=theme.dicesImage:getWidth(), h=theme.dicesImage:getHeight(), x=-2074,y=133,layout=layout} 
 
-    local notifWindow = notificationWindow:new{ w=300, h=100, x=-layout.W/2,y=layout.H/2-50,layout=layout } 
+    local notifWindow = notificationWindow:new{ w=300, h=100, x=-(layout.WC-200)+layout.W/2 ,y=layout.H/2-50,layout=layout } 
 
     local dialogWindow = Dialog:new{w=800,h=220,x=400,y=110,layout=layout}
 
@@ -1506,15 +1607,13 @@ function init()
     -- do not display them yet
     -- basic windows (as opposed to maps, for instance) are also stored by name, so we can retrieve them easily elsewhere in the code
     layout:addWindow( combatWindow , 	false, "combatWindow" ) 
-    layout:addWindow( pWindow , 	false, "pWindow" )
-    layout:addWindow( snapshotWindow , 	false, "snapshotWindow" )
+    layout:addWindow( pWindow , 	true, "pWindow" )
+    layout:addWindow( snapshotWindow , 	true, "snapshotWindow" )
     layout:addWindow( notifWindow , 	false, "notificationWindow" )
     layout:addWindow( dialogWindow , 	false, "dialogWindow" )
     layout:addWindow( helpWindow , 	false, "helpWindow" ) 
     layout:addWindow( dataWindow , 	false, "dataWindow" )
 
-    layout:addWindow( storyWindow , 	true , "storyWindow" )
-    layout:addWindow( actionWindow , 	true , "actionWindow" )
     layout:addWindow( rollWindow , 	true , "rollWindow" )
 
     io.write("base directory   : " .. baseDirectory .. "\n") ; layout.notificationWindow:addMessage("base directory : " .. baseDirectory .. "\n")
@@ -1540,19 +1639,11 @@ function init()
 					y= -layout.H/2+theme.iconSize+layout.intW+2*layout.snapshotSize }
       layout:addWindow( uWindow , false, "uWindow" )
 
-      local sWindow = graphWindow:new{  w=layout.WC, h=layout.HC, x=-layout.intW+layout.W/2, y=layout.intW+layout.H/2,layout=layout,
-					filename=baseDirectoryCp1252..sep..fadingDirectoryCp1252..sep.."scenario.mm"} 
-      layout:addWindow( sWindow , 	false, "sWindow" )
-
     else
 
       local uWindow = urlWindow:new{w=1000,h=38,x=1000-layout.W/2,layout=layout, path=baseDirectory..sep..fadingDirectory..sep,
 					y= -layout.H/2+theme.iconSize+layout.intW+2*layout.snapshotSize }
       layout:addWindow( uWindow , false, "uWindow" )
-
-      local sWindow = graphWindow:new{  w=layout.WC, h=layout.HC, x=-layout.intW+layout.W/2, y=layout.intW+layout.H/2,layout=layout,
-					filename=baseDirectory..sep..fadingDirectory..sep.."scenario.mm"} 
-      layout:addWindow( sWindow , 	false, "sWindow" )
 
     end
 
@@ -1596,21 +1687,73 @@ function init()
     -- load rest of data files (ie. images and maps)
     parseDirectory{ path = baseDirectory .. sep .. fadingDirectory }
     parseDirectory{ path = baseDirectory .. sep .. "pawns" , kind = "pawns" }
+    parseDirectory{ path = baseDirectory .. sep .. "maps" , kind = "maps" }
 
-    -- check if we have a scenario loaded. Reference it for direct access. Update size and mag factor to fit screen
-    scenarioWindow = atlas:getScenario()
-    if scenarioWindow then
-      layout.scenarioWindow = scenarioWindow
-      local w,h = scenarioWindow.w, scenarioWindow.h
-      local f1,f2 = w/layout.WC, h/layout.HC
-      scenarioWindow.mag = math.max(f1,f2)
-      scenarioWindow.x, scenarioWindow.y = scenarioWindow.w/2, scenarioWindow.h/2
-      local zx,zy = scenarioWindow:WtoS(0,0)
-      scenarioWindow:translate(0,layout.intW+iconSize-zy)
-      scenarioWindow.startupX, scenarioWindow.startupY, scenarioWindow.startupMag = scenarioWindow.x, scenarioWindow.y, scenarioWindow.mag
+    -- all classes are loaded with a snapshot
+    -- add them to snapshotBar
+    for i=1,#RpgClasses do
+        if not RpgClasses[i].snapshot then
+                io.write("-- No snapshot for class " .. RpgClasses[i].class .. ", setting default one.\n");
+                RpgClasses[i].snapshot = defaultPawnSnapshot
+                templateArray[RpgClasses[i].class].snapshot = defaultPawnSnapshot
+         end
+        table.insert( layout.snapshotWindow.snapshots[3].s, RpgClasses[i].snapshot )
     end
 
- 
+    -- before returning, sort the class snapshot bar: PJ first, then PNJ, all in alphabetical order
+    -- Comparison function
+    function compare(x, y)
+      if x[1].PJ and not y[1].PJ then return true end
+      if not x[1].PJ and y[1].PJ then return false end
+      if x[1].major and not y[1].major then return true end
+      if not x[1].major and y[1].major then return false end
+      return x[1].class < y[1].class
+    end
+
+    -- Step 1: Merge in pairs
+    for i,v in ipairs(RpgClasses) do
+      RpgClasses[i] = {RpgClasses[i], layout.snapshotWindow.snapshots[3].s[i]}
+    end
+
+    -- Step 2: Sort
+    table.sort(RpgClasses, compare)
+
+    -- Step 3: Unmerge pairs
+    for i, v in ipairs(RpgClasses) do
+      RpgClasses[i] = v[1]
+      layout.snapshotWindow.snapshots[3].s[i] = v[2]
+    end
+
+    io.write("loaded " .. #RpgClasses .. " classes.\n")
+
+   -- Some Maps might have associated text, load them
+    for i=1,#layout.snapshotWindow.snapshots[2].s do
+
+        local map  = layout.snapshotWindow.snapshots[2].s[i]
+        if textDict[ map.displayFilename .. ".lua" ] then
+
+                map.nodes, map.edges, map.tempPawns = textDict[ map.displayFilename .. ".lua" ]()
+
+                io.write("Got Map data for " .. map.displayFilename .. ". Loading " .. #map.nodes .. " nodes and " .. #map.edges .. " edges.\n")
+
+                if map.tempPawns then -- might happen with older files
+                 map.basePawnSize = map.tempPawns[1]
+                 if #map.tempPawns[2] > 0 then
+                        -- we have pawns to create
+                        for j=1,#map.tempPawns[2] do
+                                local id = rpg.generateNewPNJ( map.tempPawns[2][j].class )
+                                local p = map:createPawns(0,0,0,id)  -- we create it at 0,0, and translate it afterwards
+                                if p then
+                                        p.x, p.y = map.tempPawns[2][j].x , map.tempPawns[2][j].y
+                                        p.inEditionMode = true -- so they can be saved again if applicable
+                                        io.write("Loading Pawns : Class '" .. map.tempPawns[2][j].class .. "' with id " .. id .. "\n")
+                                end
+
+                        end
+                 end
+                end
+        end
+    end
 end
 
 --

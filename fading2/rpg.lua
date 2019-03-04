@@ -7,7 +7,7 @@ local theme = require 'theme'
 --
 
 -- array of PNJ templates (loaded from data file)
-local templateArray   = {}
+templateArray   = {}
 
 local rpg = {}
 
@@ -112,9 +112,11 @@ function launchDices( kind, num )
 
          -- prepare the dice box simulation
 	if kind == "d6" then
-		box:set(10,10,5,20,0.8,2,0.01)
+		--box:set(10,10,5,20,0.8,2,0.01)
+		box:set(10,10,5,300,0.8,2,0.01)
 	elseif kind == "d20" then
-		box:set(10,10,4,100,0.8,2,0.01)
+		--box:set(10,10,4,100,0.8,2,0.01)
+		box:set(10,10,4,500,0.9,2,0.001)
 	end
 
          dice = {}
@@ -128,7 +130,7 @@ function launchDices( kind, num )
 		elseif kind == "d20" then
                  	table.insert(dice,
                  		{ star=newD20star(4):set({math.random(10),math.random(10),math.random(1)}, -- position
-                                           {-math.random(8,40),-math.random(8,40),-10}, -- velocity
+                                           {-math.random(30,60),-math.random(30,60),-10}, -- velocity
                                            {math.random(10),math.random(10),math.random(10)}), -- angular mvmt
                    	die=clone(d20,{material=light.plastic,color={81,0,255,255},text={255,255,255},shadow={20,0,0,190}}) })
 		end
@@ -296,6 +298,7 @@ local function PNJConstructor( template )
   aNewPNJ.is_dead         = false  			-- so far 
   aNewPNJ.snapshot	  = template.snapshot		-- image (and some other information) for the character 
   aNewPNJ.sizefactor	  = template.size or 1.0
+  aNewPNJ.actions	  = 0
 
   aNewPNJ.ip	  	  = nil				-- for PJ only: ip, if the player is using udp remote communication 
   aNewPNJ.port	  	  = nil				-- for PJ only: port, if the player is using udp remote communication 
