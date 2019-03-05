@@ -11,32 +11,28 @@ templateArray   = {}
 
 local rpg = {}
 
--- load PNJ templates from data file, return a list of names (to be used in dropdown listbox) 
--- and an (number-sorted) array of classes
--- argument t is a table (list) of paths to try
+-- load PNJ templates from data file, return an array of classes
+-- argument is a table (list) of paths to try
 function rpg.loadClasses( paths )
 
-   local opt = {}
    local array = {}
-   local i = 1
    Class = function( t )
-  		if not t.class then error("need a class attribute (string value) for each class entry") end
-		local already_exist = false
-		if templateArray[t.class] then already_exist = true end
-  		templateArray[t.class] = t
-  		if not already_exist and not t.PJ then          -- only display PNJ classes in Dropdown list, not PJ
-    			opt[i] = t.class ; i = i  + 1
-			table.insert( array, t )
-  		end
-		end
+                if not t.class then error("need a class attribute (string value) for each class entry") end
+                local already_exist = false
+                if templateArray[t.class] then already_exist = true end
+                templateArray[t.class] = t
+                if not already_exist then
+                        table.insert( array, t )
+                end
+                end
 
    -- try all files
-   for x=1,#paths do 
-	local f = loadfile( paths[x] )
-	if f then f() end 
+   for x=1,#paths do
+        local f = loadfile( paths[x] )
+        if f then f() end
    end
 
-   return opt, array
+   return array
    end
 
 -- for a given PNJ at index i, return true if Attack or Armor button should be clickable
@@ -284,7 +280,7 @@ local function UIDiterator()
   end
 
 -- some initialization stuff
-local generateUID = UIDiterator()
+generateUID = UIDiterator()
 
 -- return a new PNJ object, based on a given template. 
 -- Give him a new unique ID 
@@ -295,6 +291,7 @@ local function PNJConstructor( template )
   aNewPNJ.id 		  = generateUID() 		-- unique id
   aNewPNJ.PJ 		  = template.PJ or false	-- is it a PJ or PNJ ?
   aNewPNJ.done		  = false 			-- has played this round ?
+  aNewPNJ.onMap		  = false			-- is this character present as a Pawn on a map ? No a priori, may change later on
   aNewPNJ.is_dead         = false  			-- so far 
   aNewPNJ.snapshot	  = template.snapshot		-- image (and some other information) for the character 
   aNewPNJ.sizefactor	  = template.size or 1.0
@@ -527,8 +524,20 @@ end
 -- the moment
 function rpg.generateNewPNJ(current_class)
 
+ io.write("generating " .. current_class .. "\n");
+
   -- cannot generate too many PNJ...
   if (#PNJTable >= PNJmax) then return nil end
+
+  -- if PJ and exists already, do nothing
+  if templateArray[current_class].PJ then
+    for i=1,#PNJTable do
+	if PNJTable[i].class == current_class then 
+ 		io.write(current_class .. " already exists\n");
+		return 
+	end
+    end 
+  end
 
   -- generate a new one, at current index, with new ID
   PNJTable[#PNJTable+1] = PNJConstructor( templateArray[current_class] )
@@ -567,6 +576,8 @@ function rpg.generateNewPNJ(current_class)
       PNJtext[#PNJTable].init.text = math.floor( pnj.final_initiative )
     end
   end
+
+  layout.combatWindow:sortAndDisplayPNJ()
 
   return pnj.id 
 end
@@ -629,11 +640,29 @@ function rpg.reroll(i)
 -- create one instance of each PJ
 function rpg.createPJ()
 
-    for classname,t in pairs(templateArray) do
-      if t.PJ then rpg.generateNewPNJ(classname) end
-    end
+    --for classname,t in pairs(templateArray) do
+    --  if t.PJ then rpg.generateNewPNJ(classname) end
+    --end
 
     end
+
+-- Hit the PNJ at index i
+-- return a boolean true if dead...
+function rpg.hitPNJ( i )
+         if not i then return false end
+         if not PNJTable[ i ] then return false end
+         PNJTable[ i ].hits = PNJTable[ i ].hits - 1
+	 --PNJtext[ i ].hits.text = PNJTable[ i ].hits
+         if (PNJTable[ i ].hits <= 0) then
+                PNJTable[ i ].is_dead = true
+                PNJTable[ i ].hits = 0
+	 	--PNJtext[ i ].hits.text = 0
+		layout.combatWindow:sortAndDisplayPNJ()
+                return true
+         end
+	 layout.combatWindow:sortAndDisplayPNJ()
+         return false
+ end
 
 return rpg
 

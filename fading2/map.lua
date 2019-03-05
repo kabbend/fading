@@ -319,14 +319,24 @@ function Map:drop( o )
 		  local id
 		  if obj.class == "pnj" then
 			id  = rpg.generateNewPNJ( obj.rpgClass.class )
+		  	if id then
+				io.write("map drop 1: object is pnj of class '" .. obj.rpgClass.class .. "' with id " .. id .. "\n")
+		  		local index = findPNJ(id)
+		  		layout.combatWindow:setOnMap(index,true) 
+			else
+				io.write("map drop 1: object is pnj of class '" .. obj.rpgClass.class .. "' but no id returned. abort.\n")
+			end
 		  else
 			id = obj.id
+		  	io.write("map drop 1: object is pnjtable with id " .. id .. "\n")
+		  	local index = findPNJ(id)
+		  	layout.combatWindow:setOnMap(index,true) 
 		  end
 		  if not id then return end
-		  io.write("map drop 1: object is pnj of class '" .. obj.rpgClass.class .. "' with id " .. id .. "\n")
 
-		  local p = self:createPawns(0,0,0,id)  -- we create it at 0,0, and translate it afterwards
+		  local p = self:createPawns(0,id,false,nil)  -- we create it at 0,0, and translate it afterwards
 		  if p then 
+		  	p.loaded = false 
 			p.x, p.y = px + self.translateQuadX ,py + self.translateQuadY 
 		  	io.write("map drop 2: creating pawn " .. id .. "\n")
 			p.inEditionMode = self.isEditing
@@ -355,6 +365,7 @@ function Map:drop( o )
 
 function Map:killAll() 
 	PNJTable = {}
+	layout.combatWindow:sortAndDisplayPNJ()
 	if atlas:isVisible(self) then tcpsend( projector, "ERAS" ); end
   	end
 
@@ -445,8 +456,7 @@ function Map:draw()
      if map.pawns then
 	     for i=1,#map.pawns do
        	     	     local index = findPNJ(map.pawns[i].id) 
-		     -- we do some checks before displaying the pawn: it might happen that the character corresponding to the pawn 
-		     -- is dead, or, worse, has been removed completely from the list
+		     -- pawn exists in combat tracker
 		     if index then 
 		        local rw = map.pawns[i].snapshot.w * map.pawns[i].f / map.mag
 		     	local dead = false
@@ -454,7 +464,8 @@ function Map:draw()
 		     	if map.pawns[i].snapshot.im then
   		       		local zx,zy = (map.pawns[i].x - map.translateQuadX) * 1/map.mag + x , (map.pawns[i].y - map.translateQuadY) * 1/map.mag + y
 				-- color is different depending on PJ/PNJ, and if the character has played this round or not, or has the focus
-		       		if PNJTable[index].done then love.graphics.setColor(unpack(theme.color.green))
+		       		if index == layout.combatWindow.focus then love.graphics.setColor(theme.color.orange)
+			  	elseif PNJTable[index].done then love.graphics.setColor(unpack(theme.color.green))
 				elseif PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
 		       		love.graphics.rectangle( "fill", zx, zy, (map.pawns[i].sizex+6) / map.mag, (map.pawns[i].sizey+6) / map.mag)
 		       		if dead then 
@@ -480,6 +491,7 @@ function Map:draw()
 				love.graphics.print( PNJTable[index].id , math.floor(zx), math.floor(zy + 2 * f/map.mag) , 0, s/map.mag, s/map.mag )
 		       		love.graphics.setColor(0,0,0) 
 				love.graphics.print( "D" .. PNJTable[index].armor , math.floor(zx), math.floor(zy + f/map.mag), 0, s/map.mag, s/map.mag )
+				--[[
 				-- display actions if PJ
 				if PNJTable[index].PJ then
 		       		  if PNJTable[index].actions == PJMaxAction then love.graphics.setColor(theme.color.red) else love.graphics.setColor(theme.color.green) end
@@ -502,8 +514,40 @@ function Map:draw()
 				  love.graphics.draw( theme.iconPartialTailler , zx + g * 5 + 2 , zy +  2 * theme.iconSize  + 4)
 				  love.graphics.draw( theme.iconFail , zx + g * 5 + 2 , zy +  3 * theme.iconSize  + 6)
 				end
-	     	     	end
+				--]]
+			end
+		     elseif not index and map.pawns[i].loaded then 
+			-- pawn does not exist in combat tracker
+		        local rw = map.pawns[i].snapshot.w * map.pawns[i].f / map.mag
+		     	local dead = false
+		     	if map.pawns[i].snapshot.im then
+  		       		local zx,zy = (map.pawns[i].x - map.translateQuadX) * 1/map.mag + x , (map.pawns[i].y - map.translateQuadY) * 1/map.mag + y
+				-- color is different depending on PJ/PNJ, and if the character has played this round or not, or has the focus
+				love.graphics.setColor(255,255,255)
+		       		love.graphics.rectangle( "fill", zx, zy, (map.pawns[i].sizex+6) / map.mag, (map.pawns[i].sizey+6) / map.mag)
+				love.graphics.setColor( unpack(map.pawns[i].color) )  
+		       		nzx = zx + map.pawns[i].offsetx / map.mag
+		       		nzy = zy + map.pawns[i].offsety / map.mag
+		       		love.graphics.draw( map.pawns[i].snapshot.im , nzx, nzy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
+				-- display hits number and ID
+		       		love.graphics.setColor(0,0,0)  
+				local f = map.basePawnSize / 5
+				local g = rw / 5
+				local s = f / 22 
+		       		love.graphics.setColor(0,0,0) 
+		       		love.graphics.rectangle( "fill", zx, zy, f / map.mag, 3 * f / map.mag)
+		       		love.graphics.setColor(theme.color.green) 
+		       		love.graphics.rectangle( "fill", zx, zy + f / map.mag, f / map.mag, f / map.mag)
+        			love.graphics.setFont(theme.fontSearch)
+		       		love.graphics.setColor(255,255,255) 
+				love.graphics.print( "?" , math.floor(zx), math.floor(zy) , 0, s/map.mag, s/map.mag )
+				love.graphics.print( map.pawns[i].id , math.floor(zx), math.floor(zy + 2 * f/map.mag) , 0, s/map.mag, s/map.mag )
+		       		love.graphics.setColor(0,0,0) 
+				love.graphics.print( "D?" , math.floor(zx), math.floor(zy + f/map.mag), 0, s/map.mag, s/map.mag )
 		     end
+
+		end
+
 	     end
      end
 
@@ -707,17 +751,14 @@ function Map:removePawn( id )
 	end
 
 --
--- Create characters from PNJTable as pawns on the 'map', with the 'requiredSize' (in pixels on the screen) 
+-- Create new pawn on the 'map', with the 'requiredSize' (in pixels on the screen) 
 -- and around the position 'sx','sy' (expressed in pixel position in the screen)
 --
 -- createPawns() only create characters that are not already created on this 'map'. 
 -- When new characters are created on a map with existing pawns, 'requiredSize' is ignored, replaced by 
 -- the current value for existing pawns on the map.
 --
--- createPawns() will create all characters of the existing list. But if 'id' is provided, it will 
--- only create this character
---
--- return the pawns array if multiple pawns requested, or the unique pawn if 'id' provided
+-- return 'id' provided
 --
 
 function Map:setPawnSize( requiredSize )
@@ -726,11 +767,13 @@ function Map:setPawnSize( requiredSize )
   	self.basePawnSize = requiredSize
 	end
 
-function Map:createPawns( sx, sy, requiredSize , id ) 
+function Map:createPawns( requiredSize , id, AddInCombatTracker, class ) 
 
   local map = self
 
   local uniquepawn = nil
+
+  local addInCombatTracker = (not id) and AddInCombatTracker 
 
   local border = 3 -- size of a colored border, in pixels, at scale 1 (3 pixels on all sides)
 
@@ -749,7 +792,7 @@ function Map:createPawns( sx, sy, requiredSize , id )
   local zx,zy = -( map.x * 1/map.mag - W / 2), -( map.y * 1/map.mag - H / 2)
 
   -- position of the mouse, relative to the map at scale 1 (and not to the screen)
-  sx, sy = ( sx - zx ) * map.mag, ( sy - zy ) * map.mag 
+  local sx, sy = ( - zx ) * map.mag, ( - zy ) * map.mag 
 
   -- set position of 1st pawn to draw (relative to the map)
   local starta,startb = math.floor(sx - 2 * (pawnSize + border*2 + margin)) , math.floor(sy - 2 * (pawnSize + border*2 + margin)) 
@@ -763,31 +806,29 @@ function Map:createPawns( sx, sy, requiredSize , id )
 
   local a,b = starta, startb
 
-  for i=1,#PNJTable do
+  -- still perform some basic checks before creating 
+  -- check if pawn with same ID exists or not on the map
+  for k=1,#map.pawns do if map.pawns[k].id == id then return nil; end end
 
-	 local p
-	 local needCreate = true
+  -- create pawn from PNJTable entry 
+  if id then
 
-	 -- don't create pawns for characters already dead...
-	 if PNJTable[i].is_dead then needCreate = false end
-
-	 -- check if pawn with same ID exists or not on the map
-	 for k=1,#map.pawns do if map.pawns[k].id == PNJTable[i].id then needCreate = false; break; end end
-
-	 -- limit creation to only 1 character if ID is provided
-	 if id and (PNJTable[i].id ~= id) then needCreate = false end
-
-	 if needCreate then
-	  local f
+	  -- find the entry
+	  local i=nil
+	  for index=1,#PNJTable do if PNJTable[index].id == id then i=index; break; end end
+	  if not i then io.write("error. id not found\n"); return; end
+	
+	  local p
+	  --local f
 	  if PNJTable[i].snapshot then
-	  	p = Pawn:new( PNJTable[i].id , PNJTable[i].snapshot, pawnSize * PNJTable[i].sizefactor , a , b ) 
+	  	p = Pawn:new( PNJTable[i].id , PNJTable[i].snapshot, pawnSize * PNJTable[i].sizefactor , a , b , PNJTable[i].class ) 
 	  else
 		assert(defaultPawnSnapshot,"no default image available. You should refrain from using pawns on the map...")
-	  	p = Pawn:new( PNJTable[i].id , defaultPawnSnapshot, pawnSize * PNJTable[i].sizefactor , a , b ) 
+	  	p = Pawn:new( PNJTable[i].id , defaultPawnSnapshot, pawnSize * PNJTable[i].sizefactor , a , b , PNJTable[i].class ) 
 	  end
 	  p.PJ = PNJTable[i].PJ
 	  map.pawns[#map.pawns+1] = p
-	  io.write("creating pawn " .. i .. " with id " .. p.id .. " and inserting in map at rank " .. #map.pawns .. "\n")
+	  io.write("creating pawn from existing entry " .. i .. " with id " .. p.id .. " and inserting in map at rank " .. #map.pawns .. "\n")
 	  if id then uniquepawn = p end
 
 	  -- send to projector...
@@ -815,11 +856,32 @@ function Map:createPawns( sx, sy, requiredSize , id )
 	  	else
 			a = a + pawnSize + border*2 + margin	
 	  end
+
+    elseif not id and not addInCombatTracker then
+
+	  local id = generateUID()
+	  p = Pawn:new( id , defaultPawnSnapshot, pawnSize , a , b , class ) 
+	  map.pawns[#map.pawns+1] = p
+	  io.write("creating pawn, not storing it. New id " .. p.id .. " and inserting in map at rank " .. #map.pawns .. "\n")
+	  uniquepawn = p 
+
+    elseif not id and addInCombatTracker then
+
+	  local id = rpg.generateNewPNJ( class )
+	  layout.combatWindow:setOnMap(#PNJTable,true) 
+	  if not id then
+	  	io.write("creating pawn of class " .. class .. " but no id returning. abort.\n")
+		return nil
 	  end
+	  p = Pawn:new( id , defaultPawnSnapshot, pawnSize , a , b , class ) 
+	  p.loaded = false
+	  map.pawns[#map.pawns+1] = p
+	  io.write("creating pawn and storing it. New id " .. p.id .. " and inserting in map at rank " .. #map.pawns .. "\n")
+	  uniquepawn = p 
 
-  end
+    end
 
-  if id then return uniquepawn else return map.pawns end
+  return uniquepawn
 
   end
 
@@ -857,8 +919,8 @@ function Map:isInsidePawn(x,y)
 	local indexWithMaxLayer, maxlayer = 0, 0
 	for i=1,#self.pawns do
 		-- check that this pawn is still active/alive
-		local index = findPNJ( self.pawns[i].id )
-		if index then  
+		--local index = findPNJ( self.pawns[i].id )
+		--if index then  
 		  local lx,ly = self.pawns[i].x - self.translateQuadX, self.pawns[i].y - self.translateQuadY-- position x,y relative to the map, at scale 1
 		  local tx,ty = zx + lx / self.mag, zy + ly / self.mag -- position tx,ty relative to the screen
 		  local sizex = self.pawns[i].sizex / self.mag -- size relative to the screen
@@ -870,7 +932,7 @@ function Map:isInsidePawn(x,y)
 			if x <= tx + sizex / 5 and y >= ty + sizey / 5 and y <= ty + 2 * sizey / 5 then popup = true else popup = false end
 			if x >= tx + (sizex / 5) * 4 and y <= ty + sizey / 5 then action = true else action = false end
 		  end
-	  	end
+	  	--end
   	end
 	if indexWithMaxLayer == 0 then return nil, false, false, false else return self.pawns[ indexWithMaxLayer ], hitClicked, popup, action end
   end
@@ -1148,7 +1210,7 @@ function Map:findNodeById(id)
 function Map:textChanged()
   if not self.changed then
   	self.changed = true
-  	self.buttons = { 'unquad', 'scotch', 'eye', 'fog', 'fullsize', 'kill', 'wipe', 'round', 'edit', 'save', 'always', 'close' } 
+  	self.buttons = { 'save', 'unquad', 'scotch', 'eye', 'fog', 'fullsize', 'kill', 'wipe', 'round', 'edit', 'always', 'close' } 
   end
   end
 

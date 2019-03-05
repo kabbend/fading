@@ -16,6 +16,9 @@ local Window 		= require 'window'	-- Window class & system
 local theme		= require 'theme'	-- global theme
 local widget		= require 'widget'	-- widgets components
 
+layout = mainLayout:new()		-- one instance of the global layout
+atlas = nil 				-- one instance of the atlas. Will be set in init()
+
 -- specific window classes
 local Help			= require 'help'		-- Help window
 local notificationWindow 	= require 'notificationWindow'	-- notifications
@@ -34,9 +37,6 @@ local urlWindow			= require 'urlWindow'		-- provide an URL to load
 local Snapshot			= require 'snapshotClass'	-- store and display one image 
 local Pawn			= require 'pawn'		-- store and display one pawn to display on map 
 local Atlas			= require 'atlas'		-- store some information on maps (eg. which one is visible) 
-
-layout = mainLayout:new()		-- one instance of the global layout
-atlas = nil 				-- one instance of the atlas. Will be set in init()
 
 -- text dictionary, loaded with Maps
 local textDict = { }    -- key = lua filename, value = { array-of-node }
@@ -444,7 +444,7 @@ function love.update(dt)
 	end
   
 	-- change pawn color to red if they are the target of an arrow
-	if pawnMove then
+	if pawnMove and not pawnMove.loaded then
 		-- check that we are in the map...
 		local map = layout:getFocus()
 		if (not map) or (not map:isInside(arrowX,arrowY)) then return end
@@ -452,7 +452,7 @@ function love.update(dt)
 		-- check if we are just over another pawn
 		local target = map:isInsidePawn(arrowX,arrowY)
 
-		if target and target ~= pawnMove then
+		if target and target ~= pawnMove and not target.loaded then
 			-- we are targeting someone, draw the target in red color !
 			target.color = theme.color.red
 		end
@@ -593,7 +593,9 @@ function love.draw()
   end
 
   -- draw arrow eventually
-  if arrowMode then
+  local x, y = love.mouse.getPosition() 
+  local w = layout:getWindow(x,y)
+  if arrowMode and w and ( w.class == "map" or w.class == "combat" ) then
 
       -- draw arrow and arrow head
       love.graphics.setColor(unpack(theme.color.red))
@@ -739,6 +741,8 @@ function love.mousereleased( x, y )
 		if window and window.class == "map" and atlas:getVisible() == window and not window.sticky then
   			tcpsend( projector, "MAGN " .. 1/window.mag)
   			tcpsend( projector, "CHXY " .. math.floor(window.x+window.translateQuadX) .. " " .. math.floor(window.y+window.translateQuadY) )
+		elseif window and window.class == "snapshot" then
+			window:resize()
 		end
 		return 
 	end
@@ -752,7 +756,7 @@ function love.mousereleased( x, y )
 		-- check that we are in the map, or in another map...
 		local sourcemap = layout:getFocus()
 		local targetmap = layout:getWindow( x , y )
-		if (not targetmap) or (targetmap.class ~= "map") then pawnMove = nil; return end -- we are nowhere ! abort
+		if (not targetmap) or (targetmap.class ~= "map" and targetmap.class ~= "combat") then pawnMove = nil; return end -- we are nowhere ! abort
 
 		local map = targetmap
 
@@ -761,13 +765,36 @@ function love.mousereleased( x, y )
 		--
 		if map ~= sourcemap then
 
+
+			-- we are dropping a pawn on combat tracker
+			if targetmap.class == "combat" then
+				
+				-- does it exist already ? if so do nothing...
+				for i=1,#PNJTable do if PNJTable[i].id == pawnMove.id then return end end
+
+				-- otherwise create a new entry
+				local id = rpg.generateNewPNJ( pawnMove.class )
+				pawnMove.loaded = false
+	
+				-- the new entry has a new and wrong id. set it properly
+				local index = findPNJ( id )
+				PNJTable[index].id = pawnMove.id 
+				layout.combatWindow:setOnMap(index,true) 
+
+				layout.combatWindow:sortAndDisplayPNJ()
+
+				pawnMove = nil
+	
+				return	
+			end
+
 			-- if the target map has no pawn size already fixed, it is not easy to determine the right one
 			-- here, we do a kind of ratio depending on the images respective widths
 			local size = (sourcemap.basePawnSize / sourcemap.w) * map.w
 			size = size / map.mag
 
 			-- create the new pawn at 0,0, remove the old one
-			local p = map:createPawns( 0, 0 , size , pawnMove.id ) -- size is ignored if map has pawns already...
+			local p = map:createPawns( size , pawnMove.id, false, pawnMove.class ) -- size is ignored if map has pawns already...
 			if p then
 			
 				sourcemap:removePawn( pawnMove.id )
@@ -819,7 +846,7 @@ function love.mousereleased( x, y )
 
 		  -- check if we are just stopping on another pawn
 		  local target = map:isInsidePawn(x,y)
-		  if target and target ~= pawnMove then
+		  if target and target ~= pawnMove and not target.loaded and not pawnMove.loaded then
 
 			-- we have a target
 			local indexP = findPNJ( pawnMove.id )
@@ -1445,7 +1472,7 @@ function leave()
 	if tcpbin then tcpbin:close() end
 	if logFile then logFile:close() end
 	end
-
+--[[
 -- load initial data from file at startup
 function parseDirectory( t )
 
@@ -1569,6 +1596,8 @@ function parseDirectory( t )
  
 end
 
+--]]
+
 function init() 
 
     -- load fonts for map text edition
@@ -1668,7 +1697,7 @@ function init()
     local directory, scenarioDirectory = baseDirectory, fadingDirectory
     if __WINDOWS__ then directory, scenarioDirectory = baseDirectoryCp1252, fadingDirectoryCp1252 end
 
-    _, RpgClasses = rpg.loadClasses{ 	directory .. sep .. "data" , 
+    RpgClasses = rpg.loadClasses{ 	directory .. sep .. "data" , 
 			         	directory .. sep .. scenarioDirectory .. sep .. "data" } 
 
     if not RpgClasses or #RpgClasses == 0 then 
@@ -1679,8 +1708,8 @@ function init()
 
     	-- create PJ automatically (1 instance of each!)
     	-- later on, an image might be attached to them, if we find one
-    	rpg.createPJ()
-    	layout.combatWindow:sortAndDisplayPNJ()
+    	-- rpg.createPJ()
+    	-- layout.combatWindow:sortAndDisplayPNJ()
 
     end
 
@@ -1741,12 +1770,14 @@ function init()
                  if #map.tempPawns[2] > 0 then
                         -- we have pawns to create
                         for j=1,#map.tempPawns[2] do
-                                local id = rpg.generateNewPNJ( map.tempPawns[2][j].class )
-                                local p = map:createPawns(0,0,0,id)  -- we create it at 0,0, and translate it afterwards
+                                --local id = rpg.generateNewPNJ( map.tempPawns[2][j].class )
+				--local id = generateUID()
+                                local p = map:createPawns(0,nil,false,map.tempPawns[2][j].class)  -- No id yet. No need to create an entry in combat tracker
                                 if p then
+					p.loaded = true
                                         p.x, p.y = map.tempPawns[2][j].x , map.tempPawns[2][j].y
                                         p.inEditionMode = true -- so they can be saved again if applicable
-                                        io.write("Loading Pawns : Class '" .. map.tempPawns[2][j].class .. "' with id " .. id .. "\n")
+                                        io.write("Loading Pawns : Class '" .. map.tempPawns[2][j].class .. "' with id " .. p.id .. "\n")	
                                 end
 
                         end
@@ -1798,4 +1829,152 @@ function love.load( args )
     end
 
     end
+
+
+-- load initial data from file at startup
+function parseDirectory( t )
+
+    -- call with kind == "all" or "pawn", and path
+    local path = assert(t.path)
+    local kind = t.kind or "all"
+
+    -- list all files in that directory, by executing a command ls or dir
+    local allfiles = {}, command
+    if love.system.getOS() == "OS X" then
+	    io.write("ls '" .. path .. "' > .temp\n")
+	    os.execute("ls '" .. path .. "' > .temp0 && iconv -f utf8-mac -t utf-8 .temp0 > .temp")
+    elseif __WINDOWS__ then
+	    local pathcp1252 = codepage.utf8tocp1252(path)
+	    io.write("dir /b \"" .. pathcp1252 .. "\" > temp\n")
+	    local cf = io.open("cmdfs.bat","w")
+	    os.execute("chcp 65001 & cmd.exe /c dir /b \"" .. pathcp1252 .. "\" > .temp & chcp 850\n")
+	    cf:close()
+    end
+
+    -- store output
+    for line in io.lines (".temp") do table.insert(allfiles,line) end
+
+    -- remove temporary file
+    os.remove (".temp")
+
+    for k,f in pairs(allfiles) do
+
+      io.write("scanning file '" .. f .. "'\n")
+
+      if f == 'scenario.lua' then
+
+	-- create a scenario map
+	local s = Map:new()
+        s:load{ scenariofile= path .. sep .. f, layout=layout }
+        layout:addWindow( s , false , "sWindow" )
+	io.write("** loading a scenario file from " .. path .. sep .. f  .. "\n")
+	s.nodes, s.edges = loadfile( path .. sep .. f )()	
+	io.write("** Done. Loaded " .. #s.nodes .. " nodes and " .. #s.edges .. " edges\n")
+
+      elseif string.sub(f,-4) == '.lua' then
+
+	-- it's a text nodes file associated to a Map. We store it for further use
+	io.write("Loading Nodes file for map '" .. f .. " (real path='" .. path .. sep .. f .."')\n")
+	textDict[ f ] = loadfile( path .. sep .. f )
+
+      elseif kind == "maps" then
+
+	-- all (image) files are considered as maps 
+	if string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
+		local s = Map:new()
+          	s:load{ filename= path .. sep .. f, layout=layout }
+          	layout:addWindow( s , false )
+          	table.insert( layout.snapshotWindow.snapshots[2].s, s )
+	end
+
+      elseif kind == "pawns" then
+
+	-- all (image) files are considered as pawn images
+	if string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
+
+		local s = Snapshot:new{ filename = path .. sep .. f, size=layout.snapshotSize }
+
+        	if string.sub(f,1,4) == 'pawn' then
+		-- check if corresponds to a known PJ
+			local pjname = string.sub(f,5, f:len() - 4 )
+			io.write("Looking for a PJ named " .. pjname .. "\n")
+			for i=1,#RpgClasses do
+			if RpgClasses[i].class == pjname then 
+				RpgClasses[i].snapshot = s 
+				templateArray[pjname].snapshot = s
+				io.write("store image '" .. f .. "' as Snapshot for PJ " .. RpgClasses[i].class .. "\n")
+			end
+			end
+  		end
+ 
+		--table.insert( layout.snapshotWindow.snapshots[4].s, s )
+
+		-- check if default image 
+      		if f == 'pawnDefault.jpg' or f == 'pawnDefault.png' or 
+      		   f == 'defaultPawn.jpg' or f == 'defaultPawn.png' 
+		then
+			defaultPawnSnapshot = s 
+		end
+
+		-- check if corresponds to a PNJ template as well, either as snapshot or as popup
+		for i=1,#RpgClasses do
+			if RpgClasses[i].image == f then 
+				RpgClasses[i].snapshot = s 
+				templateArray[RpgClasses[i].class].snapshot = s
+				io.write("store image '" .. f .. "' as Snapshot for class " .. RpgClasses[i].class .. "\n")
+			end
+			if RpgClasses[i].popup == f then 
+				RpgClasses[i].snapshotPopup = s 
+				templateArray[RpgClasses[i].class].snapshotPopup = s
+				io.write("store image '" .. f .. "' as Popup for class " .. RpgClasses[i].class .. "\n")
+			end
+		end
+
+	end
+
+      elseif f == 'pawnDefault.jpg' then
+
+	defaultPawnSnapshot = Snapshot:new{ filename = path .. sep .. f , size=layout.snapshotSize }
+	--table.insert( layout.snapshotWindow.snapshots[4].s, defaultPawnSnapshot ) 
+
+      elseif string.sub(f,-4) == '.jpg' or string.sub(f,-4) == '.png'  then
+
+        if string.sub(f,1,4) == 'pawn' then
+
+		local s = Snapshot:new{ filename = path .. sep .. f, size=layout.snapshotSize }
+		--table.insert( layout.snapshotWindow.snapshots[4].s, s ) 
+		
+		local pjname = string.sub(f,5, f:len() - 4 )
+		io.write("Looking for a PJ named " .. pjname .. "\n")
+		for i=1,#RpgClasses do
+			if RpgClasses[i].class == pjname then 
+				RpgClasses[i].snapshot = s 
+				templateArray[RpgClasses[i].class].snapshot = s
+				io.write("store image '" .. f .. "' as Snapshot for PJ " .. RpgClasses[i].class .. "\n")
+			end
+		end
+
+	elseif string.sub(f,1,3) == 'map' then
+
+	  local s = Map:new()
+	  s:load{ filename= path .. sep .. f, layout=layout } 
+	  layout:addWindow( s , false )
+	  table.insert( layout.snapshotWindow.snapshots[2].s, s ) 
+
+ 	else
+	 
+	  io.write("loading " .. f .. "\n")
+	  local s = Snapshot:new{ filename = path .. sep .. f, size=layout.snapshotSize } 
+	  assert(s)
+	  table.insert( layout.snapshotWindow.snapshots[1].s, s ) 
+	  
+        end
+
+      end
+
+    end
+
+
+
+end
 

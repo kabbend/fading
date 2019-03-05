@@ -160,6 +160,16 @@ function Combat:createPNJGUIFrame()
 		--]]
               if (PNJTable[i].hits == 0) then 
                 PNJTable[i].is_dead = true; 
+		--[[
+		layout.snapshotWindow:apply(
+                        function( map )
+                                io.write("killing pawn " .. PNJTable[i].id .. " from map " .. map.title .. "\n")
+                                for k,v in pairs(map.pawns) do
+                                        if v.id == PNJTable[i].id then v.loaded = false end
+                                end
+                        end
+                )
+		--]]
 
 		tcpsend( projector, "KILL " .. PNJTable[i].id )
 
@@ -190,7 +200,6 @@ function Combat:createPNJGUIFrame()
               if (PNJTable[i].is_dead) then return end
               PNJTable[i].hits = 0
               PNJTable[i].is_dead = true 
-
 	      tcpsend( projector, "KILL " .. PNJTable[i].id )
 
               PNJTable[i].done = true
@@ -205,7 +214,8 @@ function Combat:createPNJGUIFrame()
 	      thereIsDead = true
             end }),
 
-        yui.HorizontalSpacing({w=12}),
+        yui.HorizontalSpacing({w=1}),
+        yui.Text({name="onMap",text="", w=width, size=size, center = 1}),
         
       })
     PNJtext[i] = t[i+1] 
@@ -365,7 +375,7 @@ function Combat:click(x,y)
       		-- this starts the arrow mode or the drag&drop mode, depending on x
 	    	local s = PNJTable[i].snapshot
 	    	local xoffset = s.w * s.snapmag * 0.5 / 2
-		if x >= zx + 210 - xoffset and x <= zx + 210 + xoffset  then
+		if x >= zx + 160 - xoffset and x <= zx + 160 + xoffset  then
 		 dragMove = true
 		 dragObject = { originWindow = self, 
 				object = { class = "pnjtable", id = PNJTable[i].id },
@@ -418,7 +428,7 @@ function Combat:click(x,y)
 function Combat:drop( o )
 
 	if o.object.class == "pnj" then
-		rpg.generateNewPNJ( o.object.rpgClass.class )
+		local id = rpg.generateNewPNJ( o.object.rpgClass.class )
 		self:sortAndDisplayPNJ()
 	end
 
@@ -500,6 +510,7 @@ function Combat:sortAndDisplayPNJ()
       PNJtext[i].goal.text = ""
       PNJtext[i].dmg.text2 = ""
       PNJtext[i].dmg.text3 = ""
+      PNJtext[i].onMap.text = ""
 
     else
 
@@ -550,7 +561,10 @@ function Combat:sortAndDisplayPNJ()
         PNJtext[i].hits.text = pnj.hits;
         PNJtext[i].def.text = pnj.final_defense;
         PNJtext[i].goal.text = pnj.final_goal;
-        
+       
+	PNJtext[i].onMap.text = ""
+	if pnj.onMap then PNJtext[i].onMap.text = "Map" end 
+ 
       end
     end
 
@@ -598,6 +612,16 @@ function Combat:nextRound()
     end
 
     end
+
+function Combat:setOnMap(index,v)
+    PNJTable[index].onMap = v
+    if v then
+	PNJtext[index].onMap.text = "Map"
+    else
+	PNJtext[index].onMap.text = ""
+    end 
+    end
+
 
 return Combat
 

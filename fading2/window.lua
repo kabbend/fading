@@ -287,7 +287,7 @@ if self.class == "snapshot" then
   local button = self:isOverButton( x , y )
   if button and button == lastButton then
       if love.timer.getTime( ) - lastButtonTimer > lastButtonTimerDelay then
-        love.graphics.setColor(color('white'))
+        love.graphics.setColor( 255, 255, 255, 200)
 	local zx = x
 	if zx + 200 > W then zx = zx - 200 end	
 	local h = 200

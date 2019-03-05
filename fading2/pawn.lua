@@ -10,11 +10,13 @@ local theme		= require 'theme'	-- global theme
 --  using the arrow on the map, sizey is then derived from it
 -- 
 local Pawn = {}
-function Pawn:new( id, snapshot, width , x, y ) 
+function Pawn:new( id, snapshot, width , x, y , class ) 
   local new = {}
   setmetatable(new,self)
   self.__index = self 
   new.id = id
+  new.class = class
+  new.loaded = false				-- true if pawn is loaded with a map at startup
   new.layer = pawnMaxLayer 
   new.x, new.y = x or 0, y or 0 		-- current pawn position, relative to the map
   new.moveToX, new.moveToY = new.x, new.y 	-- destination of a move 
