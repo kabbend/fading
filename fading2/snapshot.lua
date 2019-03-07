@@ -57,14 +57,14 @@ function snapshotBar:draw()
   		love.graphics.setScissor( zx, zy, self.w / self.mag, self.h / self.mag ) 
 		if snapshots[self.currentSnap].s[i].selected then
   			love.graphics.setColor(unpack(theme.color.red))
-			love.graphics.rectangle("line", 
+			love.graphics.rectangle("fill", 
 				zx + snapshots[self.currentSnap].offset + (snapshotSize + snapshotMargin) * (relativeIndex-1),
 				zy + 5 + (line-1)*(snapshotSize + snapshotMargin), 
 				snapshotSize, 
 				snapshotSize)
 		elseif snapshots[self.currentSnap].s[i].highlight then
   			love.graphics.setColor(unpack(theme.color.darkblue))
-			love.graphics.rectangle("line", 
+			love.graphics.rectangle("fill", 
 				zx + snapshots[self.currentSnap].offset + (snapshotSize + snapshotMargin) * (relativeIndex-1),
 				zy + 5 + (line-1)*(snapshotSize + snapshotMargin), 
 				snapshotSize, 
@@ -72,6 +72,7 @@ function snapshotBar:draw()
 		end
 		if self.currentSnap == 2 and snapshots[self.currentSnap].s[i].kind == "scenario" then
 			-- do not draw scenario, ... 
+			-- deprecated
 		else
   			if self.currentSnap == 2 and layout:openedOnce(snapshots[self.currentSnap].s[i]) then
 				-- draw in different color if it's a map and it was opened at least once

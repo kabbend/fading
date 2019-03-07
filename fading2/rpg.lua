@@ -6,6 +6,9 @@ local theme = require 'theme'
 -- how do we roll dices, how to we inflict damages, etc.
 --
 
+-- global unique ID for characters. Use nextUID(UID) to generate the next one
+UID = ""
+
 -- array of PNJ templates (loaded from data file)
 templateArray   = {}
 
@@ -265,6 +268,7 @@ function Roll:changeDefense( newDefense )
   end
 end
 
+--[[ buggy
 -- return an iterator which generates new unique ID, 
 -- from "A", "B" ... thru "Z", then "AA", "AB" etc.
 local function UIDiterator() 
@@ -274,9 +278,8 @@ local function UIDiterator()
     local head=UID:sub( 1, UID:len() - 1)
     local tail=UID:byte( UID:len() )
     local id
-    if (tail == 90) then 
-	local u = UIDiterator()
-	id = u(head) .. "A" 
+    if tail == 90  then 
+	id = string.char( (head:byte(1) or 64 ) + 1 ) .. "A" 
     else 
 	id = head .. string.char(tail+1) 
     end
@@ -285,9 +288,32 @@ local function UIDiterator()
     end
   return incrementAlphaID 
   end
+--]]
+
+function nextUID(uid) 
+
+    if not uid or uid == "" then return "A" end
+
+    local allZ = true -- to check below 
+    local temp = ""
+    for i=1,uid:len() do
+	if uid:sub(i,i) ~= "Z" then allZ = false; break; else temp = temp .. "A" end  
+    end
+    if allZ then return "A" .. temp end
+
+    local head=uid:sub( 1, uid:len() - 1)
+    local tail=uid:byte( uid:len() )
+    if tail == 90  then 
+	-- last char is Z... need to propagate the increase
+	return nextUID(head) .. "A"
+    else 
+	return head .. string.char(tail+1) 
+    end
+
+  end
 
 -- some initialization stuff
-generateUID = UIDiterator()
+-- generateUID = UIDiterator() -- deprecated, use nextUID() instead
 
 -- return a new PNJ object, based on a given template. 
 -- Give him a new unique ID 
@@ -295,7 +321,9 @@ local function PNJConstructor( template )
 
   aNewPNJ = {}
 
-  aNewPNJ.id 		  = generateUID() 		-- unique id
+  UID = nextUID(UID)
+
+  aNewPNJ.id 		  = UID 			-- unique id
   aNewPNJ.PJ 		  = template.PJ or false	-- is it a PJ or PNJ ?
   aNewPNJ.done		  = false 			-- has played this round ?
   aNewPNJ.onMap		  = false			-- is this character present as a Pawn on a map ? No a priori, may change later on
@@ -458,7 +486,7 @@ function rpg.computeDangerosity( i )
   for k,v in pairs(PNJTable[i].attackers) do
     if v then
       local index = findPNJ( k )
-      if index then potentialTouch = potentialTouch + averageTouch( i , index ) end
+      if index then potentialTouch = potentialTouch + rpg.averageTouch( i , index ) end
     end
   end
   if potentialTouch ~= 0 then return math.ceil( PNJTable[i].hits / potentialTouch ) else return -1 end

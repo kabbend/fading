@@ -419,12 +419,6 @@ function Window:click(x,y)
 		elseif (button == 'eye') then 	
 			local map = self
 			atlas:toggleVisible( map )
-                	if not atlas:isVisible( map ) then map.sticky = false else
-                  		layout.notificationWindow:addMessage("Map '" .. map.displayFilename .. "' is now visible to players. All your changes will be relayed to them")
-				if not map.mask or #map.mask <= 1 then
-                    			layout.notificationWindow:addMessage("Map '" .. map.displayFilename .. "' is fully covered by Fog of War. Players will see nothing !")
-                  		end
-                	end
 		elseif (button == 'scotch') then 	
 			if self.sticky then 
 				self:setUnsticky()	

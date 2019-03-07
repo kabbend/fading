@@ -87,7 +87,6 @@ function projectorWindow:drop(o)
                 s.layout:setFocus( s )
 		-- make it visible
 		atlas:toggleVisible( s )
-                if not atlas:isVisible( s ) then s.sticky = false end
 	end
 
 	end

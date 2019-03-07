@@ -739,12 +739,13 @@ function love.mousereleased( x, y )
 	if mouseResize then 
 		mouseResize = false
 		mouseMove = false 
-		-- we were resizing a map. Send the result to the projector eventually
+		-- we resize a map. Send the result to the projector eventually
 		local window = layout:getFocus()
 		if window and window.class == "map" and atlas:getVisible() == window and not window.sticky then
   			tcpsend( projector, "MAGN " .. 1/window.mag)
   			tcpsend( projector, "CHXY " .. math.floor(window.x+window.translateQuadX) .. " " .. math.floor(window.y+window.translateQuadY) )
-		elseif window and window.class == "snapshot" then
+		elseif window and window.resize then
+		-- we resize a mundane window. Check if this window offers a resize() method directly
 			window:resize()
 		end
 		return 
@@ -1171,6 +1172,7 @@ elseif mouseResize then
 
 	-- check we are still within the window limits
 	if x >= zx + 40 and y >= zy +40 then
+		-- we resize a map. Only maps are whResizable in principle
 		if w.whResizable then
 		  assert(w.class == "map")
 		  --local ratio = w.w / w.h
@@ -1186,6 +1188,7 @@ elseif mouseResize then
 			w:translate(zx-cx,zy-cy)
 		  end
 		else
+		  -- we resize a mundane window
 		  if not w.wResizable then dx = 0 end
 		  if not w.hResizable then dy = 0 end
 		  w.w = w.w + dx * w.mag
@@ -1422,9 +1425,6 @@ if window then
     
 	if key == "v" and love.keyboard.isDown("lctrl") then
 		atlas:toggleVisible( map )
-		if not atlas:isVisible( map ) then map.sticky = false else 
-		  layout.notificationWindow:addMessage("Map " .. map.displayFilename .. " is now visible to players. All your changes will be relayed to them")
-		end
     	end
 
    	if key == "p" and love.keyboard.isDown("lctrl") then
@@ -1717,13 +1717,6 @@ function init()
 	    
     	layout.notificationWindow:addMessage("Warning: No data file found! No PC or NPC can be created") -- not blocking, but severe
 
-    else
-
-    	-- create PJ automatically (1 instance of each!)
-    	-- later on, an image might be attached to them, if we find one
-    	-- rpg.createPJ()
-    	-- layout.combatWindow:sortAndDisplayPNJ()
-
     end
 
     -- load rest of data files (ie. images and maps)
@@ -1740,6 +1733,7 @@ function init()
                 templateArray[RpgClasses[i].class].snapshot = defaultPawnSnapshot
          end
         table.insert( layout.snapshotWindow.snapshots[3].s, RpgClasses[i].snapshot )
+	if RpgClasses[i].PJ then layout.snapshotWindow.snapshots[3].s[i].highlight = true end
     end
 
     -- before returning, sort the class snapshot bar: PJ first, then PNJ, all in alphabetical order
@@ -1986,7 +1980,6 @@ function parseDirectory( t )
       end
 
     end
-
 
 
 end

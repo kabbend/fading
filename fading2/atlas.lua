@@ -9,7 +9,7 @@ function Atlas:isVisible(map) return self.visible == map end
 function Atlas:getVisible() return self.visible end 
 function Atlas:toggleVisible( map )
 	if not map then return end
-	if map.kind == "scenario" then return end -- a scenario is never displayed to the players
+	--if map.kind == "scenario" then return end -- a scenario is never displayed to the players -- deprecated
 	if self.visible == map then 
 		self.visible = nil 
 		map.sticky = false
@@ -65,10 +65,17 @@ function Atlas:toggleVisible( map )
 				end
 			end
 		end
+
 		-- set map frame
   		tcpsend( projector, "MAGN " .. 1/map.mag)
   		tcpsend( projector, "CHXY " .. math.floor(map.x+map.translateQuadX) .. " " .. math.floor(map.y+map.translateQuadY) )
   		tcpsend( projector, "DISP")
+
+		-- display some messages eventually
+                layout.notificationWindow:addMessage("Map '" .. map.displayFilename .. "' is now visible to players. All your changes will be relayed to them")
+                if not map.mask or #map.mask <= 1 then
+                        layout.notificationWindow:addMessage("Map '" .. map.displayFilename .. "' is fully covered by Fog of War. Players will see nothing !")
+                end
 
 	end
 	end

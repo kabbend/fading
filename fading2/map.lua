@@ -929,8 +929,8 @@ function Map:createPawns( requiredSize , id, AddInCombatTracker, class )
 
     elseif not id and not addInCombatTracker then
 
-	  local id = generateUID()
-	  p = Pawn:new( id , defaultPawnSnapshot, pawnSize , a , b , class ) 
+	  UID = nextUID(UID)
+	  p = Pawn:new( UID , defaultPawnSnapshot, pawnSize , a , b , class ) 
 	  map.pawns[#map.pawns+1] = p
 	  io.write("map.lua: creating pawn, not storing it. New id " .. p.id .. " and inserting in map at rank " .. #map.pawns .. "\n")
 	  uniquepawn = p 

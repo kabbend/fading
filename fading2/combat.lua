@@ -145,35 +145,49 @@ function Combat:createPNJGUIFrame()
         yui.Text({name="armor",text="", w=width, size=size, center = 1}),
         yui.Text({name="hits", text="", w=40, size=size+6, color = theme.color.orange, center = 1}),
 
+        yui.Button({name="plus", text = '+1', size=size-2,
+            onClick = function(self) 
+              if (i>#PNJTable) then return end
+              if (PNJTable[i].is_dead) then 
+		PNJTable[i].is_dead = false 
+	      end
+              PNJTable[i].hits = PNJTable[i].hits + 1
+              if (PNJTable[i].hits >0 and PNJTable[i].hits <= 5) then
+                PNJTable[i].malus = -12 + (2 * PNJTable[i].hits)
+              end
+              PNJTable[i].final_goal = PNJTable[i].goal + PNJTable[i].malus + PNJTable[i].goalstancebonus
+              self.parent.goal.text = PNJTable[i].final_goal
+              self.parent.hits.text = PNJTable[i].hits 
+	      layout.combatWindow:sortAndDisplayPNJ()
+	      layout.combatWindow:setFocus(i)
+	    end }),
+        yui.HorizontalSpacing({w=3}),
+
         yui.Button({name="minus", text = '-1', size=size-2,
             onClick = function(self) 
               if (i>#PNJTable) then return end
               if (PNJTable[i].is_dead) then return end
               PNJTable[i].hits = PNJTable[i].hits - 1
-              -- remove DEF if allowed
-		--[[
-              if PNJTable[i].acceptDefLoss then
-                rpg.changeDefense(i,-1,nil)
-                PNJTable[i].lasthit = 0
-                PNJTable[i].acceptDefLoss = false
-              end
-		--]]
               if (PNJTable[i].hits == 0) then 
                 PNJTable[i].is_dead = true; 
-		--[[
-		layout.snapshotWindow:apply(
-                        function( map )
-                                io.write("combat.lua : killing pawn " .. PNJTable[i].id .. " from map " .. map.title .. "\n")
-                                for k,v in pairs(map.pawns) do
-                                        if v.id == PNJTable[i].id then v.loaded = false end
-                                end
-                        end
-                )
-		--]]
+		PNJTable[i].target = nil
+              	PNJTable[i].attackers = {}
+              	for k=1,#PNJTable do
+		  -- dead character cannot be a target anymore
+                  if PNJTable[k].target and PNJTable[k].target == PNJTable[i].id then
+                        PNJTable[k].target = nil
+                  end
+		  -- remove the dead character from potential attackers 
+		  local newAttackers = {}
+		  for l=1,#PNJTable[k].attackers do
+			if PNJTable[k].attackers[l] ~= PNJTable[i].id then table.insert( newAttackers , PNJTable[k].attackers[l] ) end 
+		  end
+		  PNJTable[k].attackers = newAttackers
+              	end
 
 		tcpsend( projector, "KILL " .. PNJTable[i].id )
 
-                PNJTable[i].done = true
+                --PNJTable[i].done = true
                 self.parent.roll.text = "--"; 
                 self.parent.hits.text = "--"; 
                 self.parent.goal.text = "--"; 
@@ -183,6 +197,8 @@ function Combat:createPNJGUIFrame()
                 self.parent.dmg.text2 = "";
                 self.parent.dmg.text3 = "";
 		thereIsDead = true
+	        layout.combatWindow:sortAndDisplayPNJ()
+	        layout.combatWindow:setFocus(i)
                 return
               end
 
@@ -192,6 +208,8 @@ function Combat:createPNJGUIFrame()
               PNJTable[i].final_goal = PNJTable[i].goal + PNJTable[i].malus + PNJTable[i].goalstancebonus
               self.parent.goal.text = PNJTable[i].final_goal
               self.parent.hits.text = PNJTable[i].hits 
+	      layout.combatWindow:sortAndDisplayPNJ()
+	      layout.combatWindow:setFocus(i)
             end}),
         yui.HorizontalSpacing({w=3}),
         yui.Button({name="kill", text = 'kill', size=size-2, 
@@ -200,9 +218,24 @@ function Combat:createPNJGUIFrame()
               if (PNJTable[i].is_dead) then return end
               PNJTable[i].hits = 0
               PNJTable[i].is_dead = true 
+	      PNJTable[i].target = nil
+	      PNJTable[i].attackers = {} 
+              for k=1,#PNJTable do
+		  -- dead character cannot be a target anymore
+                  if PNJTable[k].target and PNJTable[k].target == PNJTable[i].id then
+                        PNJTable[k].target = nil
+                  end
+		  -- remove the dead character from potential attackers 
+		  local newAttackers = {}
+		  for l=1,#PNJTable[k].attackers do
+			if PNJTable[k].attackers[l] ~= PNJTable[i].id then table.insert( newAttackers , PNJTable[k].attackers[l] ) end 
+		  end
+		  PNJTable[k].attackers = newAttackers
+              	end
+
 	      tcpsend( projector, "KILL " .. PNJTable[i].id )
 
-              PNJTable[i].done = true
+              --PNJTable[i].done = true
               self.parent.hits.text = "--"; 
               self.parent.roll.text = "--";
               self.parent.goal.text = "--"; 
@@ -212,10 +245,9 @@ function Combat:createPNJGUIFrame()
               self.parent.dmg.text2 = "";
               self.parent.dmg.text3 = "";
 	      thereIsDead = true
+	      layout.combatWindow:sortAndDisplayPNJ()
+	      layout.combatWindow:setFocus(i)
             end }),
-
-        yui.HorizontalSpacing({w=1}),
-        yui.Text({name="onMap",text="", w=width, size=size, center = 1}),
         
       })
     PNJtext[i] = t[i+1] 
@@ -275,9 +307,28 @@ function Combat:draw()
 	    local xoffset = s.w * s.snapmag * 0.5 / 2
 	    love.graphics.draw( s.im , zx + 170 - xoffset , PNJtext[i].y - 2 , 0 , s.snapmag * 0.5, s.snapmag * 0.5 ) 
       end
+      love.graphics.setColor(0,0,0)
+      love.graphics.setFont(theme.fontSearch)
+      -- print Map symbol if relevant
+      if PNJTable[i].onMap then
+        love.graphics.print( "M" , zx + 140, PNJtext[i].y - 4 , 0, 0.8, 0.8 )
+      end
+      -- display dangerosity
+      if PNJTable[i].PJ then
+        local danger = rpg.computeDangerosity(i)
+        if danger <= 0 then
+	  danger = "-"
+        elseif danger >= 99 then
+	  danger = "99"
+        else
+	  danger = math.floor(danger)
+        end
+        love.graphics.print( danger , zx + 140, PNJtext[i].y + 16 , 0, 0.8, 0.8 ) 
+      end
     end
 
   love.graphics.setScissor() 
+
 
   -- print bar
   self:drawBar()
@@ -510,7 +561,6 @@ function Combat:sortAndDisplayPNJ()
       PNJtext[i].goal.text = ""
       PNJtext[i].dmg.text2 = ""
       PNJtext[i].dmg.text3 = ""
-      PNJtext[i].onMap.text = ""
 
     else
 
@@ -562,9 +612,6 @@ function Combat:sortAndDisplayPNJ()
         PNJtext[i].def.text = pnj.final_defense;
         PNJtext[i].goal.text = pnj.final_goal;
        
-	PNJtext[i].onMap.text = ""
-	if pnj.onMap then PNJtext[i].onMap.text = "Map" end 
- 
       end
     end
 
@@ -613,13 +660,14 @@ function Combat:nextRound()
 
     end
 
+-- set a flag if a PNJ is present (as a pawn) on at least one map
 function Combat:setOnMap(index,v)
     PNJTable[index].onMap = v
-    if v then
-	PNJtext[index].onMap.text = "Map"
-    else
-	PNJtext[index].onMap.text = ""
-    end 
+    end
+
+-- force the window resize to be aligned with the nearest row
+function Combat:resize()
+	self.h = 33 + math.min(PNJmax,math.max(1,math.floor( (self.h - 33) / 43 ))) * 43 
     end
 
 
