@@ -21,7 +21,7 @@ end
 
 function projectorWindow:draw()
 
-  self:drawBack()
+  self:drawBack(mainAlpha)
 
   local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x - W / 2), -( self.y - H / 2)

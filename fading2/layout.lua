@@ -10,17 +10,18 @@ function mainLayout:new()
   setmetatable( new , self )
   self.__index = self
   self.globalDisplay = true
+  self.mapsAreVisible = true 
   return new
 end
 
 function mainLayout:addWindow( window, display , name ) 
 	if window.alwaysBottom then
-		self.windows[window] = { w=window , l=1 , d=display }
+		self.windows[window] = { w=window , l=1 , d=display, openedOnce = false, mapRestore = false }
 	elseif window.alwaysOnTop then
-		self.windows[window] = { w=window , l=10e10 , d=display }
+		self.windows[window] = { w=window , l=10e10 , d=display, openedOnce = false, mapRestore = false }
 	else
 		self.maxWindowLayer = self.maxWindowLayer + 1
-		self.windows[window] = { w=window , l=self.maxWindowLayer , d=display }
+		self.windows[window] = { w=window , l=self.maxWindowLayer , d=display, openedOnce = false, mapRestore = false }
 	end
 	-- sort windows by layer (ascending) value
 	table.insert( self.sorted , self.windows[window] )
@@ -32,10 +33,16 @@ function mainLayout:addWindow( window, display , name )
 
 	end
 
+-- tell if window was opened at least once
+function mainLayout:openedOnce(window)
+	if self.windows[window] then return self.windows[window].openedOnce else return false end
+	end
+
 -- restore a window to its default value
 function mainLayout:restoreBase(window)
 	window.x, window.y, window.mag = window.startupX, window.startupY, window.startupMag
 	self.windows[window].d = true
+	self.windows[window].openedOnce = true
 	end
 
 function mainLayout:removeWindow( window ) 
@@ -59,6 +66,33 @@ function mainLayout:setDisplay( window, display )
 	if self.windows[window] then 
 		self.windows[window].d = display
 		if not display and self.focus == window then self:setFocus(nil) end -- looses the focus as well
+		if display then self.windows[window].openedOnce = true end
+	end
+	end 
+	
+-- hide a window
+function mainLayout:hideMaps() 
+	if self.mapsAreVisible then
+		-- we want to hide maps. First we check which ones will need to be restored
+		for k,window in pairs(self.windows) do
+			if window.w.class == "map" and window.d then
+				window.mapRestore = true
+				window.d = false -- hide it now
+			else
+				window.mapRestore = false -- we will ignore this one 
+			end
+		end
+		self.mapsAreVisible = false 
+	else
+		-- we want to restore maps now
+		for k,window in pairs(self.windows) do
+			if window.w.class == "map" and window.mapRestore then
+				window.d = true
+				window.openedOnce = true -- in principle this is redundant
+				if self.focus == window.w then self:setFocus(nil) end -- looses the focus as well
+			end
+		end
+		self.mapsAreVisible = true
 	end
 	end 
 	
@@ -72,6 +106,7 @@ function mainLayout:toggleDisplay()
 
 function mainLayout:toggleWindow(w)
 	self.windows[w].d = not self.windows[w].d
+	if self.windows[w].d then self.windows[w].openedOnce = true end
 	end
 
 function mainLayout:hideAll()

@@ -315,14 +315,18 @@ function Window:drawResize()
    love.graphics.draw( theme.iconResize, zx + self.w / self.mag - theme.iconSize - 1, zy + self.h/self.mag - theme.iconSize - 1 )
 end
 
-function Window:drawBack()
+function Window:drawBack(alpha)
   local W,H=self.layout.W, self.layout.H
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
   if self == self.layout:getFocus() then love.graphics.setColor(color('selected')) else love.graphics.setColor(color('grey')) end
   love.graphics.setLineWidth(border*2);
   love.graphics.rectangle( "line", zx, zy , ((self.w) / self.mag), (self.h / self.mag) )  
   love.graphics.setLineWidth(1);
-  love.graphics.setColor(color('white'))
+  if alpha then 
+	love.graphics.setColor(255,255,255,alpha)
+  else
+	love.graphics.setColor(color('white'))
+  end
   love.graphics.rectangle( "fill", zx, zy, (self.w) / self.mag, (self.h) / self.mag )  
 end
 

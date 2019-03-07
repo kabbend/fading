@@ -50,6 +50,8 @@ end
 
 if love.system.getOS() == "Windows" then __WINDOWS__ = true end
 
+mainAlpha	    = 215  	-- alpha value used on many windows
+
 -- flag and timer to draw dices
 dice 		    = {}	-- list of dices
 drawDicesTimer      = 0
@@ -165,7 +167,7 @@ function tcpsend( tcp, data , verbose )
   if not tcp then return end -- no client connected yet !
   if verbose == nil or verbose == true then  
 	local i,p=tcp:getpeername()
-	io.write("send to " .. tostring(i) .. "," .. tostring(p) .. ":" .. data .. "\n") 
+	io.write("main.lua: send to " .. tostring(i) .. "," .. tostring(p) .. ":" .. data .. "\n") 
   end
   tcp:send(data .. "\n")
   end
@@ -188,7 +190,7 @@ function tcpsendBinary( t )
  	local data, size = file:read( chunksize )
  	while size ~= 0 do
        		c:send(data) -- send chunk
-		io.write("sending " .. size .. " bytes. \n")
+		io.write("main.lua: sending " .. size .. " bytes. \n")
         	data, size = file:read( chunksize )
  	end
  else
@@ -197,7 +199,7 @@ function tcpsendBinary( t )
   	local data = file:read(chunksize)
  	while data do
        		c:send(data) -- send chunk
-		io.write("sending " .. string.len(data) .. " bytes. \n")
+		io.write("main.lua: sending " .. string.len(data) .. " bytes. \n")
         	data = file:read( chunksize )
  	end
  end
@@ -235,10 +237,10 @@ function love.filedropped(file)
 	  -- if filename does not contain the base directory, it is local
 	  local i = string.find( filename, baseDirectory )
 	  is_local = (i == nil) 
-	  io.write("is local : " .. tostring(is_local) .. "\n")
+	  io.write("main.lua: is local : " .. tostring(is_local) .. "\n")
 
 	  local _,_,basefile = string.find( filename, ".*" .. sep .. "(.*)")
-	  io.write("basefile: " .. tostring(basefile) .. "\n")
+	  io.write("main.lua: basefile: " .. tostring(basefile) .. "\n")
 
 	  -- check if is a map or not 
 	  if string.sub(basefile,1,3) == "map" and 
@@ -252,8 +254,8 @@ function love.filedropped(file)
 	 	is_a_pawn = true
 	  end
 
-	  io.write("is map?: " .. tostring(is_a_map) .. "\n")
-	  io.write("is pawn?: " .. tostring(is_a_pawn) .. "\n")
+	  io.write("main.lua: is map?: " .. tostring(is_a_map) .. "\n")
+	  io.write("main.lua: is pawn?: " .. tostring(is_a_pawn) .. "\n")
 
 	  if not is_a_map then -- load image 
 
@@ -313,7 +315,7 @@ function love.update(dt)
 		table.insert( clients , { tcp = tcp, id = nil } )
 		local ad,ip = tcp:getpeername()
 		layout.notificationWindow:addMessage("receiving connection from " .. tostring(ad) .. " " .. tostring(ip))
-		io.write("receiving connection from " .. tostring(ad) .. " " .. tostring(ip) .. "\n")
+		io.write("main.lua: receiving connection from " .. tostring(ad) .. " " .. tostring(ip) .. "\n")
 		tcp:settimeout(0)
 	end
 
@@ -324,7 +326,7 @@ function love.update(dt)
 
  	 if data then
 
-	    io.write("receiving command: " .. data .. "\n")
+	    io.write("main.lua:  receiving command: " .. data .. "\n")
 
 	    local command = string.sub( data , 1, 4 )
 
@@ -332,7 +334,7 @@ function love.update(dt)
 	    if not clients[i].id then
 
 	      if data == "CONNECT" then 
-		io.write("receiving projector call\n")
+		io.write("main.lua: receiving projector call\n")
 		layout.notificationWindow:addMessage("receiving projector call")
 		clients[i].id = projectorId
 		projector = clients[i].tcp
@@ -343,7 +345,7 @@ function love.update(dt)
 		end
 	
 	      elseif data == "CONNECTB" then 
-		io.write("receiving projector call, binary mode\n")
+		io.write("main.lua: receiving projector call, binary mode\n")
 		layout.notificationWindow:addMessage("Receiving projector call")
 		layout.notificationWindow:addMessage("Projector is requesting full binary mode")
 		fullBinary = true
@@ -403,7 +405,7 @@ function love.update(dt)
 		  rpg.updateTargetByArrow( indexP, indexT )
 		  layout.combatWindow:setFocus(indexP)
 		else
-		  io.write("inconsistent TARG command received while no map or no pawns\n")
+		  io.write("main.lua: inconsistent TARG command received while no map or no pawns\n")
 		end
 
 	      elseif command == "MPAW" then
@@ -420,13 +422,14 @@ function love.update(dt)
 				map.pawns[i].moveToX = x; map.pawns[i].moveToY = y; 
 				pawnMaxLayer = pawnMaxLayer + 1
 				map.pawns[i].layer = pawnMaxLayer
-				map.pawns[i].timer = tween.new( pawnMovingTime , map.pawns[i] , { x = map.pawns[i].moveToX, y = map.pawns[i].moveToY } )
+				map.pawns[i].x = map.pawns[i].moveToX
+				map.pawns[i].y = map.pawns[i].moveToY
 				break; 
 			end 
 		  end 
 		  table.sort( map.pawns, function(a,b) return a.layer < b.layer end )
 		else
-		  io.write("inconsistent MPAW command received while no map or no pawns\n")
+		  io.write("main.lua: inconsistent MPAW command received while no map or no pawns\n")
 		end
 	    end -- end of command TARG/MPAW
 
@@ -682,7 +685,7 @@ function love.mousereleased( x, y )
                 w.markForClosure = false
                 layout:setDisplay(w,false)
                 -- if it's a map, we release image memory. Image will be eventually reloaded if needed
-                if w.class == "map" then io.write("releasing memory for map " .. w.title .. "\n"); w.im = nil end
+                if w.class == "map" then io.write("main.lua: releasing memory for map " .. w.title .. "\n"); w.im = nil end
         end
 
 	-- we were resizing a text (within a Map). We stop now
@@ -775,7 +778,7 @@ function love.mousereleased( x, y )
 				-- otherwise create a new entry
 				local id = rpg.generateNewPNJ( pawnMove.class )
 				pawnMove.loaded = false
-	
+
 				-- the new entry has a new and wrong id. set it properly
 				local index = findPNJ( id )
 				PNJTable[index].id = pawnMove.id 
@@ -783,6 +786,18 @@ function love.mousereleased( x, y )
 
 				layout.combatWindow:sortAndDisplayPNJ()
 
+				-- send it to projector eventually
+                  		if atlas:isVisible(sourcemap) then
+                        		local flag
+					local p = pawnMove
+                        		if pawnMove.PJ then flag = "1" else flag = "0" end
+                        		local f = pawnMove.snapshot.baseFilename -- FIXME: what about pawns loaded dynamically ?
+                        		io.write("main.lua: PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " ..
+                                        	math.floor(p.sizex) .. " " .. flag .. " " .. f .. "\n")
+                        		tcpsend( projector, "PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " ..
+                                        	math.floor(p.sizex) .. " " .. flag .. " " .. f)
+                		end
+	
 				pawnMove = nil
 	
 				return	
@@ -851,8 +866,11 @@ function love.mousereleased( x, y )
 			-- we have a target
 			local indexP = findPNJ( pawnMove.id )
 			local indexT = findPNJ( target.id )
-			rpg.updateTargetByArrow( indexP, indexT )
-		  	layout.combatWindow:setFocus(indexP)
+			io.write("main.lua: id '" .. pawnMove.id .. "' is attacking id '" .. target.id .. "'\n")
+			if indexP and indexT then 
+				rpg.updateTargetByArrow( indexP, indexT )
+		  		layout.combatWindow:setFocus(indexP)
+			end
 		  	--layout.combatWindow:updateLineColor(indexP)
 			
 		  else
@@ -877,7 +895,8 @@ function love.mousereleased( x, y )
 			if pawnMove.moveToX + pawnMove.sizex + 6 > w then pawnMove.moveToX = math.floor(w - pawnMove.sizex - 6) end
 			if pawnMove.moveToY + pawnMove.sizey + 6 > h then pawnMove.moveToY = math.floor(h - pawnMove.sizey - 6) end
 
-			pawnMove.timer = tween.new( pawnMovingTime , pawnMove , { x = pawnMove.moveToX, y = pawnMove.moveToY } )
+			pawnMove.x = pawnMove.moveToX
+			pawnMove.y = pawnMove.moveToY
 	
 			tcpsend( projector, "MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.moveToX) .. " " .. math.floor(pawnMove.moveToY) )		
 			
@@ -964,7 +983,7 @@ function love.mousereleased( x, y )
 
 	  	if command then 
 			table.insert( map.mask , command ) 
-			io.write("inserting new mask " .. command .. "\n")
+			io.write("main.lua: inserting new mask " .. command .. "\n")
 
 			if minX < map.maskMinX then map.maskMinX = minX end
 			if minY < map.maskMinY then map.maskMinY = minY end
@@ -1053,13 +1072,6 @@ function love.mousepressed( x, y , button )
                         if is_dead and atlas:isVisible( map ) then tcpsend( projector , "KILL " .. p.id ) end
                         end
 
-                elseif p and action then
-                  -- if action symbol was clicked, we increase it...
-                  local i = findPNJ( p.id )
-                  if i then
-                        rpg.increaseAction( i )
-                  end
-
 		-- not clicking a pawn, it's either a map move or an rect/circle mask...
 		elseif button == 1 then --Left click
 	  		if not love.keyboard.isDown("lshift") and not love.keyboard.isDown("lctrl") 
@@ -1125,7 +1137,7 @@ function findClientByName( class )
   return nil
   end
 
--- return the character by its ID, or nil if not found
+-- return the character index by its ID, or nil if not found
 function findPNJ( id )
   if not id then return nil end
   for i=1,#PNJTable do if PNJTable[i].id == id then return i end end
@@ -1268,7 +1280,8 @@ if key == "p" and love.keyboard.isDown("lctrl") then
   return
 end
 if key == "escape" then
-	layout:toggleDisplay()
+	-- hide or restore all maps and only maps
+	layout:hideMaps() 
 	return
 end
 if key == "tab" and love.keyboard.isDown("lctrl") then
@@ -1483,11 +1496,11 @@ function parseDirectory( t )
     -- list all files in that directory, by executing a command ls or dir
     local allfiles = {}, command
     if love.system.getOS() == "OS X" then
-	    io.write("ls '" .. path .. "' > .temp\n")
+	    io.write("main.lua: ls '" .. path .. "' > .temp\n")
 	    os.execute("ls '" .. path .. "' > .temp0 && iconv -f utf8-mac -t utf-8 .temp0 > .temp")
     elseif __WINDOWS__ then
 	    local pathcp1252 = codepage.utf8tocp1252(path)
-	    io.write("dir /b \"" .. pathcp1252 .. "\" > temp\n")
+	    io.write("main.lua: dir /b \"" .. pathcp1252 .. "\" > temp\n")
 	    local cf = io.open("cmdfs.bat","w")
 	    os.execute("chcp 65001 & cmd.exe /c dir /b \"" .. pathcp1252 .. "\" > .temp & chcp 850\n")
 	    cf:close()
@@ -1501,12 +1514,12 @@ function parseDirectory( t )
 
     for k,f in pairs(allfiles) do
 
-      io.write("scanning file '" .. f .. "'\n")
+      io.write("main.lua: scanning file '" .. f .. "'\n")
 
       if string.sub(f,-4) == '.lua' then
 
         -- it's a text nodes file associated to a Map. We store it for further use
-        io.write("Loading Nodes file for map '" .. f .. " (real path='" .. path .. sep .. f .."')\n")
+        io.write("main.lua: Loading Nodes file for map '" .. f .. " (real path='" .. path .. sep .. f .."')\n")
         textDict[ f ] = loadfile( path .. sep .. f )
 
       elseif kind == "maps" then
@@ -1531,7 +1544,7 @@ function parseDirectory( t )
 		-- check if corresponds to a known PJ. In that case, do not
 		-- store it in the snapshot list, as it is supposed to be unique
 			local pjname = string.sub(f,5, f:len() - 4 )
-			io.write("Looking for a PJ named " .. pjname .. "\n")
+			io.write("main.lua: Looking for a PJ named " .. pjname .. "\n")
 			local index = findPNJByClass( pjname ) 
 			if index then 
 				PNJTable[index].snapshot = s  
@@ -1550,7 +1563,7 @@ function parseDirectory( t )
 		for i=1,#RpgClasses do
 			if RpgClasses[i].image == f then 
 				RpgClasses[i].snapshot = s 
-				io.write("store image for class " .. RpgClasses[i].class .. "\n")
+				io.write("main.lua: store image for class " .. RpgClasses[i].class .. "\n")
 			end
 		end
 
@@ -1569,7 +1582,7 @@ function parseDirectory( t )
 		table.insert( layout.snapshotWindow.snapshots[4].s, s ) 
 		
 		local pjname = string.sub(f,5, f:len() - 4 )
-		io.write("Looking for PJ " .. pjname .. "\n")
+		io.write("main.lua: Looking for PJ " .. pjname .. "\n")
 		local index = findPNJByClass( pjname ) 
 		if index then PNJTable[index].snapshot = s  end
 
@@ -1582,7 +1595,7 @@ function parseDirectory( t )
 
  	else
 	 
-	  io.write("loading " .. f .. "\n")
+	  io.write("main.lua: loading " .. f .. "\n")
 	  local s = Snapshot:new{ filename = path .. sep .. f, size=layout.snapshotSize } 
 	  assert(s)
 	  table.insert( layout.snapshotWindow.snapshots[1].s, s ) 
@@ -1619,7 +1632,7 @@ function init()
 					- 2*theme.iconSize 
 					,layout=layout}
 
-    local rollWindow = iconRollWindow:new{ mag=3.5, image = theme.dicesImage, w=theme.dicesImage:getWidth(), h=theme.dicesImage:getHeight(), x=-2074,y=133,layout=layout} 
+    local rollWindow = iconRollWindow:new{ mag=4.5, image = theme.dicesImage, w=theme.dicesImage:getWidth(), h=theme.dicesImage:getHeight(), x=-2074,y=133,layout=layout} 
 
     local notifWindow = notificationWindow:new{ w=300, h=100, x=-(layout.WC-200)+layout.W/2 ,y=layout.H/2-50,layout=layout } 
 
@@ -1645,8 +1658,8 @@ function init()
 
     layout:addWindow( rollWindow , 	true , "rollWindow" )
 
-    io.write("base directory   : " .. baseDirectory .. "\n") ; layout.notificationWindow:addMessage("base directory : " .. baseDirectory .. "\n")
-    io.write("scenario directory : " .. fadingDirectory .. "\n") ; layout.notificationWindow:addMessage("scenario : " .. fadingDirectory .. "\n")
+    io.write("main.lua: base directory   : " .. baseDirectory .. "\n") ; layout.notificationWindow:addMessage("base directory : " .. baseDirectory .. "\n")
+    io.write("main.lua: scenario directory : " .. fadingDirectory .. "\n") ; layout.notificationWindow:addMessage("scenario : " .. fadingDirectory .. "\n")
 
     if __WINDOWS__ then
 
@@ -1660,9 +1673,9 @@ function init()
       -- * each time we call io.open()
       --
       baseDirectoryCp1252 =   codepage.utf8tocp1252( baseDirectory )
-      io.write("cp1252 base directory : " .. baseDirectoryCp1252 .. "\n")
+      io.write("main.lua: cp1252 base directory : " .. baseDirectoryCp1252 .. "\n")
       fadingDirectoryCp1252 =   codepage.utf8tocp1252( fadingDirectory )
-      io.write("cp1252 scenario directory : " .. fadingDirectoryCp1252 .. "\n")
+      io.write("main.lua: cp1252 scenario directory : " .. fadingDirectoryCp1252 .. "\n")
 
       local uWindow = urlWindow:new{w=1000,h=38,x=1000-layout.W/2,layout=layout, path=baseDirectoryCp1252..sep..fadingDirectoryCp1252..sep,
 					y= -layout.H/2+theme.iconSize+layout.intW+2*layout.snapshotSize }
@@ -1683,7 +1696,7 @@ function init()
     server = socket.tcp()
     server:settimeout(0)
     local success, msg = server:bind(address, serverport)
-    io.write("server local bind to " .. tostring(address) .. ":" .. tostring(serverport) .. ":" .. tostring(success) .. "," .. tostring(msg) .. "\n")
+    io.write("main.lua: server local bind to " .. tostring(address) .. ":" .. tostring(serverport) .. ":" .. tostring(success) .. "," .. tostring(msg) .. "\n")
     if not success then leave(); love.event.quit() end
     server:listen(10)
 
@@ -1722,7 +1735,7 @@ function init()
     -- add them to snapshotBar
     for i=1,#RpgClasses do
         if not RpgClasses[i].snapshot then
-                io.write("-- No snapshot for class " .. RpgClasses[i].class .. ", setting default one.\n");
+                io.write("main.lua: -- No snapshot for class " .. RpgClasses[i].class .. ", setting default one.\n");
                 RpgClasses[i].snapshot = defaultPawnSnapshot
                 templateArray[RpgClasses[i].class].snapshot = defaultPawnSnapshot
          end
@@ -1753,7 +1766,7 @@ function init()
       layout.snapshotWindow.snapshots[3].s[i] = v[2]
     end
 
-    io.write("loaded " .. #RpgClasses .. " classes.\n")
+    io.write("main.lua: loaded " .. #RpgClasses .. " classes.\n")
 
    -- Some Maps might have associated text, load them
     for i=1,#layout.snapshotWindow.snapshots[2].s do
@@ -1763,7 +1776,7 @@ function init()
 
                 map.nodes, map.edges, map.tempPawns = textDict[ map.displayFilename .. ".lua" ]()
 
-                io.write("Got Map data for " .. map.displayFilename .. ". Loading " .. #map.nodes .. " nodes and " .. #map.edges .. " edges.\n")
+                io.write("main.lua: Got Map data for " .. map.displayFilename .. ". Loading " .. #map.nodes .. " nodes and " .. #map.edges .. " edges.\n")
 
                 if map.tempPawns then -- might happen with older files
                  map.basePawnSize = map.tempPawns[1]
@@ -1777,7 +1790,7 @@ function init()
 					p.loaded = true
                                         p.x, p.y = map.tempPawns[2][j].x , map.tempPawns[2][j].y
                                         p.inEditionMode = true -- so they can be saved again if applicable
-                                        io.write("Loading Pawns : Class '" .. map.tempPawns[2][j].class .. "' with id " .. p.id .. "\n")	
+                                        io.write("main.lua: Loading Pawns : Class '" .. map.tempPawns[2][j].class .. "' with id " .. p.id .. "\n")	
                                 end
 
                         end
@@ -1841,11 +1854,11 @@ function parseDirectory( t )
     -- list all files in that directory, by executing a command ls or dir
     local allfiles = {}, command
     if love.system.getOS() == "OS X" then
-	    io.write("ls '" .. path .. "' > .temp\n")
+	    io.write("main.lua: ls '" .. path .. "' > .temp\n")
 	    os.execute("ls '" .. path .. "' > .temp0 && iconv -f utf8-mac -t utf-8 .temp0 > .temp")
     elseif __WINDOWS__ then
 	    local pathcp1252 = codepage.utf8tocp1252(path)
-	    io.write("dir /b \"" .. pathcp1252 .. "\" > temp\n")
+	    io.write("main.lua: dir /b \"" .. pathcp1252 .. "\" > temp\n")
 	    local cf = io.open("cmdfs.bat","w")
 	    os.execute("chcp 65001 & cmd.exe /c dir /b \"" .. pathcp1252 .. "\" > .temp & chcp 850\n")
 	    cf:close()
@@ -1859,7 +1872,7 @@ function parseDirectory( t )
 
     for k,f in pairs(allfiles) do
 
-      io.write("scanning file '" .. f .. "'\n")
+      io.write("main.lua: scanning file '" .. f .. "'\n")
 
       if f == 'scenario.lua' then
 
@@ -1867,14 +1880,14 @@ function parseDirectory( t )
 	local s = Map:new()
         s:load{ scenariofile= path .. sep .. f, layout=layout }
         layout:addWindow( s , false , "sWindow" )
-	io.write("** loading a scenario file from " .. path .. sep .. f  .. "\n")
+	io.write("main.lua: ** loading a scenario file from " .. path .. sep .. f  .. "\n")
 	s.nodes, s.edges = loadfile( path .. sep .. f )()	
-	io.write("** Done. Loaded " .. #s.nodes .. " nodes and " .. #s.edges .. " edges\n")
+	io.write("main.lua: ** Done. Loaded " .. #s.nodes .. " nodes and " .. #s.edges .. " edges\n")
 
       elseif string.sub(f,-4) == '.lua' then
 
 	-- it's a text nodes file associated to a Map. We store it for further use
-	io.write("Loading Nodes file for map '" .. f .. " (real path='" .. path .. sep .. f .."')\n")
+	io.write("main.lua: Loading Nodes file for map '" .. f .. " (real path='" .. path .. sep .. f .."')\n")
 	textDict[ f ] = loadfile( path .. sep .. f )
 
       elseif kind == "maps" then
@@ -1897,12 +1910,12 @@ function parseDirectory( t )
         	if string.sub(f,1,4) == 'pawn' then
 		-- check if corresponds to a known PJ
 			local pjname = string.sub(f,5, f:len() - 4 )
-			io.write("Looking for a PJ named " .. pjname .. "\n")
+			io.write("main.lua: Looking for a PJ named " .. pjname .. "\n")
 			for i=1,#RpgClasses do
 			if RpgClasses[i].class == pjname then 
 				RpgClasses[i].snapshot = s 
 				templateArray[pjname].snapshot = s
-				io.write("store image '" .. f .. "' as Snapshot for PJ " .. RpgClasses[i].class .. "\n")
+				io.write("main.lua: store image '" .. f .. "' as Snapshot for PJ " .. RpgClasses[i].class .. "\n")
 			end
 			end
   		end
@@ -1921,12 +1934,12 @@ function parseDirectory( t )
 			if RpgClasses[i].image == f then 
 				RpgClasses[i].snapshot = s 
 				templateArray[RpgClasses[i].class].snapshot = s
-				io.write("store image '" .. f .. "' as Snapshot for class " .. RpgClasses[i].class .. "\n")
+				io.write("main.lua: store image '" .. f .. "' as Snapshot for class " .. RpgClasses[i].class .. "\n")
 			end
 			if RpgClasses[i].popup == f then 
 				RpgClasses[i].snapshotPopup = s 
 				templateArray[RpgClasses[i].class].snapshotPopup = s
-				io.write("store image '" .. f .. "' as Popup for class " .. RpgClasses[i].class .. "\n")
+				io.write("main.lua: store image '" .. f .. "' as Popup for class " .. RpgClasses[i].class .. "\n")
 			end
 		end
 
@@ -1945,12 +1958,12 @@ function parseDirectory( t )
 		--table.insert( layout.snapshotWindow.snapshots[4].s, s ) 
 		
 		local pjname = string.sub(f,5, f:len() - 4 )
-		io.write("Looking for a PJ named " .. pjname .. "\n")
+		io.write("main.lua: Looking for a PJ named " .. pjname .. "\n")
 		for i=1,#RpgClasses do
 			if RpgClasses[i].class == pjname then 
 				RpgClasses[i].snapshot = s 
 				templateArray[RpgClasses[i].class].snapshot = s
-				io.write("store image '" .. f .. "' as Snapshot for PJ " .. RpgClasses[i].class .. "\n")
+				io.write("main.lua: store image '" .. f .. "' as Snapshot for PJ " .. RpgClasses[i].class .. "\n")
 			end
 		end
 
@@ -1963,7 +1976,7 @@ function parseDirectory( t )
 
  	else
 	 
-	  io.write("loading " .. f .. "\n")
+	  io.write("main.lua: loading " .. f .. "\n")
 	  local s = Snapshot:new{ filename = path .. sep .. f, size=layout.snapshotSize } 
 	  assert(s)
 	  table.insert( layout.snapshotWindow.snapshots[1].s, s ) 

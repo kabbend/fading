@@ -9,6 +9,8 @@ local theme 	= require 'theme'
 --
 
 local messages = {}
+local pace = 6 
+local pause = 1.5 
 
 local notificationWindow = Window:new{ class = "notification", alwaysOnTop = true, zoomable = false, movable = false, closable = false }
 
@@ -51,9 +53,9 @@ function notificationWindow:update(dt)
   --if self.opening and self.x <= self.maxX then 
   if self.opening and self.alpha < 255 then 
 	--self.x = self.x + 3 
-	self.alpha = self.alpha + 3 
-	--if self.x > self.maxX then self.opening = false; self.pause = true; self.closing = false; self.pauseTimer = 3  end
-	if self.alpha >= 255 then self.alpha = 255; self.opening = false; self.pause = true; self.closing = false; self.pauseTimer = 3  end
+	self.alpha = self.alpha + pace 
+	--if self.x > self.maxX then self.opening = false; self.pause = true; self.closing = false; self.pauseTimer = pause  end
+	if self.alpha >= 255 then self.alpha = 255; self.opening = false; self.pause = true; self.closing = false; self.pauseTimer = pause  end
   end
   if self.pause then
 	self.pauseTimer = self.pauseTimer - dt
@@ -62,7 +64,7 @@ function notificationWindow:update(dt)
   --if self.closing and self.x >= self.minX then 
   if self.closing and self.alpha > 0 then 
 	--self.x = self.x - 3 
-	self.alpha = self.alpha - 3 
+	self.alpha = self.alpha - pace 
 	--if self.x < self.minX then self.closing = false; self.text = nil ; self.layout:setDisplay(self,false) end
 	if self.alpha <= 0 then self.alpha = 0; self.closing = false; self.text = nil ; self.layout:setDisplay(self,false) end
   end

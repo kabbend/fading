@@ -1,4 +1,4 @@
 -- fading suns conf file
-baseDirectory = "C:\\Users\\kaben\\Google Drive\\RPG\\fadingsuns\\pictures"
+baseDirectory = "/Users/kabend/Google Drive/RPG/02. Fading Suns/pictures/"
 serverip = "localhost"
 serverport = 12345

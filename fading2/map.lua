@@ -125,7 +125,7 @@ function Map:lazyLoad()
   	img:setMipmapFilter( "nearest" )
   	--pcall(function() img:setMipmapFilter( "nearest" ) end)
   	local mode, sharpness = img:getMipmapFilter( )
-  	io.write("map lazy load: mode, sharpness = " .. tostring(mode) .. " " .. tostring(sharpness) .. "\n")
+  	io.write("map.lua: map lazy load: mode, sharpness = " .. tostring(mode) .. " " .. tostring(sharpness) .. "\n")
 	self.im = img
   end
 
@@ -272,7 +272,7 @@ function Map:setQuad(x1,y1,x2,y2)
 	self.quad = love.graphics.newQuad(x1,y1,w,h,self.w,self.h)
 	local px,py = self:WtoS(x1,y1)
 	self.translateQuadX, self.translateQuadY = math.floor(x1), math.floor(y1) 
-	io.write("creating quad x y w h (versus w h): " .. x1 .. " " .. y1 .. " " .. w .. " " .. h .. " " .. "(" .. self.w .. " " .. self.h .. ")\n")
+	io.write("map.lua: creating quad x y w h (versus w h): " .. x1 .. " " .. y1 .. " " .. w .. " " .. h .. " " .. "(" .. self.w .. " " .. self.h .. ")\n")
 	self.w, self.h = w, h
 	local nx,ny = self:WtoS(0,0)
 	self:translate(px-nx,py-ny)
@@ -320,15 +320,16 @@ function Map:drop( o )
 		  if obj.class == "pnj" then
 			id  = rpg.generateNewPNJ( obj.rpgClass.class )
 		  	if id then
-				io.write("map drop 1: object is pnj of class '" .. obj.rpgClass.class .. "' with id " .. id .. "\n")
+				io.write("map.lua: map drop 1: object is pnj of class '" .. obj.rpgClass.class .. "' with id " .. id .. "\n")
 		  		local index = findPNJ(id)
 		  		layout.combatWindow:setOnMap(index,true) 
 			else
-				io.write("map drop 1: object is pnj of class '" .. obj.rpgClass.class .. "' but no id returned. abort.\n")
+				io.write("map.lua: map drop 1: object is pnj of class '" .. obj.rpgClass.class .. "' but no id returned. abort.\n")
+				self.layout.notificationWindow:addMessage("this character already exists on this map"); 
 			end
 		  else
 			id = obj.id
-		  	io.write("map drop 1: object is pnjtable with id " .. id .. "\n")
+		  	io.write("map.lua: map drop 1: object is pnjtable with id " .. id .. "\n")
 		  	local index = findPNJ(id)
 		  	layout.combatWindow:setOnMap(index,true) 
 		  end
@@ -338,13 +339,15 @@ function Map:drop( o )
 		  if p then 
 		  	p.loaded = false 
 			p.x, p.y = px + self.translateQuadX ,py + self.translateQuadY 
-		  	io.write("map drop 2: creating pawn " .. id .. "\n")
+		  	io.write("map.lua: map drop 2: creating pawn " .. id .. "\n")
 			p.inEditionMode = self.isEditing
 			if p.inEditionMode then 
 				self.layout.notificationWindow:addMessage("Edition mode: This Pawn will be saved with the Map.")
 				self:textChanged()
 			end
-			end
+		  else
+			self.layout.notificationWindow:addMessage("this character already exists on this map"); 
+		  end
 
 		  -- send it to projector
 		  if p and atlas:isVisible(self) then	
@@ -352,7 +355,7 @@ function Map:drop( o )
 	  		if p.PJ then flag = "1" else flag = "0" end
 			local i = findPNJ( p.id )
 	  		local f = p.snapshot.baseFilename -- FIXME: what about pawns loaded dynamically ?
-	  		io.write("PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. 
+	  		io.write("map.lua: PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. 
 					--math.floor(p.sizex * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f .. "\n")
 					math.floor(p.sizex) .. " " .. flag .. " " .. f .. "\n")
 	  		tcpsend( projector, "PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. 
@@ -365,11 +368,13 @@ function Map:drop( o )
 
 function Map:killAll() 
 	PNJTable = {}
+	self.layout.notificationWindow:addMessage("removing all pawns and combat tracker entries"); 
 	layout.combatWindow:sortAndDisplayPNJ()
 	if atlas:isVisible(self) then tcpsend( projector, "ERAS" ); end
   	end
 
 function Map:wipe()
+	self.layout.notificationWindow:addMessage("removing all dead pawns"); 
 	if atlas:isVisible(self) then
 	  for i=1,#PNJTable do
 		if PNJTable[i].is_dead then tcpsend( projector, "ERAP " .. PNJTable[i].id ); end
@@ -454,20 +459,78 @@ function Map:draw()
 
      -- draw pawns, if any
      if map.pawns then
+
+		-- first, determine which one has focus and, if exists, which one is its current target
+		local pawnFocus, pawnTarget = nil, nil
+	     	for i=1,#map.pawns do
+			local index = findPNJ(map.pawns[i].id)
+			if index and index == layout.combatWindow.focus then
+				pawnFocus = map.pawns[i]
+				-- found focus. Now find target
+				if PNJTable[index].target then
+                                        -- find the pawn target on this map
+                                        for k,v in pairs(map.pawns) do
+                                                if v.id == PNJTable[ index ].target then
+                                                        pawnTarget = v
+                                                end
+                                        end
+				end	
+			end
+		end
+
+		-- if we have found a focus and a target, we draw the line now so we are sure it will be displayed in background, not 
+		-- in front of the pawns
+		if pawnFocus and pawnTarget then
+			-- green line
+			love.graphics.setColor(theme.color.red)
+			-- find source and target positions (centered on pawns)
+			local xs, ys = 	x + (pawnFocus.x - map.translateQuadX + pawnFocus.sizex / 2) / map.mag,
+					y + (pawnFocus.y - map.translateQuadY + pawnFocus.sizey / 2) / map.mag
+			local xt, yt = 	x + (pawnTarget.x - map.translateQuadX + pawnTarget.sizex / 2) / map.mag,
+					y + (pawnTarget.y - map.translateQuadY + pawnTarget.sizey / 2) / map.mag
+			love.graphics.line( xs, ys, xt, yt )
+		end
+
+		-- now, iterate on all pawns and draw them, with appropriate color
+		-- pawns that do not correspond to an entry in combat tracker (unitialized) are treated a bit differently, with another color (white)	
 	     for i=1,#map.pawns do
+
        	     	     local index = findPNJ(map.pawns[i].id) 
+
 		     -- pawn exists in combat tracker
 		     if index then 
 		        local rw = map.pawns[i].snapshot.w * map.pawns[i].f / map.mag
 		     	local dead = false
 		     	dead = PNJTable[ index ].is_dead
 		     	if map.pawns[i].snapshot.im then
+
   		       		local zx,zy = (map.pawns[i].x - map.translateQuadX) * 1/map.mag + x , (map.pawns[i].y - map.translateQuadY) * 1/map.mag + y
+
 				-- color is different depending on PJ/PNJ, and if the character has played this round or not, or has the focus
-		       		if index == layout.combatWindow.focus then love.graphics.setColor(theme.color.orange)
-			  	elseif PNJTable[index].done then love.graphics.setColor(unpack(theme.color.green))
-				elseif PNJTable[index].PJ then love.graphics.setColor(50,50,250) else love.graphics.setColor(250,50,50) end
+				-- focus  : green (as in combat tracker)
+				-- target : red (as in combat tracker)
+				-- enemy  : orange
+				-- PJ     : blue
+				-- done   : -- unused, deprecated --
+
+		       		if map.pawns[i] == pawnFocus then 
+					love.graphics.setColor(theme.color.green)
+
+				elseif map.pawns[i] == pawnTarget then
+					love.graphics.setColor(theme.color.red) 
+
+				elseif PNJTable[index].PJ then 
+					love.graphics.setColor(theme.color.darkblue) 
+
+				else 
+					love.graphics.setColor(theme.color.orange)
+
+				end
+
+				-- then display pawn frame
 		       		love.graphics.rectangle( "fill", zx, zy, (map.pawns[i].sizex+6) / map.mag, (map.pawns[i].sizey+6) / map.mag)
+
+				-- then display pawn itself
 		       		if dead then 
 					love.graphics.setColor(50,50,50,200) -- dead are grey
 				else
@@ -476,7 +539,8 @@ function Map:draw()
 		       		nzx = zx + map.pawns[i].offsetx / map.mag
 		       		nzy = zy + map.pawns[i].offsety / map.mag
 		       		love.graphics.draw( map.pawns[i].snapshot.im , nzx, nzy, 0, map.pawns[i].f / map.mag , map.pawns[i].f / map.mag )
-				-- display hits number and ID
+
+				-- then display hits, defense and ID
 		       		love.graphics.setColor(0,0,0)  
 				local f = map.basePawnSize / 5
 				local g = rw / 5
@@ -491,7 +555,8 @@ function Map:draw()
 				love.graphics.print( PNJTable[index].id , math.floor(zx), math.floor(zy + 2 * f/map.mag) , 0, s/map.mag, s/map.mag )
 		       		love.graphics.setColor(0,0,0) 
 				love.graphics.print( "D" .. PNJTable[index].armor , math.floor(zx), math.floor(zy + f/map.mag), 0, s/map.mag, s/map.mag )
-				--[[
+
+				--[[ deprecated
 				-- display actions if PJ
 				if PNJTable[index].PJ then
 		       		  if PNJTable[index].actions == PJMaxAction then love.graphics.setColor(theme.color.red) else love.graphics.setColor(theme.color.green) end
@@ -516,7 +581,9 @@ function Map:draw()
 				end
 				--]]
 			end
+
 		     elseif not index and map.pawns[i].loaded then 
+
 			-- pawn does not exist in combat tracker
 		        local rw = map.pawns[i].snapshot.w * map.pawns[i].f / map.mag
 		     	local dead = false
@@ -653,7 +720,7 @@ function Map:draw()
 	end
      end   
 
-    if p and p == lastPawn then
+    if p and p == lastPawn and not arrowMode then
       if love.timer.getTime( ) - lastPawnTimer > lastPawnTimerDelay then
       	lastPawnTimer = love.timer.getTime( )
 	-- reorder pawns, selected pawn comes last
@@ -662,6 +729,11 @@ function Map:draw()
 	  if lastPawn ~= self.pawns[i] then table.insert(newP,self.pawns[i]) end
 	end
 	table.insert(newP,lastPawn)
+	-- this pawns becomes the one selected in combat tracker if possible
+	local i = findPNJ(lastPawn.id)
+	if i then
+		layout.combatWindow:setFocus(i)
+	end
 	self.pawns = newP
 	self.showIcons = p 
 	self.showIconsTimer = 0 
@@ -730,8 +802,6 @@ function Map:update(dt)
 	if self.kind =="map" then
 		for i=1,#self.pawns do
 			local p = self.pawns[i]
-			if p.timer then p.timer:update(dt) end
-			if p.x == p.moveToX and p.y == p.moveToY then p.timer = nil end -- remove timer in the end
 			p.color = theme.color.white
 		end	
 		for i=1,#self.nodes do
@@ -816,7 +886,7 @@ function Map:createPawns( requiredSize , id, AddInCombatTracker, class )
 	  -- find the entry
 	  local i=nil
 	  for index=1,#PNJTable do if PNJTable[index].id == id then i=index; break; end end
-	  if not i then io.write("error. id not found\n"); return; end
+	  if not i then io.write("map.lua: error. id not found\n"); return; end
 	
 	  local p
 	  --local f
@@ -828,7 +898,7 @@ function Map:createPawns( requiredSize , id, AddInCombatTracker, class )
 	  end
 	  p.PJ = PNJTable[i].PJ
 	  map.pawns[#map.pawns+1] = p
-	  io.write("creating pawn from existing entry " .. i .. " with id " .. p.id .. " and inserting in map at rank " .. #map.pawns .. "\n")
+	  io.write("map.lua: creating pawn from existing entry " .. i .. " with id " .. p.id .. " and inserting in map at rank " .. #map.pawns .. "\n")
 	  if id then uniquepawn = p end
 
 	  -- send to projector...
@@ -845,7 +915,7 @@ function Map:createPawns( requiredSize , id, AddInCombatTracker, class )
 		else
 	  		local f = p.snapshot.filename
 	  		f = string.gsub(f,baseDirectory,"")
-	  		io.write("PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. math.floor(pawnSize * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f .. "\n")
+	  		io.write("map.lua: PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. math.floor(pawnSize * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f .. "\n")
 	  		tcpsend( projector, "PAWN " .. p.id .. " " .. a .. " " .. b .. " " .. math.floor(pawnSize * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f)
 		end
 	  end
@@ -862,7 +932,7 @@ function Map:createPawns( requiredSize , id, AddInCombatTracker, class )
 	  local id = generateUID()
 	  p = Pawn:new( id , defaultPawnSnapshot, pawnSize , a , b , class ) 
 	  map.pawns[#map.pawns+1] = p
-	  io.write("creating pawn, not storing it. New id " .. p.id .. " and inserting in map at rank " .. #map.pawns .. "\n")
+	  io.write("map.lua: creating pawn, not storing it. New id " .. p.id .. " and inserting in map at rank " .. #map.pawns .. "\n")
 	  uniquepawn = p 
 
     elseif not id and addInCombatTracker then
@@ -870,13 +940,13 @@ function Map:createPawns( requiredSize , id, AddInCombatTracker, class )
 	  local id = rpg.generateNewPNJ( class )
 	  layout.combatWindow:setOnMap(#PNJTable,true) 
 	  if not id then
-	  	io.write("creating pawn of class " .. class .. " but no id returning. abort.\n")
+	  	io.write("map.lua: creating pawn of class " .. class .. " but no id returning. abort.\n")
 		return nil
 	  end
 	  p = Pawn:new( id , defaultPawnSnapshot, pawnSize , a , b , class ) 
 	  p.loaded = false
 	  map.pawns[#map.pawns+1] = p
-	  io.write("creating pawn and storing it. New id " .. p.id .. " and inserting in map at rank " .. #map.pawns .. "\n")
+	  io.write("map.lua: creating pawn and storing it. New id " .. p.id .. " and inserting in map at rank " .. #map.pawns .. "\n")
 	  uniquepawn = p 
 
     end
@@ -1024,18 +1094,18 @@ function Map:click(x,y)
 		local node, resize = self:isInsideText(x,y)
 		if node and love.keyboard.isDown("lctrl") then
 			-- we click on an existing node 	
-			io.write("moving node " .. node.id .. "\n")
+			io.write("map.lua: moving node " .. node.id .. "\n")
 			moveText = node
 			editingNode = true
 
 		elseif node and resize and (not love.keyboard.isDown("lctrl")) then
 			-- we resize an existing node 	
-			io.write("resizing node " .. node.id .. "\n")
+			io.write("map.lua: resizing node " .. node.id .. "\n")
 			resizeText = node
 			editingNode = true
 
 		elseif node and (not love.keyboard.isDown("lctrl")) then
-			io.write("editing existing node " .. node.id .. "\n")
+			io.write("map.lua: editing existing node " .. node.id .. "\n")
 			self.wText.id = node.id 
 			self.wText.x , self.wText.y = node.x , node.y 	-- move the input zone to the existing node
                         self.wText.head = node.text 			-- and with the same text
@@ -1137,7 +1207,7 @@ function Map:saveText()
 	savefile = self.filename .. ".lua" 
   end
   local file = io.open(savefile,"w")
-  if not file then return end
+  if not file then  self.layout.notificationWindow:addMessage("Cannot open " .. savefile .. " for saving map !"); return end
   file:write("return {\n")
 	-- save all text nodes
   for i=1,#self.nodes do
@@ -1162,6 +1232,7 @@ function Map:saveText()
   end
   file:write("}}\n")
   io.close(file)
+  self.layout.notificationWindow:addMessage("Map saved")
   self.changed = false 
   self.buttons = { 'unquad', 'scotch', 'eye', 'fog', 'fullsize', 'kill', 'wipe', 'round', 'edit', 'always', 'close' } 
   end
@@ -1193,10 +1264,10 @@ function Map:manageEdge(id1,id2)
   local e, i = self:findEdge(id1,id2)
   if e then 
  	table.remove( self.edges, i )
-	io.write("removing edge " .. id1 .. " " .. id2 .. "\n")
+	io.write("map.lua: removing edge " .. id1 .. " " .. id2 .. "\n")
   else
 	table.insert( self.edges, { id1=id1, id2=id2 } )
-	io.write("adding edge " .. id1 .. " " .. id2 .. "\n")
+	io.write("map.lua: adding edge " .. id1 .. " " .. id2 .. "\n")
   end 
   end
 

@@ -89,14 +89,15 @@ function rpg.isAttorArm( i )
          local num
          if rollType == "attack" then
                  num = PNJTable[ index ].roll:getDamage()
+	 	 drawDicesKind =  "d6"
          elseif rollType == "armor" then
                  num = PNJTable[ index ].armor
+	 	 drawDicesKind =  "D6"
          end
 
          if num == 0 then return 0 end
 
-	 drawDicesKind = "d6"
-	 launchDices("d6",num)
+	 launchDices(drawDicesKind,num)
 
 	 return num
 
@@ -107,7 +108,7 @@ function launchDices( kind, num )
          math.randomseed( os.time() )
 
          -- prepare the dice box simulation
-	if kind == "d6" then
+	if kind == "d6" or kind == "D6" then
 		--box:set(10,10,5,20,0.8,2,0.01)
 		box:set(10,10,5,300,0.8,2,0.01)
 	elseif kind == "d20" then
@@ -123,6 +124,12 @@ function launchDices( kind, num )
                                            {-math.random(8,40),-math.random(8,40),-10}, -- velocity
                                            {math.random(10),math.random(10),math.random(10)}), -- angular mvmt
                    	die=clone(d6,{material=light.plastic,color={81,0,255,255},text={255,255,255},shadow={20,0,0,190}}) })
+		elseif kind == "D6" then
+                 	table.insert(dice,
+                 		{ star=newD6star(1.5):set({math.random(10),math.random(10),math.random(10)}, -- position
+                                           {-math.random(8,40),-math.random(8,40),-10}, -- velocity
+                                           {math.random(10),math.random(10),math.random(10)}), -- angular mvmt
+                   	die=clone(d6,{material=light.plastic,color={55,55,255,255},text={255,255,255},shadow={20,0,0,190}}) })
 		elseif kind == "d20" then
                  	table.insert(dice,
                  		{ star=newD20star(4):set({math.random(10),math.random(10),math.random(1)}, -- position

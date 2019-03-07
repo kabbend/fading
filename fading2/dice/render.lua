@@ -121,8 +121,16 @@ function render.die(action, die, star)
     action(z, function()
       if front then 
         if i == upfrontIndex then 
-		if drawDicesKind == "d20" then diceSum = i end
-		love.graphics.setColor(255,0,0) else
+		if 
+			drawDicesKind == "d20" then diceSum = i 
+			love.graphics.setColor(255,0,0) 
+		end
+		if 	
+			drawDicesKind == "d6" then love.graphics.setColor(255,0,0) 
+		elseif 
+			drawDicesKind == "D6" then love.graphics.setColor(0,0,255) 
+		end
+	else
         	love.graphics.setColor(unpack(color))
 	end
         love.graphics.polygon("fill",unpack(xy))

@@ -33,17 +33,25 @@ function iconRollWindow:click(x,y)
 		arrowStartX, arrowStartY = x, y
 		arrowModeMap = nil
 	else 
-	  	if self.layout.combatWindow.focus then 
-			drawDicesKind = "d6" 
-			local n = rpg.rollAttack("attack") 
-			if n == 0 then -- no attack to roll, so we roll a d20 instead...
-				drawDicesKind = "d20" 
-				launchDices("d20",1) 
-			end	
-		else 
+		-- where are we within the window ?
+		local H = self.h / self.mag
+		if y <= zy + H / 3 then
+			-- D20
 			drawDicesKind = "d20" 
 			launchDices("d20",1) 
-		end	
+		elseif y > zy + H/3 and y <= zy + 2 * H / 3 then
+			-- D6 ATTACK
+	  		if self.layout.combatWindow.focus then 
+				drawDicesKind = "d6" 
+				local n = rpg.rollAttack("attack") 
+			end	
+		else
+			-- D6 DEFENSE
+	  		if self.layout.combatWindow.focus then 
+				drawDicesKind = "D6" 
+				local n = rpg.rollAttack("armor") 
+			end	
+		end
 	end
 
 	end

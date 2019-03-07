@@ -63,7 +63,7 @@ function Combat:new( t ) -- create from w, h, x, y
          	yui.Flow({name="r",
                   yui.HorizontalSpacing({w=10}),
                   yui.Text({text="Round #", size=size, center = 1}),
-                  yui.Text({name="round", text=tostring(roundNumber), size=32, w = 50, color={0,0,0} }),
+                  yui.Text({name="round", text=tostring(roundNumber), size=26, w = 50, color={0,0,0} }),
           	}), -- end of Flow 
                }), -- end of stack 
           }) -- end of Flow 
@@ -143,7 +143,7 @@ function Combat:createPNJGUIFrame()
             end}),
 
         yui.Text({name="armor",text="", w=width, size=size, center = 1}),
-        yui.Text({name="hits", text="", w=40, size=size+8, color = theme.color.orange, center = 1}),
+        yui.Text({name="hits", text="", w=40, size=size+6, color = theme.color.orange, center = 1}),
 
         yui.Button({name="minus", text = '-1', size=size-2,
             onClick = function(self) 
@@ -163,7 +163,7 @@ function Combat:createPNJGUIFrame()
 		--[[
 		layout.snapshotWindow:apply(
                         function( map )
-                                io.write("killing pawn " .. PNJTable[i].id .. " from map " .. map.title .. "\n")
+                                io.write("combat.lua : killing pawn " .. PNJTable[i].id .. " from map " .. map.title .. "\n")
                                 for k,v in pairs(map.pawns) do
                                         if v.id == PNJTable[i].id then v.loaded = false end
                                 end
@@ -232,7 +232,7 @@ function Combat:draw()
   local zx,zy = -( self.x * 1/self.mag - self.layout.W / 2), -( self.y * 1/self.mag - self.layout.H / 2)
 
   -- draw background
-  self:drawBack()
+  self:drawBack(mainAlpha)
 
   love.graphics.setScissor(zx,zy,self.w/self.mag,self.h/self.mag) 
   self.view:draw()

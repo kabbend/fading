@@ -38,7 +38,7 @@ function snapshotBar:download()
 
 function snapshotBar:draw()
 
-  self:drawBack()
+  self:drawBack(mainAlpha)
 
   love.graphics.setColor(255,255,255)
 
@@ -73,8 +73,12 @@ function snapshotBar:draw()
 		if self.currentSnap == 2 and snapshots[self.currentSnap].s[i].kind == "scenario" then
 			-- do not draw scenario, ... 
 		else
-  			love.graphics.setColor(255,255,255)
-			--love.graphics.draw( 	snapshots[self.currentSnap].s[i].im , x , zy + (line-1)*(snapshotSize + snapshotMargin) - ( snapshots[self.currentSnap].s[i].h * snapshots[self.currentSnap].s[i].snapmag - snapshotSize ) / 2 + 2, 0 , snapshots[self.currentSnap].s[i].snapmag, snapshots[self.currentSnap].s[i].snapmag )
+  			if self.currentSnap == 2 and layout:openedOnce(snapshots[self.currentSnap].s[i]) then
+				-- draw in different color if it's a map and it was opened at least once
+				love.graphics.setColor(theme.color.orange)
+			else
+				love.graphics.setColor(255,255,255)
+			end
 			love.graphics.draw( 	snapshots[self.currentSnap].s[i].thumb , x , zy + (line-1)*(snapshotSize + snapshotMargin) - ( snapshots[self.currentSnap].s[i].h * snapshots[self.currentSnap].s[i].snapmag - snapshotSize ) / 2 + 2 )
 
 		end

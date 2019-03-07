@@ -71,7 +71,6 @@ function Pawn:new( server, id, filename, sizex, x, y , pj )
   new.x = x or 0 					-- position of the upper left corner of the pawn, relative to the map
   new.y = y or 0         				-- position of the upper left corner of the pawn, relative to the map
   new.moveToX, new.moveToY = new.x, new.y		-- destination for a move
-  new.timer = nil					-- tween timer to perform the move
   new.layer = maxLayer					-- determine if a pawn is drawn on top (or below) another one
   new.color = { 255, 255, 255 }				-- base color is white a priori
   if new.PJ then new.layer = new.layer + 10e6 end	-- PJ are always on top, so we increase their layer artificially !
@@ -121,7 +120,6 @@ function Pawn:newBinary( id, sizex, x, y , pj , img )
   new.x = x or 0 					-- position of the upper left corner of the pawn, relative to the map
   new.y = y or 0         				-- position of the upper left corner of the pawn, relative to the map
   new.moveToX, new.moveToY = new.x, new.y		-- destination for a move
-  new.timer = nil					-- tween timer to perform the move
   new.layer = maxLayer					-- determine if a pawn is drawn on top (or below) another one
   new.color = { 255, 255, 255 }				-- base color is white a priori
   if new.PJ then new.layer = new.layer + 10e6 end	-- PJ are always on top, so we increase their layer artificially !
@@ -221,7 +219,8 @@ function love.mousereleased (x,y)
                         if pawnMove.moveToX + pawnMove.sizex + 6 > W then pawnMove.moveToX = math.floor(W - pawnMove.sizex - 6) end
                         if pawnMove.moveToY + pawnMove.sizey + 6 > H then pawnMove.moveToY = math.floor(H - pawnMove.sizey - 6) end
 
-			pawnMove.timer = tween.new( pawnMovingTime, pawnMove, { y = pawnMove.moveToY, x = pawnMove.moveToX } )
+			pawnMove.x = pawnMove.moveToX
+			pawnMove.y = pawnMove.moveToY
 
                         tcp[server]:send("MPAW " .. pawnMove.id .. " " ..  math.floor(pawnMove.moveToX) .. " " .. math.floor(pawnMove.moveToY) .. "\n")
 
@@ -365,11 +364,6 @@ function love.update( dt )
                 if target and target ~= pawnMove then
 			target.color = { 255 , 0 , 0 }
 		end
-	end
-
-	-- move pawns if needed
-	for k,v in ipairs(pawns) do
-		if v.timer then v.timer:update(dt) end
 	end
 
 	-- socket communication
@@ -595,7 +589,7 @@ function love.update( dt )
 		x = x + 0
 		y = y + 0 
  		if pj == "1" then pj = true; else pj = false end
-		local p = Pawn:new(id,f,size,x,y,pj) 
+		local p = Pawn:new(server,id,f,size,x,y,pj) 
 		if p then 
 			table.insert( pawns, p ) 
 			table.sort( pawns , function (a,b) return a.layer < b.layer end )
@@ -614,7 +608,9 @@ function love.update( dt )
 				maxLayer = maxLayer + 1
 				pawns[i].layer = maxLayer
 				if pawns[i].PJ then pawns[i].layer = pawns[i].layer + 10e6 end
-				pawns[i].timer = tween.new( pawnMovingTime, pawns[i], { x = pawns[i].moveToX, y = pawns[i].moveToY } )
+				pawns[i].x = pawns[i].moveToX
+				pawns[i].y = pawns[i].moveToY
+				
 			end 
 		end
 		table.sort( pawns , function (a,b) return a.layer < b.layer end )
