@@ -79,6 +79,7 @@ theme.iconSave		= love.graphics.newImage( "icons/save24x24.png" )
 
 --theme.imageRules	= love.graphics.newImage( "images/rules.png" )
 theme.bandeau_selected  = love.graphics.newImage( "images/bandeau-selected.png" )
+theme.combatBackground  = love.graphics.newImage( "images/combatBackground.png" )
 
 return theme
 

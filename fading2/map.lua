@@ -835,6 +835,10 @@ function Map:setPawnSize( requiredSize )
   	local border = 3 -- size of a colored border, in pixels, at scale 1 (3 pixels on all sides)
   	local requiredSize = math.floor((requiredSize) * self.mag) - border*2
   	self.basePawnSize = requiredSize
+	-- resize all existing pawns
+	for _,p in ipairs(self.pawns) do
+	 p:setSize(requiredSize) 
+	end
 	end
 
 function Map:createPawns( requiredSize , id, AddInCombatTracker, class ) 
@@ -930,12 +934,19 @@ function Map:createPawns( requiredSize , id, AddInCombatTracker, class )
     elseif not id and not addInCombatTracker then
 
 	  UID = nextUID(UID)
-	  p = Pawn:new( UID , defaultPawnSnapshot, pawnSize , a , b , class ) 
+
+	  local s = nil
+	  for i=1,#RpgClasses do if RpgClasses[i].class == class then s = RpgClasses[i].snapshot end end
+	  s = s or defaultPawnSnapshot
+
+	  p = Pawn:new( UID , s , pawnSize , a , b , class ) 
 	  map.pawns[#map.pawns+1] = p
 	  io.write("map.lua: creating pawn, not storing it. New id " .. p.id .. " and inserting in map at rank " .. #map.pawns .. "\n")
 	  uniquepawn = p 
 
     elseif not id and addInCombatTracker then
+
+		-- fixme : really used ?
 
 	  local id = rpg.generateNewPNJ( class )
 	  layout.combatWindow:setOnMap(#PNJTable,true) 

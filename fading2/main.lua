@@ -50,7 +50,7 @@ end
 
 if love.system.getOS() == "Windows" then __WINDOWS__ = true end
 
-mainAlpha	    = 215  	-- alpha value used on many windows
+mainAlpha	    = 230  	-- alpha value used on many windows
 
 -- flag and timer to draw dices
 dice 		    = {}	-- list of dices
@@ -456,8 +456,12 @@ function love.update(dt)
 		local target = map:isInsidePawn(arrowX,arrowY)
 
 		if target and target ~= pawnMove and not target.loaded then
-			-- we are targeting someone, draw the target in red color !
-			target.color = theme.color.red
+			-- check that we are not targeting a dead body !
+			local index = findPNJ( target.id )
+			if not index or not PNJTable[index].is_dead then
+				-- we are targeting someone, draw the target in red color !
+				target.color = theme.color.red
+			end
 		end
 	end
 
@@ -866,11 +870,13 @@ function love.mousereleased( x, y )
 
 			-- we have a target
 			local indexP = findPNJ( pawnMove.id )
-			local indexT = findPNJ( target.id )
-			io.write("main.lua: id '" .. pawnMove.id .. "' is attacking id '" .. target.id .. "'\n")
-			if indexP and indexT then 
+			if indexP and not PNJTable[indexP].is_dead then
+			  local indexT = findPNJ( target.id )
+			  io.write("main.lua: id '" .. pawnMove.id .. "' is attacking id '" .. target.id .. "'\n")
+			  if indexP and indexT then 
 				rpg.updateTargetByArrow( indexP, indexT )
 		  		layout.combatWindow:setFocus(indexP)
+			  end
 			end
 		  	--layout.combatWindow:updateLineColor(indexP)
 			
@@ -922,13 +928,8 @@ function love.mousereleased( x, y )
                 --local map = atlas:getMap()
                 local map = layout:getFocus()
                 local w = distanceFrom(arrowX,arrowY,arrowStartX,arrowStartY)
-                --if map.basePawnSize then
-                        --map:createPawns( arrowX, arrowY, w )
-                        --table.sort( map.pawns, function(a,b) return a.layer < b.layer end )
-                --else
-                        -- this always redefines the pawn size
-                        map:setPawnSize(w)
-                --end
+                -- this always redefines the pawn size
+                map:setPawnSize(w)
                 arrowPawn = false
                 return
         end
@@ -1059,19 +1060,23 @@ function love.mousepressed( x, y , button )
                   -- clicking on a pawn will start an arrow that will represent
                   -- * either an attack, if the arrow ends on another pawn
                   -- * or a move, if the arrow ends somewhere else on the map
-                  pawnMove = p
-                  arrowMode = true
-                  arrowStartX, arrowStartY = x, y
-                  mouseMove = false
-                  arrowModeMap = nil
+		  -- the pawn must not be dead, of course...
+                  local i = findPNJ( p.id )
+		  if not i or not PNJTable[i].is_dead then
+                  	pawnMove = p
+                  	arrowMode = true
+                  	arrowStartX, arrowStartY = x, y
+                  	mouseMove = false
+                  	arrowModeMap = nil
+		  end
 
                 elseif p and hitClicked then
                   -- if hit symbol was clicked, we decrease it...
                   local i = findPNJ( p.id )
-                  if i then
+                  if i and not PNJTable[i].is_dead then
                         is_dead = rpg.hitPNJ( i )
                         if is_dead and atlas:isVisible( map ) then tcpsend( projector , "KILL " .. p.id ) end
-                        end
+                  end
 
 		-- not clicking a pawn, it's either a map move or an rect/circle mask...
 		elseif button == 1 then --Left click
@@ -1720,7 +1725,13 @@ function init()
     end
 
     -- load rest of data files (ie. images and maps)
-    parseDirectory{ path = baseDirectory .. sep .. fadingDirectory }
+
+    if fadingDirectory and fadingDirectory ~= "" then
+      parseDirectory{ path = baseDirectory .. sep .. fadingDirectory }
+      parseDirectory{ path = baseDirectory .. sep .. fadingDirectory .. sep .. "pawns" , kind = "pawns" }
+      parseDirectory{ path = baseDirectory .. sep .. fadingDirectory .. sep .. "maps" , kind = "maps" }
+    end
+
     parseDirectory{ path = baseDirectory .. sep .. "pawns" , kind = "pawns" }
     parseDirectory{ path = baseDirectory .. sep .. "maps" , kind = "maps" }
 
@@ -1858,6 +1869,12 @@ function parseDirectory( t )
 	    cf:close()
     end
 
+   if not io.open(".temp") then
+
+	io.write("main.lua: directory not found : " .. path .. "\n")
+
+   else
+
     -- store output
     for line in io.lines (".temp") do table.insert(allfiles,line) end
 
@@ -1981,6 +1998,7 @@ function parseDirectory( t )
 
     end
 
+  end
 
 end
 

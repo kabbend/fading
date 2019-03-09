@@ -74,14 +74,17 @@ function mainLayout:setDisplay( window, display )
 function mainLayout:hideMaps() 
 	if self.mapsAreVisible then
 		-- we want to hide maps. First we check which ones will need to be restored
+		local atLeastOneHidden = false
 		for k,window in pairs(self.windows) do
 			if window.w.class == "map" and window.d then
 				window.mapRestore = true
 				window.d = false -- hide it now
+				atLeastOneHidden = true
 			else
 				window.mapRestore = false -- we will ignore this one 
 			end
 		end
+		if atLeastOneHidden then layout.notificationWindow:addMessage("All active maps are now hidden. Press ESC again to restore them") end
 		self.mapsAreVisible = false 
 	else
 		-- we want to restore maps now

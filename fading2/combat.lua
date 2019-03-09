@@ -259,16 +259,28 @@ function Combat:draw()
 
   local fillborder = 15 
   local emph = 475 
+  local border = 2
 
   local alpha = 80
-  local zx,zy = -( self.x * 1/self.mag - self.layout.W / 2), -( self.y * 1/self.mag - self.layout.H / 2)
 
   -- draw background
-  self:drawBack(mainAlpha)
+  --self:drawBack(mainAlpha)
 
-  love.graphics.setScissor(zx,zy,self.w/self.mag,self.h/self.mag) 
+
+  local W,H=self.layout.W, self.layout.H
+  local zx,zy = -( self.x - W / 2), -( self.y - H / 2)
+
+  if self == self.layout:getFocus() then love.graphics.setColor(color('selected')) else love.graphics.setColor(color('grey')) end
+  love.graphics.setLineWidth(border*2);
+  love.graphics.rectangle( "line", zx , zy , self.w , self.h ) 
+  love.graphics.setLineWidth(1);
+  --love.graphics.rectangle( "fill", zx, zy, (self.w) / self.mag, (self.h) / self.mag )
+
+  love.graphics.setColor(255,255,255)
+  love.graphics.setScissor(zx,zy,self.w,self.h) 
+  love.graphics.draw( theme.combatBackground , zx, zy )
+
   self.view:draw()
- 
 
   -- draw FOCUS if applicable
   love.graphics.setColor(0,102,0,alpha)
