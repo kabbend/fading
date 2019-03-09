@@ -291,17 +291,33 @@ function Map:move( x, y )
 	end
 
 function Map:zoom( mag )
+
+	local oldmag = self.mag -- in case we rollback
 	if mag == 1 then
+
 		-- +1, reduce size
 		if self.mag < 1 then self.mag = self.mag + 0.1
 		elseif self.mag >= 1 then self.mag = self.mag + 0.5 end
 		if self.mag >= 20 then self.mag = 20 end
+
 	elseif mag == -1 then
-		-- -1, augment size
+
+		-- -1, increase size
 		if self.mag > 1 then self.mag = self.mag - 0.5 
 		elseif self.mag <= 1 then self.mag = self.mag - 0.1 end
 		if self.mag <= 0.1 then self.mag = 0.1 end
+
+		-- don't allow map to get outside main window...
+		local W,H=self.layout.W,self.layout.H
+		local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+		if zx > W - 40 or zx  + self.w / self.mag < 40 or
+		   zy > H - 40 or zy  + self.h / self.mag < 40 then
+		  -- rollback...
+		  self.mag = oldmag
+		end
+	
 	end
+
 	if atlas:isVisible(self) and not self.sticky then tcpsend( projector, "MAGN " .. 1/self.mag ) end	
 	end
 
