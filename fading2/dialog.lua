@@ -72,12 +72,16 @@ function Dialog:update(dt) Window.update(self,dt) end
 function doDialog()
   local text = string.gsub( dialog, dialogBase, "" , 1) 
   dialog = dialogBase
-  --local _,_,playername,rest = string.find(text,"(%a+)%A?(.*)")
-  --io.write("send message '" .. text .. "': player=" .. tostring(playername) .. ", text=" .. tostring(rest) .. "\n")
-  --local tcp = findClientByName( playername )
-  --if not tcp then io.write("player not found or not connected\n") return end
-  --tcpsend( tcp, rest ) 
-  table.insert( dialogLog , text )
+  local _,_,playername,rest = string.find(text,"(%a+)%A?(.*)")
+  io.write("send message '" .. text .. "': player=" .. tostring(playername) .. ", text=" .. tostring(rest) .. "\n")
+  local tcp = findClientByName( playername )
+  if not tcp then 
+	io.write("player not found or not connected\n") 
+  	table.insert( dialogLog , ">> missing playername or player not connected..." )
+	return 
+  end
+  tcpsend( tcp, "MJ: " .. rest ) 
+  table.insert( dialogLog , "MJ -> " .. playername .. ": " .. rest )
   end
 
 return Dialog

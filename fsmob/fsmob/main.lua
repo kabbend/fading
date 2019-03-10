@@ -112,7 +112,7 @@ local function tcpsend()
   print("send message: " .. tostring(success) .. ", msg=" .. tostring(msg))
   
   -- add message to textbox
-  answerField.text =  "moi:" .. message .. "\n" .. answerField.text
+  answerField.text =  "moi: " .. message .. "\n" .. answerField.text
   
 end
 
@@ -154,19 +154,19 @@ end
 display.setDefault( "anchorX", 0.0 )	-- default to TopLeft anchor point for new objects
 display.setDefault( "anchorY", 0.0 )
 
-ipField = native.newTextField( 10, 60, 180, 30 )
+ipField = native.newTextField( 10, 50, 150, 30 )
 ipField:addEventListener( "userInput", fieldHandler( function() return ipField end ) ) 
 ipField.placeholder = "192.168.0.1"
 
-portField = native.newTextField( 10, 100, 180, 30 )
+portField = native.newTextField( 170, 50, 100, 30 )
 portField.inputType = "number"
 portField:addEventListener( "userInput", fieldHandler( function() return portField end ) ) 
 portField.text = "12345"
 
-messageField = native.newTextField( 10, 175, 290, 35 )
+messageField = native.newTextField( 10, 110, 290, 35 )
 messageField:addEventListener( "userInput", fieldHandler( function() return messageField end ) ) 
 
-answerField = native.newTextBox( 10, 215, 290 , 190)
+answerField = native.newTextBox( 10, 160, 290 , 250)
 --answerField.font = font
 
 -- Add fields to our new group
@@ -181,16 +181,16 @@ fields:insert(answerField)
 
 local defaultLabel = display.newText( "Fadings Suns", 100, 5, native.systemFont, 20 )
 defaultLabel:setFillColor( 150/255, 150/255, 1 )
-local defaultLabel = display.newText( "Mobile App", 110, 25, native.systemFont, 20 )
+--local defaultLabel = display.newText( "Mobile App", 110, 25, native.systemFont, 20 )
+--defaultLabel:setFillColor( 150/255, 150/255, 1 )
+
+local defaultLabel = display.newText( "IP", 70, 25, native.systemFont, 14 )
 defaultLabel:setFillColor( 150/255, 150/255, 1 )
 
-local defaultLabel = display.newText( "IP", 200, 60, native.systemFont, 18 )
+local defaultLabel = display.newText( "Port", 200, 25, native.systemFont, 14 )
 defaultLabel:setFillColor( 150/255, 150/255, 1 )
 
-local defaultLabel = display.newText( "Port", 200, 100, native.systemFont, 18 )
-defaultLabel:setFillColor( 150/255, 150/255, 1 )
-
-local defaultLabel = display.newText( "Message", 10, 140, native.systemFont, 18 )
+local defaultLabel = display.newText( "Your message", 10, 85, native.systemFont, 18 )
 defaultLabel:setFillColor( 150/255, 150/255, 1 )
 
 -------------------------------------------
@@ -253,7 +253,7 @@ print("i,p=" .. tostring(i) .. " " .. tostring(p) )
 local function listenForServer()
   if is_connected then
   	local data , msg = tcp:receive()
-  	if data then answerField.text = "MJ:" .. data .. "\n" .. answerField.text end
+  	if data then answerField.text = data .. "\n" .. answerField.text end
   end
   end
 

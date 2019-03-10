@@ -357,19 +357,32 @@ function love.update(dt)
 	    		tcpsend(projector,"CONN WIN")
 		end
 	
-	      elseif 
+		-- this is a player name sent for the first time on an uniniditified client
 		-- scan for the command itself to find the player's name
-	       string.lower(command) == "eric" or -- FIXME, hardcoded
-	       string.lower(command) == "phil" or
-	       string.lower(command) == "bibi" or
-	       string.lower(command) == "gui " or
-	       string.lower(command) == "gay " then
-		layout.notificationWindow:addMessage( string.upper(data) , 8 , true ) 
-		layout.dialogWindow:addLine(string.upper(data) .. " (" .. os.date("%X") .. ")" )
-		--table.insert( dialogLog , string.upper(data) .. " (" .. os.date("%X") .. ")" )
-		local index = findPNJByClass( command )
-		--PNJTable[index].ip, PNJTable[index].port = lip, lport -- we store the ip,port for further communications 
-		clients[i].id = command
+	      elseif 
+	       data == "eric" or -- FIXME, hardcoded
+	       data == "phil" or
+	       data == "bibi" or
+	       data == "gui" or
+	       data == "gay" or 
+	       data == "jordi" 
+		then
+		-- check if this client id was already in use. If so, reset it
+		local alreadyExist = false
+		for j=1,#clients do 
+			if clients[j].id and clients[j].id == data then
+				alreadyExist = true
+				clients[j].id = nil -- reset former client
+			end
+		end	
+		if alreadyExist then
+			layout.notificationWindow:addMessage( data .. " is calling again" , 8 , true ) 
+			layout.dialogWindow:addLine( data .. " is calling again (" .. os.date("%X") .. ")" )
+		else
+			layout.notificationWindow:addMessage( data .. " is calling for the first time" , 8 , true ) 
+			layout.dialogWindow:addLine( data .. " is calling for the first time (" .. os.date("%X") .. ")" )
+		end
+		clients[i].id = data 
 		if ack then
 			tcpsend( clients[i].tcp, "(ack. " .. os.date("%X") .. ")" )
 		end
@@ -378,11 +391,29 @@ function love.update(dt)
 	   else -- identified client
 		
 	    if clients[i].id ~= projectorId then
-		-- this is a player calling us, from a known device. We answer
-		layout.notificationWindow:addMessage( string.upper(clients[i].id) .. " : " .. string.upper(data) , 8 , true ) 
-		layout.dialogWindow:addLine(string.upper(clients[i].id) .. " : " .. string.upper(data) .. " (" .. os.date("%X") .. ")" )
-		if ack then	
-			tcpsend( clients[i].tcp, "(ack. " .. os.date("%X") .. ")" )
+
+		-- this is a player calling us, from a known device 
+		-- but is this player talking to the MJ or another client ?
+		local target, rest = data:match("^(%S+)(.+)")
+		io.write("target=" .. tostring(target) .. ",rest=" .. tostring(rest) .."\n")	
+		local found = false 
+		for j=1,#clients do 
+			if clients[j].id and clients[j].id == target then
+			  -- he is calling someone else
+			  found = true
+			  layout.notificationWindow:addMessage( clients[i].id .. " -> " .. target .. " : " .. rest , 8 , true ) 
+			  layout.dialogWindow:addLine(clients[i].id .. " -> " .. target .. " : " .. rest )
+			  tcpsend( clients[j].tcp, clients[i].id .. ": " .. rest )
+			  break
+			end
+		end
+	 	if not found then	
+			-- he is calling me. proceed as normal
+			layout.notificationWindow:addMessage( clients[i].id .. " : " .. data , 8 , true ) 
+			layout.dialogWindow:addLine(clients[i].id .. " -> MJ : " .. data )
+			if ack then	
+				tcpsend( clients[i].tcp, "(ack. " .. os.date("%X") .. ")" )
+			end
 		end
 
 	    else
