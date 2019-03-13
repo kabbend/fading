@@ -177,6 +177,13 @@ function snapshotBar:update(dt)
 	end
 
 
+function snapshotBar:getCallingUser( class )
+  for i=1,#RpgClasses do
+ 	if string.lower(RpgClasses[i].class) == string.lower(class) then return snapshots[3].s[i] end
+  end
+  return nil
+  end
+
 function snapshotBar:click(x,y)
 
   local zx,zy = -( self.x - self.layout.W / 2), -( self.y - self.layout.H / 2)

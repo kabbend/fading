@@ -360,13 +360,16 @@ function love.update(dt)
 		-- this is a player name sent for the first time on an uniniditified client
 		-- scan for the command itself to find the player's name
 	      elseif 
-	       data == "eric" or -- FIXME, hardcoded
-	       data == "phil" or
-	       data == "bibi" or
-	       data == "gui" or
-	       data == "gay" or 
-	       data == "jordi" 
+	       string.lower(data) == "eric" or -- FIXME, hardcoded
+	       string.lower(data) == "phil" or
+	       string.lower(data) == "bibi" or
+	       string.lower(data) == "gui" or
+	       string.lower(data) == "gay" or 
+	       string.lower(data) == "jordi" 
 		then
+
+		data = string.lower(data)
+
 		-- check if this client id was already in use. If so, reset it
 		local alreadyExist = false
 		for j=1,#clients do 
@@ -377,10 +380,11 @@ function love.update(dt)
 		end	
 		if alreadyExist then
 			layout.notificationWindow:addMessage( data .. " is calling again" , 8 , true ) 
-			layout.dialogWindow:addLine( data .. " is calling again (" .. os.date("%X") .. ")" )
+			layout.dialogWindow:addLine( data .. " is calling again" )
 		else
 			layout.notificationWindow:addMessage( data .. " is calling for the first time" , 8 , true ) 
-			layout.dialogWindow:addLine( data .. " is calling for the first time (" .. os.date("%X") .. ")" )
+			layout.dialogWindow:addLine( data .. " is calling for the first time" )
+			layout.dialogWindow:registerCallingUser( data )
 		end
 		clients[i].id = data 
 		if ack then
@@ -499,7 +503,7 @@ function love.update(dt)
 	if moveText then
                 -- check that we are in the map...
                 local map = layout:getFocus()
-                if (not map) or (not map:isInside(arrowX,arrowY)) then return end
+                if (not map) or (not map:isInside(arrowX,arrowY) or not map.class == "map") then return end
 
                 -- check if we are just over another text
                 local target = map:isInsideText(arrowX,arrowY)
@@ -633,7 +637,7 @@ function love.draw()
   -- draw arrow eventually
   local x, y = love.mouse.getPosition() 
   local w = layout:getWindow(x,y)
-  if arrowMode and w and ( w.class == "map" or w.class == "combat" ) then
+  if arrowMode and w and ( w.class == "map" or w.class == "combat" or ( moveText and w.class == "dialog") ) then
 
       -- draw arrow and arrow head
       love.graphics.setColor(unpack(theme.color.red))
@@ -731,12 +735,23 @@ function love.mousereleased( x, y )
                 return
         end
 
+	-- we are moving a text on dialog window
         -- we were moving a Text (within a Map). We stop now
-        if w and w.isEditing and moveText then
+	if w and moveText and w.class == "dialog" then
+			-- drop text in dialog window
+			io.write("dropping text over dialog window\n")
+			w:drop( { object = { text = moveText , class = "text" } , originWindow = sourcemap , snapshot = nil } )		
+                	-- in any case...
+                	arrowMode = false
+                	moveText = nil
+                	editingNode = false
+                	return
+
+        elseif w and w.isEditing and moveText then
                 local sourcemap = layout:getFocus()
                 local targetmap = layout:getWindow( x , y )
-                -- check that we are in same map...
-                if targetmap and targetmap == sourcemap then
+		if targetmap and targetmap == sourcemap then
+                	-- check that we are in same map...
 
                         local map = targetmap
                         local targetText = map:isInsideText(x,y)
@@ -1349,7 +1364,7 @@ if window then
 	-- 'backspace'
 	-- any other key is treated as a message input
   	if (key == "return") then
-	  doDialog()
+	  layout.dialogWindow:doDialog()
   	end
 	
   elseif window.class == "graph" then

@@ -4,10 +4,58 @@
 
 local widget = require( "widget" )
 local socket = require( "socket" )
+local composer = require( "composer" )
 
+require ("connect")
+
+-- create socket for server communication
+tcp = socket.tcp()
+tcp:settimeout(2)
+
+-- udp for getting our own ip address
+udp = socket.udp()
+udp:settimeout(0)
+
+-- Hide status bar
+display.setStatusBar( display.HiddenStatusBar )
+ 
+-- Seed the random number generator
+math.randomseed( os.time() )
+ 
+myIP = function()
+    local s = socket.udp()  --creates a UDP object
+    s:setpeername( "74.125.115.104", 80 )  --Google website
+    local ip, sock = s:getsockname()
+    s:close()
+    return ip
+end
+
+-- listen on a transient port
+tcp:bind( myIP() , 0)
+local i,p = tcp:getsockname()
+print("i,p=" .. tostring(i) .. " " .. tostring(p) )
+
+
+local function listenForServer()
+  if is_connected then
+  	local data , msg = tcp:receive()
+  	if data then answerValue = "> " .. data .. "\n" .. answerValue end
+	--if answerField then answerField.text = answerValue end
+	Runtime:dispatchEvent( { name = "messageReceived", target = answerValue } )
+  end
+  end
+
+Runtime:addEventListener( "enterFrame", listenForServer )
+
+-- Go to the menu screen
+composer.gotoScene( "menu" )
+
+--[[
 -- Predefine display objects for use later
 local ipField, portField, messageField, answerField
 local fields = display.newGroup()
+
+local configure = true 
 
 display.setDefault( "background", 80/255 )
 
@@ -24,60 +72,6 @@ local serverip, serverport = nil, nil
 
 local limitLeft = 20
 local limitRight = 20
-
---[[
--- return a text aligned on the left (player)
-local function formatLeft( text )
-  local newtext = ""
-  local column = 1
-  for i=1,string.len(text) do
-    local char = string.sub( text, i, i)
-    if char == " " and column >= limitLeft then
-      column = 1
-      newtext = newtext .. "\n"
-    else
-      column = column + 1
-      newtext = newtext .. char
-    end
-  end
-  newtext = newtext .. "\n\n"
-  return newtext
-end
-
--- return a text aligned on the right (MJ)
-local function formatRight( text )
-  local newtext = ""
-  local line = ""
-  --local column = 1
-  local i = 1
-  while line do
-    
-    local word = ""
-    while string.sub(text,i,i) == " " and i <= string.len(text) do i = i + 1 end -- eat spaces
-    while string.sub( text, i,i) ~= " " and i <= string.len(text) do word = word .. string.sub( text, i,i); i = i + 1 end -- get next word
-    if word == "" then -- no more word...
-      if line ~= "" then -- treat last line if any
-        --local col = math.max( limitRight, 45 - string.len(line))
-        for j=1,limitRight do newtext = newtext .. " " end
-        newtext = newtext .. line .. "\n"
-      end
-      line = nil -- stop loop
-    else
-      if string.len(line) + string.len(word) <= 24 then
-        line = line .. " " .. word
-      else
-        --local col = math.max( limitRight, 45 - string.len(line))
-        for j=1,limitRight do newtext = newtext .. " " end
-        newtext = newtext .. line .. "\n"
-        line = word
-      end
-    end
-    
-  end
-  newtext = newtext .. "\n"
-  return newtext
-end
---]]
 
 -- send function
 local function tcpsend()
@@ -102,7 +96,10 @@ local function tcpsend()
     local success, msg = tcp:connect(ip, port)
     tcp:settimeout(0)
     print("tcp connect to " .. ip .. " , " .. port .. " : " .. tostring(success) .. ", msg=" .. tostring(msg))
-    if not success then return end
+    if not success then 
+	answerField.text =  "! error : Cannot connect to " .. ip .. ":" .. port .. "\n" .. answerField.text
+	return 
+     end
     is_connected = true
     serverip = ip
     serverport = port
@@ -116,26 +113,24 @@ local function tcpsend()
   
 end
 
-local function fieldHandler( textField )
-	return function( event )
-		if ( "began" == event.phase ) then
-			-- This is the "keyboard has appeared" event
-			-- In some cases you may want to adjust the interface when the keyboard appears.
-		
-		elseif ( "ended" == event.phase ) then
-			-- This event is called when the user stops editing a field: for example, when they touch a different field
-			
-		elseif ( "editing" == event.phase ) then
-		
-		elseif ( "submitted" == event.phase ) then
-			-- This event occurs when the user presses the "return" key (if available) on the onscreen keyboard
-			tcpsend()
-			
-			-- Hide keyboard
-			native.setKeyboardFocus( nil )
-		end
-	end
-end
+-------------------------------------------
+-- *** Add field labels ***
+-------------------------------------------
+
+display.setDefault( "anchorX", 0.0 )	-- default to TopLeft anchor point for new objects
+display.setDefault( "anchorY", 0.0 )
+
+local fsLabel = display.newText( "Fadings Suns", 100, 0, native.systemFont, 20 )
+fsLabel:setFillColor( 150/255, 150/255, 1 )
+
+local ipLabel = display.newText( "IP", 70, 20, native.systemFont, 14 )
+ipLabel:setFillColor( 150/255, 150/255, 1 )
+
+local portLabel = display.newText( "Port", 200, 20, native.systemFont, 14 )
+portLabel:setFillColor( 150/255, 150/255, 1 )
+
+local mLabel = display.newText( "Your message", 10, 80, native.systemFont, 18 )
+mLabel:setFillColor( 150/255, 150/255, 1 )
 
 
 -------------------------------------------
@@ -147,26 +142,48 @@ local sendButtonPress = function( event )
   if messageField.text ~= "" then tcpsend() end
 end
 
+local configurePress = function( event )
+  configure = not configure
+  if configure then
+	fsLabel.y = 0
+	mLabel.y = 80
+	ipLabel.y = 20
+	portLabel.y = 20
+ 	ipField.y = 45
+	portField.y = 45 	
+	messageField.y = 105
+	answerField.y = 155 
+	answerField.height = 268
+  else
+	mLabel.y = 15 
+	fsLabel.y = -100 
+	ipLabel.y = 1000
+ 	ipField.y = 1000 
+	portField.y = -100 	
+	portLabel.y = -100 
+	messageField.y = 40 
+	answerField.y = 90  
+	answerField.height = 268 + 65 
+  end 
+end
+
 -------------------------------------------
 -- *** Create native input textfields ***
 -------------------------------------------
 
-display.setDefault( "anchorX", 0.0 )	-- default to TopLeft anchor point for new objects
-display.setDefault( "anchorY", 0.0 )
-
-ipField = native.newTextField( 10, 50, 150, 30 )
+ipField = native.newTextField( 10, 45, 150, 30 )
 ipField:addEventListener( "userInput", fieldHandler( function() return ipField end ) ) 
 ipField.placeholder = "192.168.0.1"
 
-portField = native.newTextField( 170, 50, 100, 30 )
+portField = native.newTextField( 170, 45, 100, 30 )
 portField.inputType = "number"
 portField:addEventListener( "userInput", fieldHandler( function() return portField end ) ) 
 portField.text = "12345"
 
-messageField = native.newTextField( 10, 110, 290, 35 )
+messageField = native.newTextField( 10, 105, 290, 35 )
 messageField:addEventListener( "userInput", fieldHandler( function() return messageField end ) ) 
 
-answerField = native.newTextBox( 10, 160, 290 , 250)
+answerField = native.newTextBox( 10, 155, 290 , 268)
 --answerField.font = font
 
 -- Add fields to our new group
@@ -174,24 +191,6 @@ fields:insert(ipField)
 fields:insert(portField)
 fields:insert(messageField)
 fields:insert(answerField)
-
--------------------------------------------
--- *** Add field labels ***
--------------------------------------------
-
-local defaultLabel = display.newText( "Fadings Suns", 100, 5, native.systemFont, 20 )
-defaultLabel:setFillColor( 150/255, 150/255, 1 )
---local defaultLabel = display.newText( "Mobile App", 110, 25, native.systemFont, 20 )
---defaultLabel:setFillColor( 150/255, 150/255, 1 )
-
-local defaultLabel = display.newText( "IP", 70, 25, native.systemFont, 14 )
-defaultLabel:setFillColor( 150/255, 150/255, 1 )
-
-local defaultLabel = display.newText( "Port", 200, 25, native.systemFont, 14 )
-defaultLabel:setFillColor( 150/255, 150/255, 1 )
-
-local defaultLabel = display.newText( "Your message", 10, 85, native.systemFont, 18 )
-defaultLabel:setFillColor( 150/255, 150/255, 1 )
 
 -------------------------------------------
 -- *** Create Buttons ***
@@ -214,9 +213,24 @@ defaultButton = widget.newButton
 	onPress = sendButtonPress,
 }
 
+confButton = widget.newButton
+{
+	defaultFile = "buttonBlueSmall.png",
+	overFile = "buttonBlueOverSmall.png",
+	label = "configure",
+	labelColor = 
+	{ 
+		default = { 1, 1, 1 }, 
+	},
+	fontSize = 10,
+	emboss = true,
+	onPress = configurePress,
+}
+
 
 -- Position the buttons on screen
-defaultButton.x = display.contentCenterX - defaultButton.contentWidth/2;	defaultButton.y = 425
+defaultButton.x = display.contentCenterX - defaultButton.contentWidth/2;	defaultButton.y = 420
+confButton.x = display.contentCenterX - confButton.contentWidth/2; confButton.y = 475 
 
 -------------------------------------------
 -- Create a Background touch event
@@ -260,5 +274,5 @@ local function listenForServer()
 -- Frame update listener
 Runtime:addEventListener( "enterFrame", listenForServer )
 
-
+]]
 
