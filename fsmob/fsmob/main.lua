@@ -39,9 +39,9 @@ print("i,p=" .. tostring(i) .. " " .. tostring(p) )
 local function listenForServer()
   if is_connected then
   	local data , msg = tcp:receive()
-  	if data then answerValue = "> " .. data .. "\n" .. answerValue end
+  	--if data then answerValue = "> " .. data .. "\n" .. answerValue end
 	--if answerField then answerField.text = answerValue end
-	Runtime:dispatchEvent( { name = "messageReceived", target = answerValue } )
+	if data then table.insert( texts , { t = data, fromMe = false } ) ; Runtime:dispatchEvent( { name = "messageReceived", target = data } ) end
   end
   end
 

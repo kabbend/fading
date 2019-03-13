@@ -4,25 +4,24 @@ local composer = require( "composer" )
 require("connect")
 
 local scene = composer.newScene()
+local currentGroup = display.newGroup()
 
 local messageField
-local answerField =  native.newTextBox( display.contentCenterX, 250, 280 , 360)
-answerField.size = 16 
 
 local function applyMessage(event)
-	answerField.text = answerValue
+	scene:show( { phase = "did" } )
 end
 
 local function send()
   local ret = tcpsend( messageField.text )
   if ret then	
-  	answerValue = "> moi: " .. messageField.text .. "\n" .. answerValue 
+	table.insert( texts , { t = "moi: " .. messageField.text, fromMe = true } )
   	messageField.text = ""
-  	answerField.text = answerValue
+	scene:show( { phase = "did" } )
   else
   	messageField.text = ""
-	answerValue = "(an error occurred. Check connection)\n" .. answerValue
-  	answerField.text = answerValue
+	table.insert( texts , { t = "(an error occurred. Check connection)" , fromMe = true } )
+	scene:show( { phase = "did" } )
   end
 end
 
@@ -35,7 +34,6 @@ local function fieldHandler( textField )
 		
 		elseif ( "ended" == event.phase ) then
 			-- This event is called when the user stops editing a field: for example, when they touch a different field
-			--send()
 			
 		elseif ( "editing" == event.phase ) then
 		
@@ -78,12 +76,9 @@ function scene:create( event )
 	messageField.size = 18 
 	messageField:addEventListener( "userInput", fieldHandler( function() return messageField end ) )
 
-	if answerValue then answerField.text = answerValue end
-
 	Runtime:addEventListener( "messageReceived", applyMessage )
 
 	sceneGroup:insert( messageField )
-	sceneGroup:insert( answerField )
 
 	local menuButton = display.newText( sceneGroup, "Return to Menu", display.contentCenterX, 700, native.systemFont, 32 )
 	menuButton.x = display.contentCenterX 
@@ -105,7 +100,34 @@ function scene:show( event )
 
 	elseif ( phase == "did" ) then
 		-- Code here runs when the scene is entirely on screen
-
+		-- print all messages in reverse order (the latest one first, on top of screen)
+		local y = 0 
+		local w = widget.newScrollView({x=15,y=70,width=300,height=380,hideBackground=true,horizontalScrollDisabled=true})
+		w.anchorX , w.anchorY = 0, 0
+		local newGroup = display.newGroup()
+		newGroup.anchorX , newGroup.anchorY = 0, 0
+		newGroup.x = 0 
+		currentGroup:removeSelf()
+		for i=#texts,1,-1 do
+			local text = texts[i].t
+			local align , x
+			if texts[i].fromMe then 
+				align = "left" 
+				x = 10
+				
+			else 
+				align = "right" 
+				x = 90 
+			end
+			local t = display.newText ( { text  = text , x = 0 , y = y , width = 195 , height = 0, align = align , x = x } )
+			t.anchorX , t.anchorY = 0, 0
+			newGroup:insert( t )
+			y = y + t.height + 5 
+			--if y > 420 then break end
+		end
+		currentGroup = newGroup
+		w:insert( newGroup )
+		sceneGroup:insert( w )
 	end
 end
 
@@ -122,6 +144,7 @@ function scene:hide( event )
 	elseif ( phase == "did" ) then
 		-- Code here runs immediately after the scene goes entirely off screen
 		Runtime:removeEventListener( "messageReceived" , applyMessage )
+		currentGroup:removeSelf()
 		local previous = composer.getSceneName("previous")
           	composer.removeScene(previous)
 

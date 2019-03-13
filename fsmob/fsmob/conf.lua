@@ -94,7 +94,7 @@ function scene:create( event )
 
 	ipField = native.newTextField( 100, 80, 160, 30 )
 	ipField:addEventListener( "userInput", fieldHandler( function() return ipField end ) ) 
-	ipField.placeholder = "192.168.0.1"
+	ipField.text = "192.168.1.20"
 	if serverip then ipField.text = serverip end
 
 	portField = native.newTextField( 250, 80, 100, 30 )

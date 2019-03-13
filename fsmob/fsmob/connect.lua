@@ -1,8 +1,9 @@
 
 ipField, portField, userField =  nil, nil, nil
 serverip, serverport, serveruser = nil, nil, nil
-answerValue = ""
 is_connected = false
+texts = {}
+--answerValue = ""
 
 local function fieldHandler( textField )
 	return function( event )
