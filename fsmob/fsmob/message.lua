@@ -1,6 +1,7 @@
 
 local widget = require( "widget" )
 local composer = require( "composer" )
+local json = require( "json" )
 require("connect")
 
 local scene = composer.newScene()
@@ -9,18 +10,21 @@ local currentGroup = display.newGroup()
 local messageField
 
 local function applyMessage(event)
+	-- if message received, it is stored in global texts[] array. just redraw scene
 	scene:show( { phase = "did" } )
 end
 
 local function send()
-  local ret = tcpsend( messageField.text )
-  if ret then	
-	table.insert( texts , { t = "moi: " .. messageField.text, fromMe = true } )
+
+  local text = messageField.text
+  local ret = tcpsend( text )
+  if ret then
+	table.insert( texts , { t = text , caller = "" } ) -- from me
   	messageField.text = ""
 	scene:show( { phase = "did" } )
   else
   	messageField.text = ""
-	table.insert( texts , { t = "(an error occurred. Check connection)" , fromMe = true } )
+	table.insert( texts , { t = "(an error occurred. Check connection)" , caller = "" } ) -- from me
 	scene:show( { phase = "did" } )
   end
 end
@@ -109,9 +113,16 @@ function scene:show( event )
 		newGroup.x = 0 
 		currentGroup:removeSelf()
 		for i=#texts,1,-1 do
+			
+			-- get text to display
 			local text = texts[i].t
+			if texts[i].caller and texts[i].caller ~= "" then
+				text = texts[i].caller .. " : " .. text
+			end
+
+			-- get alignment
 			local align , x
-			if texts[i].fromMe then 
+			if texts[i].caller == "" then 
 				align = "left" 
 				x = 10
 				
@@ -119,11 +130,37 @@ function scene:show( event )
 				align = "right" 
 				x = 90 
 			end
-			local t = display.newText ( { text  = text , x = 0 , y = y , width = 195 , height = 0, align = align , x = x } )
+
+			-- create a dummy text just to get actual width
+			local t_temp = display.newText ( { text  = text , y = y , height = 0, align = align , x = x } )
+			local actual_width = t_temp.width
+			t_temp:removeSelf()
+
+			-- now create the same text, with wrapping limit
+			local t = display.newText ( { text  = text , y = y , width = 195 , height = 0, align = align , x = x } )
 			t.anchorX , t.anchorY = 0, 0
+			t:setFillColor( 0, 0, 0 )
+
+			-- the rectangle will have the appropriate width and alignement
+			local rect_width = math.min( actual_width , t.width )
+			if align == "right" then x = x + (195 - rect_width) end  -- go right if needed 
+			local r = display.newRoundedRect( x - 2 , y - 2 , rect_width + 2 , t.height + 2 , 3 )
+			
+			-- find caller and color
+			local col = { 0, 0, 0 }
+			for j=1,#callers do
+				if callers[j].name == texts[i].caller then col = colors[j] ; break end
+			end
+			r:setFillColor( col[1] / 255 , col[2] / 255 , col[3] / 255 )
+			r.anchorX , r.anchorY = 0, 0
+
+			-- insert text and rectangle
+			newGroup:insert( r )
 			newGroup:insert( t )
-			y = y + t.height + 5 
-			--if y > 420 then break end
+			t:toFront()
+
+			y = y + t.height + 7 
+			if y > 1000 then break end
 		end
 		currentGroup = newGroup
 		w:insert( newGroup )

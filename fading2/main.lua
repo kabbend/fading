@@ -4,6 +4,7 @@ fonts = {}
 fontsBold = {}
 
 local utf8 		= require 'utf8'
+local json		= require 'json'
 local codepage		= require 'codepage'	-- windows cp1252 support
 local socket 		= require 'socket'	-- general networking
 local parser    	= require 'parse'	-- parse command line arguments
@@ -387,9 +388,6 @@ function love.update(dt)
 			layout.dialogWindow:registerCallingUser( data )
 		end
 		clients[i].id = data 
-		if ack then
-			tcpsend( clients[i].tcp, "(ack. " .. os.date("%X") .. ")" )
-		end
 	      end
 
 	   else -- identified client
@@ -399,6 +397,7 @@ function love.update(dt)
 		-- this is a player calling us, from a known device 
 		-- but is this player talking to the MJ or another client ?
 		local target, rest = data:match("^(%S+)(.+)")
+		if not rest then rest = "" end
 		io.write("target=" .. tostring(target) .. ",rest=" .. tostring(rest) .."\n")	
 		local found = false 
 		for j=1,#clients do 
@@ -407,7 +406,7 @@ function love.update(dt)
 			  found = true
 			  layout.notificationWindow:addMessage( clients[i].id .. " -> " .. target .. " : " .. rest , 8 , true ) 
 			  layout.dialogWindow:addLine(clients[i].id .. " -> " .. target .. " : " .. rest )
-			  tcpsend( clients[j].tcp, clients[i].id .. ": " .. rest )
+			  tcpsend( clients[j].tcp, json.encode( { caller = clients[i].id , t = rest } ) )
 			  break
 			end
 		end
@@ -415,9 +414,6 @@ function love.update(dt)
 			-- he is calling me. proceed as normal
 			layout.notificationWindow:addMessage( clients[i].id .. " : " .. data , 8 , true ) 
 			layout.dialogWindow:addLine(clients[i].id .. " -> MJ : " .. data )
-			if ack then	
-				tcpsend( clients[i].tcp, "(ack. " .. os.date("%X") .. ")" )
-			end
 		end
 
 	    else

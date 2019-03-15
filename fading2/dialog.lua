@@ -2,6 +2,7 @@
 local utf8 	= require 'utf8'
 local Window 	= require 'window'
 local theme 	= require 'theme'
+local json	= require 'json'
 
 local dialogBase	= "Your input: "
 local dialog 		= dialogBase		-- text printed on the screen when typing dialog 
@@ -146,8 +147,6 @@ function Dialog:update(dt) Window.update(self,dt) end
 function Dialog:doDialog()
   local text = string.gsub( dialog, dialogBase, "" , 1) 
   dialog = dialogBase
-  --local _,_,playername,rest = string.find(text,"(%a+)%A?(.*)")
-  --io.write("send message '" .. text .. "': player=" .. tostring(playername) .. ", text=" .. tostring(rest) .. "\n")
   for i=1,#self.users do
 	if self.users[i].recipient then
   		local tcp = findClientByName( self.users[i].class )
@@ -155,7 +154,9 @@ function Dialog:doDialog()
 			io.write("player not found or not connected\n") 
   			table.insert( dialogLog , ">> missing playername or player not connected..." )
   		end
-  		tcpsend( tcp, "MJ: " .. text ) 
+		local msg = { t = text , caller = "MJ" }
+		local encodedMessage  = json.encode( msg )
+  		tcpsend( tcp, encodedMessage ) 
   		table.insert( dialogLog , "MJ -> " .. self.users[i].class .. ": " .. text )
 	end
   end

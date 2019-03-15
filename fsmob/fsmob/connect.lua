@@ -3,7 +3,14 @@ ipField, portField, userField =  nil, nil, nil
 serverip, serverport, serveruser = nil, nil, nil
 is_connected = false
 texts = {}
---answerValue = ""
+
+-- list of available colors, one per calling user
+colors = {{255,255,255},{204,255,255},{204,255,204},{204,255,153},{153,204,255}}
+
+-- list of current callers, each one is = { name = string , color = index }
+-- if name == "", caller = self
+callers = { { name = "", color = 1 } , { name = "MJ" , color = 2 } }
+nextColor = 3
 
 local function fieldHandler( textField )
 	return function( event )

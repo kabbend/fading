@@ -5,6 +5,7 @@
 local widget = require( "widget" )
 local socket = require( "socket" )
 local composer = require( "composer" )
+local json = require( "json" )
 
 require ("connect")
 
@@ -39,9 +40,25 @@ print("i,p=" .. tostring(i) .. " " .. tostring(p) )
 local function listenForServer()
   if is_connected then
   	local data , msg = tcp:receive()
-  	--if data then answerValue = "> " .. data .. "\n" .. answerValue end
-	--if answerField then answerField.text = answerValue end
-	if data then table.insert( texts , { t = data, fromMe = false } ) ; Runtime:dispatchEvent( { name = "messageReceived", target = data } ) end
+	if data then 
+		local decodedMessage = json.decode(data)
+		local text = decodedMessage.t
+		local caller = decodedMessage.caller
+		table.insert( texts , { t = text, caller = caller } ) 
+		-- is it a new user ?
+		local found = false
+		for i=1,#callers do
+			if callers[i].name == caller then found = true ; break end
+		end
+		if not found then
+			-- create it and affect a color
+			table.insert( callers , { name = caller , color = nextColor } )	
+			nextColor = nextColor + 1
+			if nextColor >= #colors then nextColor = 1 end -- restart again
+		end
+		-- inform the scene, if listening
+		Runtime:dispatchEvent( { name = "messageReceived", target = text } ) 
+	end
   end
   end
 
