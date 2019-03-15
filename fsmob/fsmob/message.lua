@@ -105,7 +105,7 @@ function scene:show( event )
 	elseif ( phase == "did" ) then
 		-- Code here runs when the scene is entirely on screen
 		-- print all messages in reverse order (the latest one first, on top of screen)
-		local y = 0 
+		local y = 8 
 		local w = widget.newScrollView({x=15,y=70,width=300,height=380,hideBackground=true,horizontalScrollDisabled=true})
 		w.anchorX , w.anchorY = 0, 0
 		local newGroup = display.newGroup()
@@ -137,14 +137,14 @@ function scene:show( event )
 			t_temp:removeSelf()
 
 			-- now create the same text, with wrapping limit
-			local t = display.newText ( { text  = text , y = y , width = 195 , height = 0, align = align , x = x } )
+			local t = display.newText ( { text  = text , y = y , width = 190 , height = 0, align = align , x = x } )
 			t.anchorX , t.anchorY = 0, 0
 			t:setFillColor( 0, 0, 0 )
 
 			-- the rectangle will have the appropriate width and alignement
 			local rect_width = math.min( actual_width , t.width )
-			if align == "right" then x = x + (195 - rect_width) end  -- go right if needed 
-			local r = display.newRoundedRect( x - 2 , y - 2 , rect_width + 2 , t.height + 2 , 3 )
+			if align == "right" then x = x + (190 - rect_width) end  -- go right if needed 
+			local r = display.newRoundedRect( x - 4 , y - 4 , rect_width + 8 , t.height + 8 , 8 )
 			
 			-- find caller and color
 			local col = { 0, 0, 0 }
@@ -159,7 +159,7 @@ function scene:show( event )
 			newGroup:insert( t )
 			t:toFront()
 
-			y = y + t.height + 7 
+			y = y + t.height + 12 
 			if y > 1000 then break end
 		end
 		currentGroup = newGroup
