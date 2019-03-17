@@ -8,6 +8,10 @@ local utf8		= require 'utf8'
 local codepage		= require 'codepage'		-- windows cp1252 support
 local widget		= require 'widget'
 
+-- we write only in debug mode
+local oldiowrite = io.write
+function io.write( data ) if debug then oldiowrite( data ) end end
+
 MIN_TEXT_W_AT_SCALE_1		= 50
 DEFAULT_TEXT_W_AT_SCALE_1	= 500
 DEFAULT_FONT_SIZE		= 12
@@ -156,6 +160,7 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
 
   -- map edition 
   self.isEditing = false 
+  self.showNodes = true -- by default
   self.wText = widget.textWidget:new{ x = 0, y = 0 , w = 500, text = "" , fontSize = DEFAULT_FONT_SIZE }
   Window.addWidget(self,self.wText)
   self.nodes = {}  -- id , x , y , text , w , h , color, backgroundColor, xOffset
@@ -187,6 +192,7 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
     self.snapmag = 1.0
     self.buttons = { 'unquad', 'fullsize', 'always', 'close' } 
     self.isEditing = true -- always in edit mode
+    self.showNodes = false
     self.scenariofile = t.scenariofile
     self.title = "MAIN SCENARIO"
   end
@@ -227,7 +233,7 @@ function Map:load( t ) -- create from filename or file object (one mandatory). k
   self.maskMinX, self.maskMaxX, self.maskMinY, self.maskMaxY = 100 * self.w , -100 * self.w, 100 * self.h, - 100 * self.h 
 end
 
--- return a text node if over, and resize if over the extend zone
+-- return 2 values : a text node if over, and a resize flag (true/false) if over the extend zone
 function Map:isInsideText(x,y)
   local W,H=self.layout.W,self.layout.H
   local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
@@ -243,6 +249,19 @@ function Map:isInsideText(x,y)
     end
   end
   return nil, false 
+end
+
+-- return a text string if over the corresponding pin, nil otherwise
+function Map:isOverPin(x,y)
+  local W,H=self.layout.W,self.layout.H
+  local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2)
+  for i=1,#self.nodes do
+    local nx, ny = zx + (self.nodes[i].x - 2 ) / self.mag , zy + (self.nodes[i].y - 2 ) / self.mag 
+    if x >= nx and x <= nx + 10 and y >= ny and y <= ny + 10 then
+		return self.nodes[i].text
+    end
+  end
+  return nil 
 end
 
 function Map:setQuad(x1,y1,x2,y2)
@@ -281,10 +300,17 @@ function Map:setQuad(x1,y1,x2,y2)
 	--self.restoreX, self.restoreY, self.restoreMag = self.x, self.y, self.mag
 	end
 
--- a Map move or zoom is a  bit more than a window move or zoom: 
--- We might send the same movement to the projector as well
+-- move the window
+-- this change is not sent to the projector, as we are waiting for the final position
+-- (signaled via closemove())
 function Map:move( x, y ) 
 		self.x = x; self.y = y
+	end
+
+-- this function indicates that a move is now done
+-- We might send the same movement to the projector as well
+function Map:closemove( x, y ) 
+		if x and y then self.x = x; self.y = y end
 		if atlas:isVisible(self) and not self.sticky then 
 			tcpsend( projector, "CHXY " .. math.floor(self.x+self.translateQuadX) .. " " .. math.floor(self.y+self.translateQuadY) ) 
 		end
@@ -370,6 +396,19 @@ function Map:drop( o )
 	  		local flag
 	  		if p.PJ then flag = "1" else flag = "0" end
 			local i = findPNJ( p.id )
+			if p.snapshot.is_local then
+				tcpsendBinary{ file=p.snapshot.file }
+	  			tcpsend( projector, "PEOF " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. math.floor(p.sizex * PNJTable[i].sizefactor) .. " " .. flag )
+			elseif fullBinary then
+				tcpsendBinary{ filename=p.snapshot.filename }
+	  			tcpsend( projector, "PEOF " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. math.floor(p.sizex * PNJTable[i].sizefactor) .. " " .. flag )
+			else
+	  			local f = p.snapshot.filename
+	  			f = string.gsub(f,baseDirectory,"")
+	  			io.write("map.lua: PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. math.floor(p.sizex * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f .. "\n")
+	  			tcpsend( projector, "PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. math.floor(p.sizex * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f)
+			end
+			--[[
 	  		local f = p.snapshot.baseFilename -- FIXME: what about pawns loaded dynamically ?
 	  		io.write("map.lua: PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. 
 					--math.floor(p.sizex * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f .. "\n")
@@ -377,6 +416,7 @@ function Map:drop( o )
 	  		tcpsend( projector, "PAWN " .. p.id .. " " .. math.floor(p.x) .. " " .. math.floor(p.y) .. " " .. 
 					--math.floor(p.sizex * PNJTable[i].sizefactor) .. " " .. flag .. " " .. f)
 					math.floor(p.sizex) .. " " .. flag .. " " .. f)
+			]]
 			end
 		end
 	end 
@@ -635,7 +675,48 @@ function Map:draw()
      end
 
      -- print texts
-     if self.isEditing then
+     if self.showNodes then
+
+	local mx, my = love.mouse.getPosition()
+
+	-- are we over a text node ? if yes, show it
+	-- if not, just show pin
+     		for j=1,#self.nodes do
+
+				local nx, ny = self.nodes[j].x , self.nodes[j].y 
+				local width, height = self.nodes[j].w, self.nodes[j].h
+				nx, ny = nx / MAG , ny / MAG
+				width, height = width / MAG, height / MAG
+
+				-- show pin
+    	  			love.graphics.setColor(255,255,255)
+				love.graphics.draw( theme.pin, x+nx-12, y+ny-12 )
+
+				if mx >= x + nx and mx <= x + nx + 10 and my >= y + ny and my <= y + ny + 10 then 
+					-- show text
+					local font = nil
+					if self.nodes[j].bold then
+						font = fontsBold
+					else
+						font = fonts
+					end
+    	  				love.graphics.setColor(0,0,0)
+    	  				love.graphics.rectangle("line",x+nx-2, y+ny-2,width+4 ,height+4,5,5 )	
+    	  				love.graphics.setColor(unpack(self.nodes[j].backgroundColor))
+    	  				love.graphics.rectangle("fill",x+nx-2, y+ny-2,width+4 ,height+4,5,5 )	
+    	  				love.graphics.setColor(0,0,0)
+    	  				love.graphics.line(x+nx+width-3,y+ny,x+nx+width-3,y+ny+height)	
+  					local fontSize = math.floor(((self.nodes[j].fontSize or DEFAULT_FONT_SIZE ) / MAG)+0.5)
+  					if fontSize >= MIN_FONT_SIZE and fontSize <= MAX_FONT_SIZE then  -- don't print if too small or too big...
+    	  				  love.graphics.setColor(unpack(self.nodes[j].color))
+	  				  love.graphics.setFont( font[fontSize] )
+	  				  love.graphics.printf( self.nodes[j].text, math.floor(x+nx), math.floor(y+ny), math.floor(width) , "left" )
+					end
+	
+	  			end
+		end
+
+     elseif self.isEditing then
 
 	love.graphics.setLineWidth( 2 )
 
@@ -675,6 +756,10 @@ function Map:draw()
 				local width, height = self.nodes[j].w, self.nodes[j].h
 				nx, ny = nx / MAG , ny / MAG
 				width, height = width / MAG, height / MAG
+				-- show pin
+    	  			love.graphics.setColor(255,255,255)
+				love.graphics.draw( theme.pin, x+nx-12, y+ny-12 )
+
 				if x + nx + width > 0 and x + nx < self.w and y + ny + height > 0 and y + ny < self.h then 
 					local font = nil
 					if self.nodes[j].bold then
@@ -940,22 +1025,24 @@ function Map:createPawns( requiredSize , id, AddInCombatTracker, class )
 		end
 	  end
 	  -- set position for next image: we display pawns on 4x4 line/column around the mouse position
+	  --[[
 	  if i % 4 == 0 then
 			a = starta 
 			b = b + pawnSize + border*2 + margin
 	  	else
 			a = a + pawnSize + border*2 + margin	
 	  end
+	  ]] --deprecated
 
     elseif not id and not addInCombatTracker then
 
-	  UID = nextUID(UID)
+	  local uid = rpg.getNextUID()
 
 	  local s = nil
 	  for i=1,#RpgClasses do if RpgClasses[i].class == class then s = RpgClasses[i].snapshot end end
 	  s = s or defaultPawnSnapshot
 
-	  p = Pawn:new( UID , s , pawnSize , a , b , class ) 
+	  p = Pawn:new( uid , s , pawnSize , a , b , class ) 
 	  map.pawns[#map.pawns+1] = p
 	  io.write("map.lua: creating pawn, not storing it. New id " .. p.id .. " and inserting in map at rank " .. #map.pawns .. "\n")
 	  uniquepawn = p 
@@ -1066,12 +1153,23 @@ function Map:click(x,y)
   	local W,H=self.layout.W,self.layout.H
   	local zx,zy = -( self.x * 1/self.mag - W / 2), -( self.y * 1/self.mag - H / 2) -- position of the map on the screen
 
-	if not self.isEditing then
+	local pinText = self:isOverPin(x,y)
+
+	if not self.isEditing and pinText then
+		-- this starts a drag & drop
+		io.write("map.lua: starting a drag operation\n")
+		dragMove = true
+		dragObject = { originWindow = self, object = { text = { text = pinText } , class = "text" } , snapshot = { thumb = theme.pin } }
+
+	elseif not self.isEditing then
 		-- if we are not in editing mode or if we click on the button bar, we delegate completely to the Window
+		io.write("map.lua: calling window click()\n")
 		Window.click(self,x,y)
 
 	else
 		-- we are in edition mode
+
+		io.write("map.lua: click() in edition mode\n")
 
 		local justSaved = nil 
 		if self.wText.selected then
@@ -1082,9 +1180,10 @@ function Map:click(x,y)
 			local text = self.wText:getText()
 			-- if the node already exists, we remove it first
 			local n, index = self:findNodeById(self.wText.id) 
-			if n then table.remove( self.nodes, index) end
+			if n then table.remove( self.nodes, index) ; io.write("map.lua: removed node id " .. tostring(self.wText.id) .. "\n") end
 			-- we store and save a node only if not empty ...
 			if text ~= "" then 
+				io.write("map.lua: saving a node\n")
 				local font = nil
 				if self.wText.bold then
 					font = fontsBold
@@ -1099,6 +1198,7 @@ function Map:click(x,y)
 					w = math.floor(width), h = math.floor(height), bold = self.wText.bold, fontSize = self.wText.fontSize
 					--xOffset = math.floor(self.wText.xOffset), lineOffset = self.wText.lineOffset
                                 	}
+				io.write("inserting new node " .. justSaved.id .. "\n")
 				table.insert( self.nodes , justSaved )
 			elseif n then
 				-- text is empty and we just removed the node, maybe we should remove edges as well
@@ -1162,6 +1262,7 @@ function Map:click(x,y)
 			--self.wText.lineOffset = 0
 			--self.wText.cursorLineOffset = 0	
 			self.wText.id = uuid()
+			io.write("map.lua: editing new node " .. tostring(self.wText.id) .. "\n")
 			self.wText.finalWidth = DEFAULT_TEXT_W_AT_SCALE_1 	-- by default
 			self.wText:setCursorPosition() 			-- we edit end of node 
 			self.wText:select()
@@ -1180,6 +1281,7 @@ end
 
 function Map:toogleEditionMode()
 	self.isEditing = not self.isEditing
+	self.showNodes = not self.isEditing -- we don't show pins in edition mode, and vice versa
 end
 
 function Map:getEditionMode()

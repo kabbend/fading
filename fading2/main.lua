@@ -1,4 +1,5 @@
 
+
 -- all fonts used by edition mode in Maps
 fonts = {}
 fontsBold = {}
@@ -58,7 +59,6 @@ dice 		    = {}	-- list of dices
 drawDicesTimer      = 0
 drawDices           = false	-- flag to draw dices
 drawDicesResult     = false	-- flag to draw dices result (in a 2nd step)	
---diceKind 	    = ""	-- kind of dice (black for 'attack', white for 'armor') -- unused at the moment
 diceSum		    = 0		-- result to be displayed on screen
 lastDiceSum	    = 0		-- store previous result, to detect stabilization
 diceStableTimer	    = 0
@@ -93,13 +93,12 @@ local keyPaste		= 'lgui'		-- on mac only
 -- GLOBAL VARIABLES
 --
 
-debug = true 
-
 -- main layout
-currentWindowDraw 	= nil
+currentWindowDraw 	= nil			-- which window is currently being draw ? used for mask (fog of war) printing
 
 -- tcp information for network
 address, serverport	= "*", "12345"		-- server information
+myIP			= nil
 server			= nil			-- server tcp object
 ip,port 		= nil, nil		-- projector information
 clients			= {}			-- list of clients. A client is a couple { tcp-object , id } where id is a PJ-id or "*proj"
@@ -110,22 +109,21 @@ fullBinary		= false			-- if true, the server will systematically send binary fil
 
 -- various mouse movements
 mouseMove		= false			-- a window is being moved
-pawnMove 		= nil			-- pawn currently moved by mouse movement
-moveText                = nil
-resizeText              = nil
-editingNode             = false
+pawnMove 		= nil			-- a pawn is currently moved by mouse movement
+moveText                = nil			-- a text (within a map) is being moved
+resizeText              = nil			-- a text (within a map) is being resized
+editingNode             = false			-- a text node (within a map) is being edited
 
 -- drag & drop data
-dragMove		= false
+dragMove		= false			-- an object is currently being dragged
 dragObject		= { originWindow = nil, object = nil, snapshot = nil }
 
 -- pawns and PJ snapshots
 defaultPawnSnapshot	= nil		-- default image to be used for pawns
-pawnMaxLayer		= 1
-pawnMovingTime		= 2		-- how many seconds to complete a movement on the map ?
+pawnMaxLayer		= 1		-- value of the highest layer currently
 
--- current text input
--- A window or widget waiting for input should set these functions
+-- text input
+-- A window or widget waiting for keyboard input should set these functions in order to be called back
 textActiveCallback		= nil			-- if set, function to call with keyboard input (argument: one char)
 textActiveBackspaceCallback	= nil			-- if set, function to call on a backspace 
 textActivePasteCallback		= nil			-- if set, function to call on a paste clipboard
@@ -133,37 +131,30 @@ textActiveCopyCallback		= nil			-- if set, function to call on a copy clipboard
 textActiveLeftCallback		= nil			-- if set, function to call on left arrow 	
 textActiveRightCallback		= nil			-- if set, function to call on right arrow	
 
--- array of PJ and PNJ characters
--- Only PJ at startup (PNJ are created upon user request)
--- Maximum number is PNJmax
--- A Dead PNJ counts as 1, except if explicitely removed from the list
+-- array of PJ and PNJ characters, as shown in Combat Tracker window. A Dead PNJ counts as 1, except if explicitely removed from the list
 PNJTable 	= {}		
-PNJmax   	= 17		-- Limit in the number of PNJs (and the GUI frame size as well)
+PNJmax   	= 17		-- Limit in the number of PNJs (this gives a limit to the GUI frame size as well)
 
 -- Direct access (without traversal) to GUI structure:
 -- PNJtext[i] gives a direct access to the i-th GUI line in the GUI PNJ frame
 -- this corresponds to the i-th PNJ as stored in PNJTable[i]
 PNJtext 	= {}		
 
--- information to draw the arrow in combat mode
-arrowMode 		 = false	-- draw an arrow with mouse, yes or no
+-- information to draw an arrow on screen 
+arrowMode 		 = false	-- currently drawing an arrow with mouse
 arrowStartX, arrowStartY = 0,0		-- starting point of the arrow	
 arrowX, arrowY 		 = 0,0		-- current end point of the arrow
-arrowStartIndex 	 = nil		-- index of the PNJ at the starting point
-arrowStopIndex 		 = nil		-- index of the PNJ at the ending point
-arrowModeMap		 = nil		-- either nil (not in map mode), "RECT" or "CIRC" shape used to draw map maskt
+arrowStartIndex 	 = nil		-- index of the PNJ at the starting point, if applicable
+arrowStopIndex 		 = nil		-- index of the PNJ at the ending point, if applicable
+arrowModeMap		 = nil		-- either nil (not in map mode), "RECT"(angle) or "CIRC"(ular) shape used to draw map mask
 maskType		 = "RECT"	-- shape to use, rectangle by default
-
--- we write only in debug mode
-local oldiowrite = io.write
-function io.write( data ) if debug then oldiowrite( data ) end end
 
 -- get filename without path. depends on separator, which depends itself on OS (windows or OS X)
 function splitFilename(strFilename)
 	return string.match (strFilename,"[^" .. sep .. "]+$")
 end
 
--- send a command or data to the projector over the network
+-- send a command or data to a client over the network
 function tcpsend( tcp, data , verbose )
   if not tcp then return end -- no client connected yet !
   if verbose == nil or verbose == true then  
@@ -221,7 +212,7 @@ function love.textinput(t)
 -- dropping a file over the main window will: 
 --
 -- if it's not a map:
---  * create a snapshot at bottom right of the screen,
+--  * create a snapshot in the snapshot bar,
 --  * send this same image over the socket to the projector client
 --  * if a map was visible, it is now hidden
 --
@@ -238,7 +229,7 @@ function love.filedropped(file)
 	  -- if filename does not contain the base directory, it is local
 	  local i = string.find( filename, baseDirectory )
 	  is_local = (i == nil) 
-	  io.write("main.lua: is local : " .. tostring(is_local) .. "\n")
+	  io.write("main.lua: is local : ",tostring(is_local),"\n")
 
 	  local _,_,basefile = string.find( filename, ".*" .. sep .. "(.*)")
 	  io.write("main.lua: basefile: " .. tostring(basefile) .. "\n")
@@ -309,6 +300,20 @@ function love.update(dt)
 	-- all code below does not take place until the environement is fully initialized (ie baseDirectory is defined)
 	if not initialized then return end
 
+	-- listening to projector broadcast if needed
+	if uscan then
+		local ret = uscan:receive()
+		if ret then
+			io.write("called by broadcast from projector ! Now he knows us and will call\n")
+			local a,b,c,d,p=ret:match("^rpgworlddomination:(%d+).(%d+).(%d+).(%d+) (.*)")
+			local i = a .. "." .. b .. "." .. c .. "." .. d
+			io.write("he said: " .. ret .. "(" .. i .. ":" .. p .. ")\n")
+			uscan:sendto("serverOfRpgWorldDomination:" .. myIP, i, p)
+			uscan:close()
+			uscan = nil
+		end
+	end
+
 	-- listening to anyone calling on our port 
 	local tcp = server:accept()
 	if tcp then
@@ -335,8 +340,8 @@ function love.update(dt)
 	    if not clients[i].id then
 
 	      if data == "CONNECT" then 
-		io.write("main.lua: receiving projector call\n")
-		layout.notificationWindow:addMessage("receiving projector call")
+		io.write("main.lua: receiving projector call (non binary)\n")
+		layout.notificationWindow:addMessage("receiving projector call (non binary)")
 		clients[i].id = projectorId
 		projector = clients[i].tcp
 		if love.system.getOS() == "OS X" then
@@ -398,7 +403,7 @@ function love.update(dt)
 		-- but is this player talking to the MJ or another client ?
 		local target, rest = data:match("^(%S+)(.+)")
 		if not rest then rest = "" end
-		io.write("target=" .. tostring(target) .. ",rest=" .. tostring(rest) .."\n")	
+		io.write("target=",tostring(target),",rest=",tostring(rest),"\n")	
 		local found = false 
 		for j=1,#clients do 
 			if clients[j].id and clients[j].id == target then
@@ -720,7 +725,7 @@ function love.mousereleased( x, y )
                 w.markForClosure = false
                 layout:setDisplay(w,false)
                 -- if it's a map, we release image memory. Image will be eventually reloaded if needed
-                if w.class == "map" then io.write("main.lua: releasing memory for map " .. w.title .. "\n"); w.im = nil end
+                if w.class == "map" then io.write("main.lua: releasing memory for map ",w.title,"\n"); w.im = nil end
         end
 
 	-- we were resizing a text (within a Map). We stop now
@@ -796,7 +801,17 @@ function love.mousereleased( x, y )
 		end
 		return 
 	end
-	if mouseMove then mouseMove = false; return end
+
+	-- we were moving a map. We signal the map it's now over (via closemove()) so it can
+	-- sync the projector eventually
+	if mouseMove then 
+		mouseMove = false; 
+		local window = layout:getFocus()
+		if window and window.class == "map" then
+			window:closemove()
+		end
+		return 
+	end
 
 	-- we were moving a pawn. we stop now
 	if pawnMove then 
@@ -1095,6 +1110,7 @@ function love.mousepressed( x, y , button )
                 end
 
                 if editingNode then return end
+		if dragMove then return end
 
                 local p, hitClicked , _ , action = map:isInsidePawn(x,y)
 
@@ -1240,6 +1256,7 @@ elseif mouseResize then
 		  if not w.hResizable then dy = 0 end
 		  w.w = w.w + dx * w.mag
 		  w.h = w.h + dy * w.mag
+		  if w.liveResize then w:liveResize() end
 		end
 	end
  
@@ -1287,19 +1304,13 @@ if not initialized then return end
 -- 'lctrl + d' : open dialog window
 -- 'lctrl + f' : open setup window
 -- 'lctrl + h' : open help window
--- 'lctrl + g' : open graph scenario window
 -- 'lctrl + r' : restore all windows to initial state
 -- 'lctrl + tab' : give focus to the next window if any
--- 'escape' : hide or restore all windows 
-
+-- 'escape' : hide or restore map windows 
 -- 'lctrl + c' : display combat window 
 -- 'lctrl + b' : display bar (snapshots) window 
 -- 'lctrl + p' : display projector window 
 
---if key == "g" and love.keyboard.isDown("lctrl") then
---  layout:toggleWindow( layout.sWindow )
---  return
---end
 if key == "d" and love.keyboard.isDown("lctrl") then
   layout:toggleWindow( layout.dialogWindow )
   return
@@ -1352,7 +1363,7 @@ if window then
   end
   if key == "c" and love.keyboard.isDown("lctrl")
   and love.keyboard.isDown("lshift") then
-	window:move( window.w / 2, window.h / 2 )
+	window:closemove( window.w / 2, window.h / 2 )
 	return
   end
   if     window.class == "dialog" then
@@ -1453,7 +1464,7 @@ if window then
 
   	if key == "u" and love.keyboard.isDown("lctrl") then
 		if not map.sticky then return end
-		window:move( window.stickX , window.stickY )
+		window:closemove( window.stickX , window.stickY )
 		window.mag = window.stickmag
 		window.sticky = false
 		layout.notificationWindow:addMessage("Map " .. window.displayFilename .. " is no more sticky. Be careful with your movements")
@@ -1683,7 +1694,7 @@ function init()
 
     local notifWindow = notificationWindow:new{ w=300, h=100, x=-(layout.WC-200)+layout.W/2 ,y=layout.H/2-50,layout=layout } 
 
-    local dialogWindow = Dialog:new{w=800,h=220,x=400,y=110,layout=layout}
+    local dialogWindow = Dialog:new{w=800,h=300,x=400,y=110,layout=layout}
 
     local helpWindow = Help:new{w=1000,h=580,x=500,y=240,layout=layout}
 
@@ -1750,6 +1761,21 @@ function init()
     tcpbin = socket.tcp()
     tcpbin:bind(address, serverport+1)
     tcpbin:listen(1)
+
+    -- get my IP    
+    local s = socket.udp()
+    s:setpeername("74.125.115.104",80)
+    myIP, _ = s:getsockname()
+    print("my IP : " .. myIP)
+    s:close()
+
+    uscan = socket.udp()
+    local ret,msg = uscan:setsockname(address,scanport)
+    uscan:settimeout(0)
+    if not ret then
+	io.write("cannot bind scanner to " .. address .. ":" .. scanport .. ". Projector will not connect: " .. msg .. "\n")
+	uscan = nil
+    end 
 
     -- initialize PNJ class list 
     -- later on, we might attach some images (snapshots) to these classes if we find them.

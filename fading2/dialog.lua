@@ -163,5 +163,11 @@ function Dialog:doDialog()
 
 end
 
+function Dialog:liveResize()
+	if self.w < 200 then self.w = 200 end
+	if self.h < 300 then self.h = 300 end
+end
+
+
 return Dialog
 

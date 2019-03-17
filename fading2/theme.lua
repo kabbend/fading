@@ -82,6 +82,7 @@ theme.bandeau_selected  = love.graphics.newImage( "images/bandeau-selected.png" 
 theme.combatBackground  = love.graphics.newImage( "images/combatBackground.png" )
 theme.dialogAll  	= love.graphics.newImage( "images/all.png" )
 theme.dialogUnknown  	= love.graphics.newImage( "images/unknown.png" )
+theme.pin  		= love.graphics.newImage( "images/pin.png" )
 
 return theme
 

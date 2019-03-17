@@ -6,13 +6,20 @@ local theme = require 'theme'
 -- how do we roll dices, how to we inflict damages, etc.
 --
 
--- global unique ID for characters. Use nextUID(UID) to generate the next one
-UID = ""
+-- 
+-- required interface to be exposed : 
+--
+-- 	rpg.getNextUID()		returns string, unique ID for each new PJ or PNJ or monster...
+
+ 
 
 -- array of PNJ templates (loaded from data file)
 templateArray   = {}
 
 local rpg = {}
+
+-- unique ID for characters. Use getNextUID() to generate the next one
+local UID = ""
 
 -- load PNJ templates from data file, return an array of classes
 -- argument is a table (list) of paths to try
@@ -37,25 +44,6 @@ function rpg.loadClasses( paths )
 
    return array
    end
-
--- for a given PNJ at index i, return true if Attack or Armor button should be clickable
--- false otherwise
-function rpg.isAttorArm( i )
-         if not i then return false end
-         if not PNJTable[ i ] then return false end
-         -- when a PJ is selected, we do not roll for him but for it's enemy, provided
-         -- there is one and only one
-         if (PNJTable[ i ].PJ) then
-                 local count = 0
-                 local oneid = nil
-                 for k,v in pairs(PNJTable[i].attackers) do
-                         if v then oneid = k; count = count + 1 end
-                 end
-                 if (count ~= 1) or (not oneid) then return false end
-         end
-         -- if it's a PNJ, return true
-         return true
- end
 
  -- Compute dices to roll when "roll attack" or "roll armor" is pressed
  -- Roll is made for the character with current focus, provided it is a PNJ and not a PJ
@@ -268,29 +256,8 @@ function Roll:changeDefense( newDefense )
   end
 end
 
---[[ buggy
--- return an iterator which generates new unique ID, 
--- from "A", "B" ... thru "Z", then "AA", "AB" etc.
-local function UIDiterator() 
-  local UID = ""
-  local incrementAlphaID = function ()
-    if UID == "" then UID = "A" return UID end
-    local head=UID:sub( 1, UID:len() - 1)
-    local tail=UID:byte( UID:len() )
-    local id
-    if tail == 90  then 
-	id = string.char( (head:byte(1) or 64 ) + 1 ) .. "A" 
-    else 
-	id = head .. string.char(tail+1) 
-    end
-    UID = id
-    return UID
-    end
-  return incrementAlphaID 
-  end
---]]
-
-function nextUID(uid) 
+function rpg.getNextUID()
+  function nextUID(uid) 
 
     if not uid or uid == "" then return "A" end
 
@@ -311,9 +278,9 @@ function nextUID(uid)
     end
 
   end
-
--- some initialization stuff
--- generateUID = UIDiterator() -- deprecated, use nextUID() instead
+  UID = nextUID(UID)
+  return UID
+end
 
 -- return a new PNJ object, based on a given template. 
 -- Give him a new unique ID 
@@ -321,9 +288,7 @@ local function PNJConstructor( template )
 
   aNewPNJ = {}
 
-  UID = nextUID(UID)
-
-  aNewPNJ.id 		  = UID 			-- unique id
+  aNewPNJ.id 		  = rpg.getNextUID()		-- unique id
   aNewPNJ.PJ 		  = template.PJ or false	-- is it a PJ or PNJ ?
   aNewPNJ.done		  = false 			-- has played this round ?
   aNewPNJ.onMap		  = false			-- is this character present as a Pawn on a map ? No a priori, may change later on

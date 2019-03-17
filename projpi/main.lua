@@ -7,12 +7,16 @@ if love.system.getOS() == "Windows" then __WINDOWS__ = true end
 
 -- the address and port of the server
 defaultAddress, port, portbin 	= "localhost", 12345, 12346	-- default for primary server
-connect = 		{ false, false }		-- connection status to primary and secondary server
+connect = 		false				-- connection status to primary and secondary server
+ready = 		false				-- 
 serverOS = 		{ nil, nil }
 tcp = 			{}
 server			= 1				-- primary server by default
 timer 			= 0
-connectRetryTime 	= 5
+connectRetryTime 	= 6
+myIP			= nil
+
+debug			= true
 
 -- image information
 currentImage = nil	-- displayed image
@@ -29,7 +33,6 @@ tempfile 	= nil
 -- pawns
 pawns 		= {}
 maxLayer 	= 1		-- current layer value
-pawnMovingTime	= 2		-- how many seconds to complete a movement on the map
 
 -- mouse interaction
 pawnMove 	= nil			-- information on the current pawn movement
@@ -230,14 +233,16 @@ function love.mousereleased (x,y)
 end
 
 function myStencilFunction() 
-        love.graphics.rectangle("fill",zx,zy,w,h)
+        --love.graphics.rectangle("fill",zx,zy,w,h)
         for k,v in pairs(mask) do
                 local _,_,shape = string.find( v , "(%a+)" )
                 if shape == "RECT" then
                         local _,_,_,x,y,wm,hm = string.find( v , "(%a+) (%-?%d+) (%-?%d+) (%d+) (%d+)" )
-                        x = zx + x*mag
+                        if wm+0 > 0 and hm+0 > 0 then
+			x = zx + x*mag
                         y = zy + y*mag
                         love.graphics.rectangle( "fill", x, y, wm*mag, hm*mag)
+			end
                 elseif shape == "CIRC" then
                         local _,_,_,x,y,r = string.find( v , "(%a+) (%-?%d+) (%-?%d+) (%d+%.?%d+)" )
                         x = zx + x*mag
@@ -267,27 +272,16 @@ function love.draw()
 
 	if mask and #mask > 0 then
 
-       		love.graphics.setColor(0,0,0)
-       		love.graphics.stencil( myStencilFunction, "increment" )
-       		love.graphics.setStencilTest("equal", 1)
-
-     	else
-
-       		love.graphics.setColor(255,255,255)
+       		love.graphics.setStencil( myStencilFunction )
 
      	end
 
+       	love.graphics.setColor(255,255,255)
   	love.graphics.draw( currentImage , zx , zy , 0 , mag, mag )
 
 	-- draw PNJ pawns, the lowest layer value first
 
-     	if mask and #mask > 0 then
-
-       		love.graphics.setStencilTest("gequal", 2)
-       		love.graphics.setColor(255,255,255)
-       		love.graphics.draw( currentImage, zx, zy, 0, mag, mag )
-
-		for i =1,#pawns do
+	for i =1,#pawns do
 		 local p = pawns[i]
 		 if not p.PJ then 
                      -- we do some checks before displaying the pawn: it might happen that the character corresponding to the pawn is dead
@@ -306,9 +300,8 @@ function love.draw()
 		 end
         	end
 
-       		love.graphics.setStencilTest()
+   	love.graphics.setStencil()
 
-     	end
 
 	-- draw PJ pawns (always visible, even if there is a mask)
 	for i =1,#pawns do
@@ -346,12 +339,7 @@ function love.draw()
 
 function love.update( dt )
 
- 	if secondary then
-		-- alternate server if applicable
-		if server == 1 then server = 2 else server = 1 end
-	else
-		server = 1 -- only primary
-	end
+	server = 1 -- only primary
 
 	-- store current mouse position in arrow mode
         if arrowMode then
@@ -369,21 +357,63 @@ function love.update( dt )
 	-- socket communication
 	timer = timer + dt
 
-	if (not connect[1]) and timer > connectRetryTime then
-		-- nobody was listening, probably. we retry
-		io.write("calling primary server...\n")
-		if fullBinary then tcp[1]:send("CONNECTB\n") else tcp[1]:send("CONNECT\n") end
+	if not address and timer > connectRetryTime then
+		io.write("scanning for server...\n")
+ 		-- create socket and broadcast 
+ 		local u = socket.udp()
+ 		u:settimeout(2)
+		u:setoption('broadcast',true)
+		u:setsockname('*',0)
+		local i,p = u:getsockname()
+		io.write("broadcasting from " .. myIP .. ":" .. tostring(p) .. "\n")
+ 		local succ, msg = u:sendto("rpgworlddomination:" .. myIP .. " " .. p,"255.255.255.255", scan) 
+		if not succ then
+			io.write("cannot broadcast : " .. msg .. "\n")
+			-- not successfull, will retry
+			u:close()
+			u = nil
+		else
+			-- sent a broadcast message, listen
+			io.write("waiting for broadcast\n")
+			local res = u:receive()
+			if not res then
+				-- nobody answers
+				io.write("nobody answers to broadcast\n")
+			else
+				io.write("server replied : " .. res .. "\n")
+				local i = res:match("^serverOfRpgWorldDomination:(.*)")
+				io.write("server ip : " .. tostring(i) .. "\n")
+				address = i
+				u:close()
+				u = nil
+			end
+		end	
+		timer = 0	
+
+	end
+	
+	if not connect and address and timer > connectRetryTime then
+		io.write("calling server...\n")
+ 		-- create socket and connect to the server
+ 		tcp[1] = socket.tcp()
+ 		tcp[1]:settimeout(3)
+ 		local succ, msg = tcp[1]:connect(address, port) 
+		if succ then
+			connect = true
+			local i,p = tcp[1]:getsockname()
+			io.write("connected to server via port " .. tostring(s) .. ":" .. tostring(p) .. " . sending mode\n")
+ 			tcp[1]:settimeout(0)
+			if fullBinary then tcp[1]:send("CONNECTB\n") else tcp[1]:send("CONNECT\n") end
+		else
+			io.write("cannot connect : " .. msg.."\n")
+			tcp[1]:close()
+			tcp[1]=nil
+		end
 		timer = 0
 	end
 
-	if secondary and (not connect[2]) and timer > connectRetryTime then
-		-- nobody was listening, probably. we retry
-		io.write("calling secondary server...\n")
-		if fullBinary then tcp[2]:send("CONNECTB\n") else tcp[2]:send("CONNECT\n") end
-		timer = 0
-	end
-
-  	local data, msg = tcp[server]:receive()
+  	local data, msg = nil, nil 
+	if connect then data, msg = tcp[1]:receive() end
 
 	if data then 
 
@@ -526,14 +556,14 @@ function love.update( dt )
 
 	  end
 	
-	  if command == "CONN MAC" then
+	  if data == "CONN MAC" then
  	  	io.write("Connected to " .. address .. " " .. port .. ", Mac server\n")
 		serverOS[server] = "OS X"
-		connect[server] = true
-	  elseif command == "CONN WIN" or command == "CONN" then
+		ready = true
+	  elseif data == "CONN WIN" or data == "CONN" then
  	  	io.write("Connected to " .. address .. " " .. port .. ", Windows server\n")
 		serverOS[server] = "Windows"
-		connect[server] = true
+		ready = true
 	  end
 
 	  if command == "OPEN" then
@@ -675,62 +705,37 @@ function love.load( args )
  dofile("pconf.lua")
 
  -- PRIMARY SERVER
- address = serverip 
- port = serverport 
+ address = nil		-- we don't know the server IP. we will scan for it
+  
+ -- but we know the ports
+ scan = scanport
+ port = serverport 	
  portbin = serverport + 1
 
- -- (OPTIONAL) SECONDARY SERVER
- if secondaryserverip and secondaryserverip ~= "" then
-   addressSec = secondaryserverip 
-   portSec = secondaryserverport 
-   portbinSec = secondaryserverport + 1
-   secondary = true
- end
-
- debug = true
+ -- get my IP
+ local s = socket.udp()
+ s:setpeername("74.125.115.104",80)
+ myIP, _ = s:getsockname()
+ print("my IP : " .. myIP)
+ s:close()
 
  -- no directory provided, we will request full binary mode to the server
  if baseDirectory == "" then fullBinary = true end
 
- io.write("IP address = " .. address .. "\n")
- if secondary then io.write("secondary IP address = " .. addressSec .. "\n") end
  io.write("base directory = " .. baseDirectory .. "\n")
+ io.write("running on " .. love.system.getOS() .. "\n" )
  
- if love.system.getOS() == "OS X" then sep = "/"; antisep = "\\";  else sep = "\\" ; antisep = "/" end
+ sep = "/"; antisep = "\\";  
 
- -- create socket and connect to the server
- tcp[1] = socket.tcp()
- tcp[1]:settimeout(0)
- -- trying to reach server
- tcp[1]:connect(address, port) 
- if fullBinary then tcp[1]:send("CONNECTB\n") else tcp[1]:send("CONNECT\n") end
-
- if secondary then
-   tcp[2] = socket.tcp()
-   tcp[2]:settimeout(0)
-   -- trying to reach server
-   tcp[2]:connect(addressSec, portSec) 
-   if fullBinary then tcp[2]:send("CONNECTB\n") else tcp[2]:send("CONNECT\n") end
+ -- GUI initializations
+ if fullscreen then
+	io.write("going fullscreen\n")
+	love.window.setMode( 0, 0 , { fullscreen=true } )
+ else
+ 	love.window.setMode( 0, 0 )
  end
 
- 
- -- GUI initializations
- -- in remote: we go to 1st display fullscreen
- -- in local: we try to go to 2nd display fullscreen, otherwise go to 1st display standard 
- local disp = 1
- local full = true
- if address == "localhost" then disp = 2; full = false end
-
- --love.window.setMode( 0, 0 , { x = 0, y = 0 , fullscreen=full, resizable=true, display=disp} )
- love.window.setMode( 0, 0 , { fullscreen=full } )
-
- -- check if we are on a 2nd display or not
- --W2,H2,f = love.window.getMode()
- --if f.display == 2 then
-   -- OK, go fullscreen !
-   love.window.setFullscreen( true )
-   W2,H2 = love.window.getMode()
- --end
+ W2,H2 = love.window.getMode()
 
 end
 

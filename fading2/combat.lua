@@ -399,19 +399,6 @@ function Combat:update(dt)
                  end
          end
 
---[[
-        if rpg.isAttorArm( self.focus ) then
-          attButton.button.black = false
-          attButton.button.timer:tween('color', 0.25, attButton.button, {color = { 80, 110, 180}}, 'linear')
-          armButton.button.black = false
-          armButton.button.timer:tween('color', 0.25, armButton.button, {color = { 80, 110, 180}}, 'linear')
-        else
-          attButton.button.black = true
-          attButton.button.timer:tween('color', 0.25, attButton.button, {color = { 20, 20, 20}}, 'linear')
-          armButton.button.black = true
-          armButton.button.timer:tween('color', 0.25, armButton.button, {color = { 20, 20, 20}}, 'linear')
-        end
---]]
 	end
 
 function Combat:click(x,y)
