@@ -5,21 +5,19 @@
 Le repository contient 3 programmes qui fonctionnent ensemble :
 
 - le serveur, sous le repertoire fading2. Le serveur contient aussi l'interface qui tourne sur le PC du MJ, et qui contient la majeure partie des fonctionnalites. Le
-  serveur peut tourner sans les 2 autres. Tapez 'Left-Control + h' pour avoir la fenêtre d'aide et un résumé des commandes.
+  serveur peut tourner sans les 2 autres.
 
-- le projecteur, sous le repertoire proj2c. Le projecteur est en visibilite des joueurs, depuis un 2nd moniteur du PC serveur, ou bien sur un autre PC (eventuellement
-  connecte a un projecteur video). Le projecteur peut se connecter a un serveur (principal) ou deux serveurs (par exemple un pour le combat tracker, un pour les maps). Il
-  faut indiquer les serveurs avec les parametres 'serverip' et 'secondaryserverip' dans le fichier de conf 'pconf.lua'
+- le projecteur, sous le repertoire projpi (specialement concu pour raspberry pi mais fonctionne sous n'importe quel PC ou Mac). Le projecteur est en visibilite des joueurs, depuis un 2nd moniteur du PC serveur, ou bien sur un autre PC  ou un raspberry (eventuellement connecte a un projecteur video). Le projecteur scanne le reseau local pour se connecter au serveur 
 
-- le client mobile, sous le repertoire fsmob. Permet d'envoyer et recevoir de courts messages au MJ
+- le client mobile, sous le repertoire fsmob. Permet d'envoyer et recevoir des messages au MJ, et entre joueurs
 
 ## Prerequis:
 - Lua
-- le moteur graphique LÖVE (love2d, version à partir de 0.10.2)
-- pour l'application mobile, le framework Corona SDK (qui permet de developper egalement en Lua)
+- le moteur graphique LÖVE (love2d, version 0.10.2 pour le serveur, et 0.9.1 pour le projecteur a cause des versions disponibles sur raspberry pour le moment)
+- pour l'application mobile, le framework Corona SDK 
 
 ## Configuration
-le lancement se fait depuis le repertoire parent qui contient fading2/ et proj2c/.
+le lancement se fait depuis le repertoire parent qui contient fading2/ et projpi/.
 Pour le serveur, la configuration se fait dans l'application (fenêtre de setup accessible par 'CTRL+f') ou bien directement dans le fichier de configuration 'fsconf.lua' à la
 racine (voir le paragraphe 'Unicode Hell' ci dessous)
 Pour le projecteur, la configuration se fait dans le fichier 'pconf.lua'
@@ -34,7 +32,7 @@ love fading2
 Projecteur:
 ```
 #!c
-love proj2c
+love projpi
 ```
 ## Filesystem structure
 Le serveur s'appuie sur un répertoire principal qui sert de banque d'images. Il s'attend à une structure comme ci-dessous, et à ce qu'on lui designe un ou deux
@@ -44,30 +42,36 @@ rapport au Base Directory, pas le chemin complet.
 
 ```
 #!c
-base Directory                -- banque globale d'images, de data, de maps. Peut contenir un ou plusieurs repertoires pour stocker des scenarios differents
+baseDirectory                 -- banque globale d'images, de data, de maps. Peut contenir un ou plusieurs repertoires pour stocker des scenarios differents
  !
- +--- data                    -- fichier qui decrit les classes de PNJ ou les PJ (en principe celles qui ne sont pas liees à un scenario donne)
+ +--- data                    -- fichier qui decrit les classes de PNJ ou les PJ (en principe celles qui sont globales au jeu, pas liees à un scenario donne)
  !
- +--- pawns                   -- repertoire (facultatif) d'images pour les pions (pawns) sur les maps
+ +--- maps/                   -- sous ce repertoire (facultatif) toutes les images sont considerees comme des maps. Idem, elles ne sont pas liees a un scenario donne
+ !
+ +--- pawns/                  -- repertoire (facultatif) d'images pour les pions (pawns) sur les maps
+ !     !
  !     +--- pawnDefault.jpg   -- image par defaut pour les pions
+ !     !
  !     +--- pawn*.jpg/png     -- sera associe automatiquement à un PJ si le nom matche (sinon, sera stocke comme une image classique)
+ !     !
  !     +--- *.jpg/png         -- sera stocke en memoire et utilisable durant la partie comme une image de pion, à la discretion du MJ
  !                            -- et aussi, sera associe automatiquement à une classe de PNJ si le nom matche avec celui indique dans le fichier data
  !
- +--- scenario Directory      -- repertoire du scenario en cours
-       +--- scenario.txt      -- (obsolete) texte (structure) associe au scenario Coggle
-       +--- scenario.jpg      -- (obsolete) image du scenario Coggle                    
-       +--- scenario.mm       -- facultatif: scenario au format XML freemind (.mm)
-       +--- pawnDefault.jpg   -- image par defaut pour les pions
-       +--- pawn*.jpg/png     -- sera associe automatiquement à un PJ si le nom matche (sinon, stocke comme une image classique)
-       +--- map*.jpg/png      -- map: sera stockee en memoire et utilisable durant la partie (destinee à être projetee aux joueurs, et porter des pions) 
-       +--- *.jpg/png         -- image generale: sera stocke en memoire et utilisable durant la partie comme une image generale (destinee à être projetee aux joueurs) 
-       +--- data              -- fichier (facultatif) qui decrit les classes de PNJ ou les PJ (en principe, dedie à un scenario donne).
-                              -- peut completer le fichier data general (avec des classes particulières, par exemple)
+ +--- scenarioDirectory/      -- repertoire du scenario en cours
+       !
+       +--- map*.jpg/png      -- une map: sera stockee en memoire et utilisable durant la partie
+       !
+       +--- *.jpg/png         -- une image generale: sera stocke en memoire et utilisable durant la partie comme une image generale (destinee à être projetee aux joueurs) 
+       !
+       +--- data              -- fichier (facultatif) qui decrit les classes de PNJ ou les PJ dediees a ce scenario, en complement de celui a la racine
+       !
+       +--- maps/             -- sous ce repertoire (facultatif) toutes les images sont considerees comme des maps. Elles completent celles du repertoire maps a la racine 
+       !
+       +--- pawns/            -- repertoire (facultatif) d'images pour les pions (pawns) sur les maps, en complement de celui a la racine
 ```
 
 Il faut fournir au moins une image pawnDefault.jpg de pion par defaut. Tous les autres fichiers (images, maps, scenario...) sont facultatifs mais, évidemment,
-fortement conseillés.
+fortement conseilles.
 
 ## Unicode Hell
 Le serveur et le projecteur sont basés, pour le moment, sur le partage de fichiers stockés sur un filesystem accessible aux deux (donc potentiellement un filesystem
