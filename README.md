@@ -1,44 +1,43 @@
 # README #
 
-### Aide de Jeu Fading Suns ###
+### Aide de Jeu RPG ###
 
 Le repository contient 3 programmes qui fonctionnent ensemble :
 
-- le serveur, sous le repertoire fading2. Le serveur contient aussi l'interface qui tourne sur le PC du MJ, et qui contient la majeure partie des fonctionnalites. Le
+- le serveur, sous le repertoire fading/ . Le serveur contient aussi l'interface qui tourne sur le PC du MJ, et qui contient la majeure partie des fonctionnalites. Le
   serveur peut tourner sans les 2 autres.
 
-- le projecteur, sous le repertoire projpi (specialement concu pour raspberry pi mais fonctionne sous n'importe quel PC ou Mac). Le projecteur est en visibilite des joueurs, depuis un 2nd moniteur du PC serveur, ou bien sur un autre PC  ou un raspberry (eventuellement connecte a un projecteur video). Le projecteur scanne le reseau local pour se connecter au serveur 
+- le projecteur, sous le repertoire proj/ . Le projecteur est en visibilite des joueurs, depuis un 2nd moniteur du PC serveur, ou bien sur un autre PC  ou un raspberry (eventuellement connecte a un projecteur video). Le projecteur scanne le reseau local au demarrage pour se connecter au serveur 
 
-- le client mobile, sous le repertoire fsmob. Permet d'envoyer et recevoir des messages au MJ, et entre joueurs
+- le client mobile, sous le repertoire mobile/ . Permet d'envoyer et recevoir des messages au MJ, et entre joueurs
 
 ## Prerequis:
-- Lua
-- le moteur graphique LÖVE (love2d, version 0.10.2 pour le serveur, et 0.9.1 pour le projecteur a cause des versions disponibles sur raspberry pour le moment)
+- Lua pour le developpement
+- le moteur graphique LÖVE love2d, version 0.10.x pour le serveur, et 0.9.x ou 0.10.x pour le projecteur (la compatibilite 0.9.x est necessaire pour fonctionner sous raspberry)
 - pour l'application mobile, le framework Corona SDK 
 
 ## Configuration
-le lancement se fait depuis le repertoire parent qui contient fading2/ et projpi/.
-Pour le serveur, la configuration se fait dans l'application (fenêtre de setup accessible par 'CTRL+f') ou bien directement dans le fichier de configuration 'fsconf.lua' à la
-racine (voir le paragraphe 'Unicode Hell' ci dessous)
+le lancement se fait depuis le repertoire parent qui contient fading/ et proj/.
+Pour le serveur, la configuration se fait dans l'application (fenêtre de setup accessible par 'CTRL+f') ou bien directement dans le fichier de configuration 'sconf.lua' à la racine (voir le paragraphe 'Unicode Hell' ci dessous)
 Pour le projecteur, la configuration se fait dans le fichier 'pconf.lua'
 
 ## Lancement
 Serveur
 ```
 #!c
-love fading2
+love fading
 ```
 
 Projecteur:
 ```
 #!c
-love projpi
+love proj
 ```
 ## Filesystem structure
 Le serveur s'appuie sur un répertoire principal qui sert de banque d'images. Il s'attend à une structure comme ci-dessous, et à ce qu'on lui designe un ou deux
-repertoires : Base Directory (chemin complet vers la racine de la banque d'images) et Scenario Directory (facultatif, si on souhaite compléter les informations à la
-racuine par un sous répertoire particulier, dédié à un scénario ou une session de jeu particulière). S'il est fourni, le Scenario est un chemin *relatif* par
-rapport au Base Directory, pas le chemin complet.
+repertoires : baseDirectory (chemin complet vers la racine de la banque d'images) et scenarioDirectory (facultatif, si on souhaite compléter les informations à la
+racine par un sous répertoire particulier, dédié à un scénario ou une session de jeu particulière). S'il est fourni, le scenario est un chemin *relatif* par
+rapport au baseDirectory, pas le chemin complet.
 
 ```
 #!c
@@ -57,11 +56,11 @@ baseDirectory                 -- banque globale d'images, de data, de maps. Peut
  !     +--- *.jpg/png         -- sera stocke en memoire et utilisable durant la partie comme une image de pion, à la discretion du MJ
  !                            -- et aussi, sera associe automatiquement à une classe de PNJ si le nom matche avec celui indique dans le fichier data
  !
- +--- scenarioDirectory/      -- repertoire du scenario en cours
+ +--- scenarioDirectory/      -- repertoire du scenario pour la session 
        !
        +--- map*.jpg/png      -- une map: sera stockee en memoire et utilisable durant la partie
        !
-       +--- *.jpg/png         -- une image generale: sera stocke en memoire et utilisable durant la partie comme une image generale (destinee à être projetee aux joueurs) 
+       +--- *.jpg/png         -- une image generale: sera stockee en memoire et utilisable durant la partie comme une image generale (destinee à être projetee aux joueurs) 
        !
        +--- data              -- fichier (facultatif) qui decrit les classes de PNJ ou les PJ dediees a ce scenario, en complement de celui a la racine
        !
