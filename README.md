@@ -24,13 +24,11 @@ Pour le projecteur, la configuration se fait dans le fichier 'pconf.lua'
 ## Lancement
 Serveur
 ```
-#!c
 love server 
 ```
 
 Projecteur:
 ```
-#!c
 love proj
 ```
 ## Filesystem structure
