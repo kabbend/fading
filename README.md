@@ -4,7 +4,7 @@
 
 Le repository contient 3 programmes qui fonctionnent ensemble :
 
-- le serveur, sous le repertoire fading/ . Le serveur contient aussi l'interface qui tourne sur le PC du MJ, et qui contient la majeure partie des fonctionnalites. Le
+- le serveur, sous le repertoire server/ . Le serveur contient aussi l'interface qui tourne sur le PC du MJ, et qui contient la majeure partie des fonctionnalites. Le
   serveur peut tourner sans les 2 autres.
 
 - le projecteur, sous le repertoire proj/ . Le projecteur est en visibilite des joueurs, depuis un 2nd moniteur du PC serveur, ou bien sur un autre PC  ou un raspberry (eventuellement connecte a un projecteur video). Le projecteur scanne le reseau local au demarrage pour se connecter au serveur 
@@ -17,7 +17,7 @@ Le repository contient 3 programmes qui fonctionnent ensemble :
 - pour l'application mobile, le framework Corona SDK 
 
 ## Configuration
-le lancement se fait depuis le repertoire parent qui contient fading/ et proj/.
+le lancement se fait depuis le repertoire parent qui contient server/ et proj/.
 Pour le serveur, la configuration se fait dans l'application (fenêtre de setup accessible par 'CTRL+f') ou bien directement dans le fichier de configuration 'sconf.lua' à la racine (voir le paragraphe 'Unicode Hell' ci dessous)
 Pour le projecteur, la configuration se fait dans le fichier 'pconf.lua'
 
@@ -25,7 +25,7 @@ Pour le projecteur, la configuration se fait dans le fichier 'pconf.lua'
 Serveur
 ```
 #!c
-love fading
+love server 
 ```
 
 Projecteur:
