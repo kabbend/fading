@@ -10,3 +10,5 @@ scenarioDirectory = "992.STIGMATE"
 serverport 	= 12345
 scanport 	= 12347
 
+licensekey	= "37937dba-9154-4afa-b615-27636c06ebf6"
+

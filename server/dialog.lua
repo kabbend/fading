@@ -3,6 +3,8 @@ local utf8 	= require 'utf8'
 local Window 	= require 'window'
 local theme 	= require 'theme'
 local json	= require 'json'
+local http	= require 'socket.http'
+local ltn12	= require 'ltn12'
 
 local dialogBase	= "Your input: "
 local dialog 		= dialogBase		-- text printed on the screen when typing dialog 
@@ -13,6 +15,8 @@ local ack		= false			-- automatic acknowledge when message received ?
 local lines		= 10
 local columns		= 24
 local selectAll		= false
+
+local URL		= "http://www.rogse.com/api/session"
 
 -- Dialog class
 -- a Dialog is a window which displays some text and let some input. it is not zoomable
@@ -25,6 +29,38 @@ function Dialog:new( t ) -- create from w, h, x, y
   self.users = {} -- a user is made of : s = snapshot, class = classname (username), recipient = flag true/false
   return new
 end
+
+function Dialog:getSession()
+  local b, s = http.request(URL)
+  if b then
+	io.write(b)
+  	table.insert( dialogLog , b )
+  end
+  end
+
+function Dialog:createSession()
+  local str = '{"ip":"' .. myIP .. '","key":"' .. licensekey .. '"}'
+  local cl = string.len(str)
+  io.write("dialog.lua: about to request session for : " .. str .. "\n")
+  local r, c, h = http.request {
+   method = "POST",
+   url = URL,
+   headers = { ["Content-Type"] = "application/json" , ["content-length"] = tostring(cl) },
+   source = ltn12.source.string(str)
+  }
+  if r==1 and c == 200 then
+  	table.insert( dialogLog , c .. " session created successfully" )
+  else
+  	table.insert( dialogLog , tostring(c) .. " unable to create session" )
+  end
+end
+
+function Dialog:deleteSession()
+  local r, c, h = http.request {
+   method = "DELETE",
+   url = URL,
+  }
+  end
 
 function Dialog:drop( o )
   if o.object.class == "text" then
@@ -147,7 +183,16 @@ function Dialog:update(dt) Window.update(self,dt) end
 function Dialog:doDialog()
   local text = string.gsub( dialog, dialogBase, "" , 1) 
   dialog = dialogBase
-  for i=1,#self.users do
+
+  -- internal command or message ?
+  if text == "/getsession" then
+	self:getSession()
+  elseif text == "/session" then
+	self:createSession()
+  elseif text == "/killsession" then
+	self:deleteSession()
+  else
+   for i=1,#self.users do
 	if self.users[i].recipient then
   		local tcp = findClientByName( self.users[i].class )
   		if not tcp then 
@@ -159,6 +204,7 @@ function Dialog:doDialog()
   		tcpsend( tcp, encodedMessage ) 
   		table.insert( dialogLog , "MJ -> " .. self.users[i].class .. ": " .. text )
 	end
+    end
   end
 
 end

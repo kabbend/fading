@@ -1915,6 +1915,7 @@ function love.load( args )
     end
 
     scenarioDirectory = scenarioDirectory or ""
+    licensekey = licensekey or ""
 
     end
 
