@@ -15,8 +15,10 @@ function setupWindow:new( t ) -- create from w, h, x, y, init
   new.widgets = {}
   if t.init then new.title = "CONFIGURATION DATA" else new.title = "PLEASE PROVIDE MANDATORY INFORMATION" end
   new.text1 = widget.textWidget:new{ x = 150, y = 25 , w = 440, text = baseDirectory }
-  new.text2 = widget.textWidget:new{ x = 150, y = 105, w = 440, text = fadingDirectory }
+  new.text2 = widget.textWidget:new{ x = 150, y = 105, w = 440, text = scenarioDirectory }
   new.text3 = widget.textWidget:new{ x = 150, y = 185, w = 150, text = serverport }
+  new.text4 = widget.textWidget:new{ x = 150, y = 265, w = 150, text = scanport }
+  new.text5 = widget.textWidget:new{ x = 150, y = 345, w = 350, text = licensekey }
   if t.init then 
 	new.save  = widget.buttonWidget:new{ x = 440, y = new.h - 45, text = "Save", onClick = function() new:setupSave() end }
   	new:addWidget(new.save)
@@ -27,6 +29,8 @@ function setupWindow:new( t ) -- create from w, h, x, y, init
   new:addWidget(new.text1)
   new:addWidget(new.text2)
   new:addWidget(new.text3)
+  new:addWidget(new.text4)
+  new:addWidget(new.text5)
   new:addWidget(new.load)
   return new
 end
@@ -35,12 +39,16 @@ function setupWindow:setupSave()
   local t1 = self.text1:getText() or ""
   local t2 = self.text2:getText() or ""
   local t3 = self.text3:getText() or ""
+  local t4 = self.text4:getText() or ""
+  local t5 = self.text5:getText() or ""
   local file, msg, code = io.open("server/sconf.lua",'w')
   if not file then io.write("cannot write to conf file: " .. tostring(msg) .. "\n") ; return end
-  file:write( "-- fading suns conf file\n")
+  file:write( "-- conf file\n")
   file:write( "baseDirectory = " .. string.format('%q', t1 ).. "\n")
-  file:write( "fadingDirectory = " .. string.format('%q',t2 ) .. "\n")
+  file:write( "scenarioDirectory = " .. string.format('%q',t2 ) .. "\n")
   file:write( "serverport = " .. t3 .. "\n")
+  file:write( "scanport = " .. t4 .. "\n")
+  file:write( "licensekey = " .. string.format('%q', t5 ) .. "\n")
   file:close()
   end
 
@@ -71,6 +79,15 @@ function setupWindow:draw()
   love.graphics.setColor(100,100,100)
   love.graphics.print("For communication with the projector and the players. The server will use 2", zx + 55, zy + 205 )
   love.graphics.print("successive ports, starting with the one specified (eg. 12345 and 12346)", zx + 55, zy + 220 )
+  love.graphics.setColor(0,0,0)
+  love.graphics.print("SERVER SCAN PORT *", zx + 5, zy + 265 )
+  love.graphics.setColor(100,100,100)
+  love.graphics.print("For scanning projector" , zx + 55, zy + 285 )
+  love.graphics.setColor(0,0,0)
+  love.graphics.print("LICENSE KEY", zx + 5, zy + 345 )
+  love.graphics.setColor(100,100,100)
+  love.graphics.print("Your license key for the product", zx + 55, zy + 365 )
+  love.graphics.print("This allows to manage mobile sessions", zx + 55, zy + 380 )
   self:drawBar()
   end
 
@@ -79,6 +96,8 @@ function setupWindow:click(x,y)
   if self.text1:isInside(x,y) then self.text1:select() else self.text1:unselect() end 
   if self.text2:isInside(x,y) then self.text2:select() else self.text2:unselect() end 
   if self.text3:isInside(x,y) then self.text3:select() else self.text3:unselect() end 
+  if self.text4:isInside(x,y) then self.text4:select() else self.text4:unselect() end 
+  if self.text5:isInside(x,y) then self.text5:select() else self.text5:unselect() end 
   if self.load:isInside(x,y) then self.load:click() end 
   if self.save then if self.save:isInside(x,y) then self.save:click() end end
   end

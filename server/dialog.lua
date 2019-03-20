@@ -216,7 +216,7 @@ function Dialog:doDialog()
   dialog = dialogBase
 
   -- do nothing with empty text...
-  if text == "" then table.insert( dialogLog , "-") ; return end
+  if text == "" then table.insert( dialogLog , " ") ; return end
 
   -- historize
   table.insert( dialogHistory, text )
