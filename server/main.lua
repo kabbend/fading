@@ -11,7 +11,6 @@ local socket 		= require 'socket'	-- general networking
 local parser    	= require 'parse'	-- parse command line arguments
 local tween		= require 'tween'	-- tweening library (manage transition states)
 local yui 		= require 'yui.yaoui' 	-- graphical library on top of Love2D
-local scenario 		= require 'scenario'	-- read scenario file and perform text search
 local rpg 		= require 'rpg'		-- code related to the RPG itself
 local mainLayout 	= require 'layout'	-- global layout to manage windows
 local Window 		= require 'window'	-- Window class & system
