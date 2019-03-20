@@ -119,7 +119,7 @@ function Dialog:registerCallingUser( class )
 function Dialog:draw()
 
    local zx,zy = -( self.x * 1/self.mag - self.layout.W / 2), -( self.y * 1/self.mag - self.layout.H / 2)
-   love.graphics.setFont(fonts[16])
+   love.graphics.setFont(fontsBold[16])
 
    -- draw window frame
    love.graphics.setColor(250,250,250,mainAlpha)
@@ -152,7 +152,7 @@ function Dialog:draw()
    local height = 0
    for i=#dialogLog,1,-1 do 
 	height = height + math.ceil(theme.fontSearch:getWidth(dialogLog[i]) / self.w) 
-	local y = self.h - 22 - height * 18  - 5 * (#dialogLog - i + 1)
+	local y = self.h - 22 - height * 22  - 5 * (#dialogLog - i + 1)
 	if y < usersH then break end
 	love.graphics.printf( dialogLog[i] , zx , zy + y , self.w )	
    end
