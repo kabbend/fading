@@ -6,11 +6,13 @@ local json	= require 'json'
 local http	= require 'socket.http'
 local ltn12	= require 'ltn12'
 
-local dialogBase	= "Your input: "
-local dialog 		= dialogBase		-- text printed on the screen when typing dialog 
-local dialogActive	= false
-local dialogLog		= {}			-- store all dialogs for complete display
-local ack		= false			-- automatic acknowledge when message received ?
+local dialogBase		= "Your input: "
+local dialog 			= dialogBase		-- text printed on the screen when typing dialog 
+local dialogActive		= false
+local dialogLog			= {}			-- store all dialogs for complete display
+local dialogHistory		= {}
+local dialogHistoryIndex 	= 2
+local ack			= false			-- automatic acknowledge when message received ?
 
 local lines		= 10
 local columns		= 24
@@ -35,6 +37,8 @@ function Dialog:getSession()
   if b then
 	io.write(b)
   	table.insert( dialogLog , b )
+  else
+  	table.insert( dialogLog , "unexpected error. cannot get session" )
   end
   end
 
@@ -60,6 +64,11 @@ function Dialog:deleteSession()
    method = "DELETE",
    url = URL,
   }
+  if c == 200 then
+  	table.insert( dialogLog , c .. " session deleted successfully" )
+  else
+  	table.insert( dialogLog , tostring(c) .. " something unexpected occurred" )
+  end
   end
 
 function Dialog:drop( o )
@@ -148,6 +157,9 @@ function Dialog:draw()
 	love.graphics.printf( dialogLog[i] , zx , zy + y , self.w )	
    end
    -- print MJ line 
+   love.graphics.setColor(5,5,150,100)
+   love.graphics.rectangle( "fill", zx , zy + self.h - 26  , self.w , 26 )  
+   love.graphics.setColor(0,0,0)
    love.graphics.printf(dialog, zx , zy + self.h - 22 , self.w )
 
    -- print bar and rest
@@ -177,12 +189,38 @@ function Dialog:looseFocus()
 	textActiveBackspaceCallback = nil
 	end
 
+function Dialog:goPreviousHistory()
+	local index = dialogHistoryIndex - 1
+	if index < 1 then return end
+	dialogHistoryIndex = index
+	dialog = dialogBase .. dialogHistory[dialogHistoryIndex]
+  	end
+
+function Dialog:goNextHistory()
+	local index = dialogHistoryIndex + 1
+	if index > #dialogHistory then dialog = dialogBase; return end
+	dialogHistoryIndex = index
+	dialog = dialogBase .. dialogHistory[dialogHistoryIndex]
+  	end
+
+function Dialog:goLastHistory()
+	dialogHistoryIndex = #dialogHistory + 1
+	end
+
 function Dialog:update(dt) Window.update(self,dt) end
 
 -- send dialog message to player
 function Dialog:doDialog()
+
   local text = string.gsub( dialog, dialogBase, "" , 1) 
   dialog = dialogBase
+
+  -- do nothing with empty text...
+  if text == "" then table.insert( dialogLog , "-") ; return end
+
+  -- historize
+  table.insert( dialogHistory, text )
+  dialogHistoryIndex = #dialogHistory + 1
 
   -- internal command or message ?
   if text == "/getsession" then
@@ -192,8 +230,10 @@ function Dialog:doDialog()
   elseif text == "/killsession" then
 	self:deleteSession()
   else
+   local atLeastOne = false
    for i=1,#self.users do
 	if self.users[i].recipient then
+		atLeastOne = true
   		local tcp = findClientByName( self.users[i].class )
   		if not tcp then 
 			io.write("player not found or not connected\n") 
@@ -204,6 +244,11 @@ function Dialog:doDialog()
   		tcpsend( tcp, encodedMessage ) 
   		table.insert( dialogLog , "MJ -> " .. self.users[i].class .. ": " .. text )
 	end
+    end
+    if not atLeastOne then
+	-- message was sent to nobody.. tell the MJ
+  	table.insert( dialogLog , "! No recipient ! : " .. text )
+	
     end
   end
 

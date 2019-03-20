@@ -208,6 +208,39 @@ function love.textinput(t)
 	textActiveCallback( t )
 	end
 
+-- try to match the str value provided with an existing PJ class name
+-- this is used when a player is calling thru mobile application and the
+-- matching is only partial (eg. class is 'phil' but name provided is 
+-- 'philippe')
+-- if there is a match, return the class name and the index; otherwise return nil
+--
+function recognizeCaller(str)
+	if not str or str == "" then return nil end
+	str = string.lower(str)
+	local str_length = string.len(str)
+	for i=1,#RpgClasses do
+		if RpgClasses[i].PJ then 
+			local trclass, trstr
+			local class = string.lower(RpgClasses[i].class)
+			local class_length = string.len(class)
+			-- take only significant characters, ie the shortest of both strings
+			if (class_length < str_length) then
+				trclass = class
+				trstr = string.sub(str,1,class_length)
+			elseif (class_length > str_length) then
+				trclass = string.sub(class,1,str_length)
+				trstr = str 
+			else
+				trclass, trstr = class, str
+			end
+			-- compare (truncated) strings	
+			print("comparing " .. trclass .. " with " .. trstr )
+			if (trclass == trstr) then return class end
+		end
+	end
+	return nil
+  end
+
 --
 -- dropping a file over the main window will: 
 --
@@ -365,6 +398,7 @@ function love.update(dt)
 	
 		-- this is a player name sent for the first time on an uniniditified client
 		-- scan for the command itself to find the player's name
+		--[[
 	      elseif 
 	       string.lower(data) == "eric" or -- FIXME, hardcoded
 	       string.lower(data) == "phil" or
@@ -373,27 +407,34 @@ function love.update(dt)
 	       string.lower(data) == "gay" or 
 	       string.lower(data) == "jordi" 
 		then
-
-		data = string.lower(data)
+		]]
+		else 
+		
+		local caller = recognizeCaller(data)
+		if caller then
+			--data = string.lower(data)
 
 		-- check if this client id was already in use. If so, reset it
 		local alreadyExist = false
 		for j=1,#clients do 
-			if clients[j].id and clients[j].id == data then
+			if clients[j].id and clients[j].id == caller then
 				alreadyExist = true
 				clients[j].id = nil -- reset former client
 			end
 		end	
 		if alreadyExist then
-			layout.notificationWindow:addMessage( data .. " is calling again" , 8 , true ) 
-			layout.dialogWindow:addLine( data .. " is calling again" )
+			layout.notificationWindow:addMessage( caller .. " is calling again" , 8 , true ) 
+			layout.dialogWindow:addLine( caller .. " is calling again" )
 		else
-			layout.notificationWindow:addMessage( data .. " is calling for the first time" , 8 , true ) 
-			layout.dialogWindow:addLine( data .. " is calling for the first time" )
-			layout.dialogWindow:registerCallingUser( data )
+			layout.notificationWindow:addMessage( caller .. " is calling for the first time" , 8 , true ) 
+			layout.dialogWindow:addLine( caller .. " is calling for the first time" )
+			layout.dialogWindow:registerCallingUser( caller )
+			tcpsend( clients[i].tcp, json.encode( { caller = "MJ" , t = "Hello. You are registered as user '" .. caller .. "'. Other players should use this name to chat with you"  } ) )
+
 		end
-		clients[i].id = data 
-	      end
+		clients[i].id = caller 
+	        end
+		end
 
 	   else -- identified client
 		
@@ -406,7 +447,7 @@ function love.update(dt)
 		io.write("target=",tostring(target),",rest=",tostring(rest),"\n")	
 		local found = false 
 		for j=1,#clients do 
-			if clients[j].id and clients[j].id == target then
+			if clients[j].id and string.lower(clients[j].id) == string.lower(target) then
 			  -- he is calling someone else
 			  found = true
 			  layout.notificationWindow:addMessage( clients[i].id .. " -> " .. target .. " : " .. rest , 8 , true ) 
@@ -1367,13 +1408,22 @@ if window then
 	return
   end
   if     window.class == "dialog" then
+	-- up and down goes thru history
+  	if (key == "up") then
+	  layout.dialogWindow:goPreviousHistory()
+  	elseif	(key == "down") then
+	  layout.dialogWindow:goNextHistory()
+  	elseif	
 	-- 'return' to submit a dialog message
-	-- 'backspace'
 	-- any other key is treated as a message input
-  	if (key == "return") then
+  	(key == "return") then
 	  layout.dialogWindow:doDialog()
+	else
+	  -- any key restores history
+	  layout.dialogWindow:goLastHistory()
   	end
-	
+
+		
   elseif window.class == "graph" then
 
     	if key == keyZoomIn then
