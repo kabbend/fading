@@ -480,6 +480,7 @@ function Window:draw() for i=1,#self.widgets do self.widgets[i]:draw() end end
 function Window:getFocus() end
 function Window:looseFocus() end
 function Window:drop() end
+function Window:closemove(x,y) if x and y then self.x, self.y = x, y end end
 
 return Window
 

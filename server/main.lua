@@ -212,7 +212,7 @@ function love.textinput(t)
 -- this is used when a player is calling thru mobile application and the
 -- matching is only partial (eg. class is 'phil' but name provided is 
 -- 'philippe')
--- if there is a match, return the class name and the index; otherwise return nil
+-- if there is a match, return the class name otherwise return nil
 --
 function recognizeCaller(str)
 	if not str or str == "" then return nil end
@@ -398,21 +398,10 @@ function love.update(dt)
 	
 		-- this is a player name sent for the first time on an uniniditified client
 		-- scan for the command itself to find the player's name
-		--[[
-	      elseif 
-	       string.lower(data) == "eric" or -- FIXME, hardcoded
-	       string.lower(data) == "phil" or
-	       string.lower(data) == "bibi" or
-	       string.lower(data) == "gui" or
-	       string.lower(data) == "gay" or 
-	       string.lower(data) == "jordi" 
-		then
-		]]
 		else 
 		
 		local caller = recognizeCaller(data)
 		if caller then
-			--data = string.lower(data)
 
 		-- check if this client id was already in use. If so, reset it
 		local alreadyExist = false
@@ -1746,7 +1735,7 @@ function init()
 
     local dialogWindow = Dialog:new{w=800,h=300,x=400,y=110,layout=layout}
 
-    local helpWindow = Help:new{w=1000,h=580,x=500,y=240,layout=layout}
+    local helpWindow = Help:new{w=1000,h=420,x=500,y=240,layout=layout}
 
     local dataWindow = setupWindow:new{ w=600, h=400, x=300,y=layout.H/2-100, init=true,layout=layout} 
 
