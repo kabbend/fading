@@ -8,6 +8,7 @@ local scene = composer.newScene()
 local currentGroup = display.newGroup()
 
 local messageField
+local helpMessage
 
 local function applyMessage(event)
 	-- if message received, it is stored in global texts[] array. just redraw scene
@@ -18,13 +19,16 @@ local function send()
 
   local text = messageField.text
   local ret = tcpsend( text )
+
+  firstMessage = false
+
   if ret then
 	table.insert( texts , { t = text , caller = "" } ) -- from me
   	messageField.text = ""
 	scene:show( { phase = "did" } )
   else
   	messageField.text = ""
-	table.insert( texts , { t = "(an error occurred. Check connection)" , caller = "" } ) -- from me
+	table.insert( texts , { t = "(an error occurred. check connection)" , caller = "" } ) -- from me
 	scene:show( { phase = "did" } )
   end
 end
@@ -80,15 +84,21 @@ function scene:create( event )
 	messageField.size = 18 
 	messageField:addEventListener( "userInput", fieldHandler( function() return messageField end ) )
 
+	helpMessage = display.newText( sceneGroup, "Type your username as first message", 125, 65, native.systemFont, 12 )
+	helpMessage:setFillColor( 1, 1, 1 )
+	sceneGroup:insert( helpMessage )
+
 	Runtime:addEventListener( "messageReceived", applyMessage )
 
 	sceneGroup:insert( messageField )
 
+	--[[
 	local menuButton = display.newText( sceneGroup, "Return to Menu", display.contentCenterX, 700, native.systemFont, 32 )
 	menuButton.x = display.contentCenterX 
 	menuButton.y = 470 
 	menuButton:setFillColor( 1, 1, 1 )
 	menuButton:addEventListener( "tap", gotoMenu )
+	]]
 
 end
 
@@ -104,6 +114,10 @@ function scene:show( event )
 
 	elseif ( phase == "did" ) then
 		-- Code here runs when the scene is entirely on screen
+
+		-- check if we still display the help message
+		if not firstMessage and helpMessage then helpMessage:removeSelf() ; helpMessage = nil end
+
 		-- print all messages in reverse order (the latest one first, on top of screen)
 		local y = 8 
 		local w = widget.newScrollView({x=15,y=70,width=300,height=380,hideBackground=true,horizontalScrollDisabled=true})

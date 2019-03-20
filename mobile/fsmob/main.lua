@@ -1,12 +1,15 @@
 --
--- Fading Suns Mobile
+-- RPG Mobile
 --
 
-local widget = require( "widget" )
-local socket = require( "socket" )
-local composer = require( "composer" )
-local json = require( "json" )
+local widget 	= require( "widget" )
+local socket 	= require( "socket" )
+local composer 	= require( "composer" )
+local json 	= require( "json" )
+local http 	= require( "socket.http" )
 
+firstMessage 	= true
+ 
 require ("connect")
 
 -- create socket for server communication
@@ -22,7 +25,8 @@ display.setStatusBar( display.HiddenStatusBar )
  
 -- Seed the random number generator
 math.randomseed( os.time() )
- 
+
+-- retrieve my own IP address 
 myIP = function()
     local s = socket.udp()  --creates a UDP object
     s:setpeername( "74.125.115.104", 80 )  --Google website
@@ -36,6 +40,24 @@ tcp:bind( myIP() , 0)
 local i,p = tcp:getsockname()
 print("i,p=" .. tostring(i) .. " " .. tostring(p) )
 
+-- try to retrieve local server IP from main server session, if any
+local b, s = http.request ("http://www.rogse.com/api/session")
+if b and s == 200 then
+	print(b)
+	local v = json.decode(b)
+	if not v or not v[1] then
+		serverip = nil	
+	else
+		serverip = v[1].ip
+		print("retrieved local server ip: " .. serverip)
+	end
+else
+	serverip = nil
+end
+
+if not serverip then
+	print("cannot retrieve local server ip. retry...")
+end
 
 local function listenForServer()
   if is_connected then
@@ -65,7 +87,11 @@ local function listenForServer()
 Runtime:addEventListener( "enterFrame", listenForServer )
 
 -- Go to the menu screen
-composer.gotoScene( "menu" )
+if serverip then
+	composer.gotoScene( "message" )
+else
+	composer.gotoScene( "noip" )
+end
 
 --[[
 -- Predefine display objects for use later

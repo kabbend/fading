@@ -1,6 +1,5 @@
 
-ipField, portField, userField =  nil, nil, nil
-serverip, serverport, serveruser = nil, nil, nil
+serverip, serverport, serveruser = nil, 12345, nil
 is_connected = false
 texts = {}
 
@@ -11,28 +10,6 @@ colors = {{255,255,255},{204,255,255},{204,255,204},{204,255,153},{153,204,255}}
 -- if name == "", caller = self
 callers = { { name = "", color = 1 } , { name = "MJ" , color = 2 } }
 nextColor = 3
-
-local function fieldHandler( textField )
-	return function( event )
-		if ( "began" == event.phase ) then
-			-- This is the "keyboard has appeared" event
-			-- In some cases you may want to adjust the interface when the keyboard appears.
-		
-		elseif ( "ended" == event.phase ) then
-			-- This event is called when the user stops editing a field: for example, when they touch a different field
-			
-		elseif ( "editing" == event.phase ) then
-		
-		elseif ( "submitted" == event.phase ) then
-			-- This event occurs when the user presses the "return" key (if available) on the onscreen keyboard
-			--tcpsend()
-			
-			-- Hide keyboard
-			native.setKeyboardFocus( nil )
-		end
-	end
-end
-
 
 -- send function
 function tcpsend(message)
@@ -54,8 +31,6 @@ function tcpsend(message)
 	return false
      end
     is_connected = true
-    serverip = ip
-    serverport = port
   end
   
   success, msg = tcp:send( message .. "\n" )
