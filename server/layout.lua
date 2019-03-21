@@ -11,6 +11,11 @@ function mainLayout:new()
   self.__index = self
   self.globalDisplay = true
   self.mapsAreVisible = true 
+  self.H1, self.W1 	= 140, 140
+  self.snapshotSize 	= 70 			-- w and h of each snapshot
+  self.screenMargin 	= 40			-- screen margin in map mode
+  self.intW		= 2 			-- interval between windows
+  self.snapshotMargin	= 7 			-- space between images and screen border
   return new
 end
 

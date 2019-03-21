@@ -4,6 +4,10 @@
 fonts = {}
 fontsBold = {}
 
+local DEBUG = true 
+oldiowrite = io.write
+function io.write(x) if DEBUG then oldiowrite(x) end end
+
 local utf8 		= require 'utf8'
 local json		= require 'json'
 local codepage		= require 'codepage'	-- windows cp1252 support
@@ -73,12 +77,6 @@ require './dice/diceview'
 require './dice/light'
 require './dice/default/config'
 
-layout.H1, layout.W1 	= 140, 140
-layout.snapshotSize 	= 70 			-- w and h of each snapshot
-layout.screenMargin 	= 40			-- screen margin in map mode
-layout.intW		= 2 			-- interval between windows
-layout.snapshotMargin	= 7 			-- space between images and screen border
-
 local iconSize = theme.iconSize 
 local sep = '/'
 
@@ -96,26 +94,26 @@ local keyPaste		= 'lgui'		-- on mac only
 currentWindowDraw 	= nil			-- which window is currently being draw ? used for mask (fog of war) printing
 
 -- tcp information for network
-address, serverport	= "*", "12345"		-- server information
-myIP			= nil
-server			= nil			-- server tcp object
-ip,port 		= nil, nil		-- projector information
-clients			= {}			-- list of clients. A client is a couple { tcp-object , id } where id is a PJ-id or "*proj"
+myIP			= nil			-- my own IP, to be communicated to clients
+address, serverport	= "*", "12345"		-- this server socket binding information
+server			= nil			-- this server tcp object
+clients			= {}			-- list of clients. A client is a couple { tcp-object , id } where id is nil (uninitialized) or PJ-id or "*proj"
 projector		= nil			-- direct access to tcp object for projector
 projectorId		= "*proj"		-- special ID to distinguish projector from other clients
 chunksize 		= (8192 - 1)		-- size of the datagram when sending binary file
+--chunksize 		= 1460		-- size of the datagram when sending binary file
 fullBinary		= false			-- if true, the server will systematically send binary files instead of local references
 
 -- various mouse movements
 mouseMove		= false			-- a window is being moved
-pawnMove 		= nil			-- a pawn is currently moved by mouse movement
+pawnMove 		= nil			-- a pawn is being moved
 moveText                = nil			-- a text (within a map) is being moved
 resizeText              = nil			-- a text (within a map) is being resized
 editingNode             = false			-- a text node (within a map) is being edited
 
 -- drag & drop data
-dragMove		= false			-- an object is currently being dragged
-dragObject		= { originWindow = nil, object = nil, snapshot = nil }
+dragMove		= false							-- an object is currently being dragged
+dragObject		= { originWindow = nil, object = nil, snapshot = nil }	-- structure of drag object
 
 -- pawns and PJ snapshots
 defaultPawnSnapshot	= nil		-- default image to be used for pawns
@@ -132,7 +130,7 @@ textActiveRightCallback		= nil			-- if set, function to call on right arrow
 
 -- array of PJ and PNJ characters, as shown in Combat Tracker window. A Dead PNJ counts as 1, except if explicitely removed from the list
 PNJTable 	= {}		
-PNJmax   	= 17		-- Limit in the number of PNJs (this gives a limit to the GUI frame size as well)
+PNJmax   	= 17		-- Limit in the number of PNJs (this gives a limit to the GUI frame size)
 
 -- Direct access (without traversal) to GUI structure:
 -- PNJtext[i] gives a direct access to the i-th GUI line in the GUI PNJ frame
@@ -155,7 +153,7 @@ end
 
 -- send a command or data to a client over the network
 function tcpsend( tcp, data , verbose )
-  if not tcp then return end -- no client connected yet !
+  if not tcp then return end -- client not connected yet !
   if verbose == nil or verbose == true then  
 	local i,p=tcp:getpeername()
 	io.write("main.lua: send to " .. tostring(i) .. "," .. tostring(p) .. ":" .. data .. "\n") 
@@ -1919,6 +1917,12 @@ function love.load( args )
     -- load config file
     dofile( "server/sconf.lua" )    
 
+    baseDirectory 	= baseDirectory or ""
+    scenarioDirectory 	= scenarioDirectory or ""
+    licensekey 		= licensekey or ""
+    serverport 		= serverport or 12345
+    scanport 		= scanport or 12347
+
     -- GUI initializations...
     love.window.setTitle( mainTitle or "server" )
     love.keyboard.setKeyRepeat(true)
@@ -1952,8 +1956,6 @@ function love.load( args )
       initialized = false
     end
 
-    scenarioDirectory = scenarioDirectory or ""
-    licensekey = licensekey or ""
 
     end
 

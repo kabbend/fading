@@ -16,6 +16,8 @@ timer 			= 0
 connectRetryTime 	= 6
 myIP			= nil				-- my own IP address
 debug			= true
+receptionTimer		= 0
+measureReception	= false
 
 -- image information
 currentImage = nil	-- displayed image
@@ -380,6 +382,7 @@ function love.update( dt )
 
 	-- socket communication
 	timer = timer + dt
+	if measureReception then receptionTimer = receptionTimer + dt end
 
 	if not address and timer > connectRetryTime then
 		io.write("scanning for server...\n")
@@ -487,7 +490,9 @@ function love.update( dt )
 
 	  if command == "BNRY" then
 
-		io.write("receiving BNRY\n") 
+		io.write("receiving BNRY\n")
+		receptionTimer = 0 
+		measureReception = true
 		tempfile = io.open("image.tmp",'wb')
 
 		-- open a new connection to server, dedicated to binary transfer
@@ -513,6 +518,8 @@ function love.update( dt )
 	   elseif command == "BEOF" then
 
 		io.write("receiving BEOF\n") 
+		measureReception = false
+		io.write("reception done in " .. math.floor(receptionTimer*1000) .. " ms\n")
 
 		tempfile:close()
 
