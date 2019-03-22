@@ -100,9 +100,10 @@ server			= nil			-- this server tcp object
 clients			= {}			-- list of clients. A client is a couple { tcp-object , id } where id is nil (uninitialized) or PJ-id or "*proj"
 projector		= nil			-- direct access to tcp object for projector
 projectorId		= "*proj"		-- special ID to distinguish projector from other clients
-chunksize 		= (8192 - 1)		-- size of the datagram when sending binary file
---chunksize 		= 1460		-- size of the datagram when sending binary file
+--chunksize 		= (8192 - 1)		-- size of the datagram when sending binary file
+chunksize 		= 1460			-- size of the datagram when sending binary file
 fullBinary		= false			-- if true, the server will systematically send binary files instead of local references
+URL			= "http://www.rogse.com/api/session"
 
 -- various mouse movements
 mouseMove		= false			-- a window is being moved
@@ -1317,6 +1318,7 @@ end
 function love.keypressed( key, isrepeat )
 
 -- check if a callback is set and must be activated
+if textActiveCallback 		and key == "return" 	then textActiveCallback('\n'); return end
 if textActiveBackspaceCallback 	and key == "backspace" 	then textActiveBackspaceCallback(); return end
 if textActiveLeftCallback 	and key == "left" 	then textActiveLeftCallback(); return end
 if textActiveRightCallback 	and key == "right" 	then textActiveRightCallback(); return end
@@ -1399,11 +1401,11 @@ if window then
 	  layout.dialogWindow:goPreviousHistory()
   	elseif	(key == "down") then
 	  layout.dialogWindow:goNextHistory()
-  	elseif	
+  	--elseif	
 	-- 'return' to submit a dialog message
 	-- any other key is treated as a message input
-  	(key == "return") then
-	  layout.dialogWindow:doDialog()
+  	--(key == "return") then
+	--  layout.dialogWindow:doDialog()
 	else
 	  -- any key restores history
 	  layout.dialogWindow:goLastHistory()

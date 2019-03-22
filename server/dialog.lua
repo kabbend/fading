@@ -6,8 +6,8 @@ local json	= require 'json'
 local http	= require 'socket.http'
 local ltn12	= require 'ltn12'
 
-local dialogBase		= "Your input: "
-local dialog 			= dialogBase		-- text printed on the screen when typing dialog 
+local dialogBase		= "Your input:"
+local dialog 			= ""			-- text printed on the screen when typing dialog 
 local dialogActive		= false
 local dialogLog			= {}			-- store all dialogs for complete display
 local dialogHistory		= {}
@@ -18,11 +18,9 @@ local lines		= 10
 local columns		= 24
 local selectAll		= false
 
-local URL		= "http://www.rogse.com/api/session"
-
 -- Dialog class
 -- a Dialog is a window which displays some text and let some input. it is not zoomable
-local Dialog = Window:new{ class = "dialog" , title = "DIALOG", wResizable = true, hResizable = true }
+local Dialog = Window:new{ class = "dialog" , title = "DIALOG", wResizable = true, hResizable = true , buttons = { 'always', 'close' } }
 
 function Dialog:new( t ) -- create from w, h, x, y
   local new = t or {}
@@ -74,7 +72,7 @@ function Dialog:deleteSession()
 function Dialog:drop( o )
   if o.object.class == "text" then
 	local t = o.object.text
-	dialog = dialogBase .. t.text
+	dialog = t.text
 	self:doDialog()		
   end
   end
@@ -132,10 +130,10 @@ function Dialog:draw()
    if not selectAll then love.graphics.setColor(255,255,255) else love.graphics.setColor(0,0,0) end
    love.graphics.draw( theme.dialogAll , zx + layout.snapshotMargin + 10 , zy + layout.snapshotMargin + 4)
    if selectAll then love.graphics.setColor(0,0,0) else love.graphics.setColor(0,0,0,120) end
-   love.graphics.print( "All" , zx + layout.snapshotMargin + 30  , zy + layout.snapshotMargin + layout.snapshotSize)
+   love.graphics.print( "(all)" , zx + layout.snapshotMargin + 30  , zy + layout.snapshotMargin + layout.snapshotSize)
 
    -- print users
-   local usersH = layout.snapshotSize + layout.snapshotMargin * 2
+   local usersH = layout.snapshotSize + layout.snapshotMargin * 3
    for i=1,#self.users do
  	u = self.users[i]
    	if u.recipient then love.graphics.setColor(255,255,255) else love.graphics.setColor(255,200,200,120) end
@@ -170,9 +168,9 @@ end
 
 function Dialog:getFocus() 
 	dialogActive = true
-	textActiveCallback = function(t) dialog = dialog .. t end 
+	textActiveCallback = function(t) if t == '\n' then self:doDialog() else dialog = dialog .. t end end 
 	textActiveBackspaceCallback = function ()
-	 if dialog == dialogBase then return end
+	 if dialog == "" then return end
          -- get the byte offset to the last UTF-8 character in the string.
          local byteoffset = utf8.offset(dialog, -1)
          if byteoffset then
@@ -193,14 +191,14 @@ function Dialog:goPreviousHistory()
 	local index = dialogHistoryIndex - 1
 	if index < 1 then return end
 	dialogHistoryIndex = index
-	dialog = dialogBase .. dialogHistory[dialogHistoryIndex]
+	dialog = dialogHistory[dialogHistoryIndex]
   	end
 
 function Dialog:goNextHistory()
 	local index = dialogHistoryIndex + 1
-	if index > #dialogHistory then dialog = dialogBase; return end
+	if index > #dialogHistory then dialog = ""; return end
 	dialogHistoryIndex = index
-	dialog = dialogBase .. dialogHistory[dialogHistoryIndex]
+	dialog = dialogHistory[dialogHistoryIndex]
   	end
 
 function Dialog:goLastHistory()
@@ -212,8 +210,8 @@ function Dialog:update(dt) Window.update(self,dt) end
 -- send dialog message to player
 function Dialog:doDialog()
 
-  local text = string.gsub( dialog, dialogBase, "" , 1) 
-  dialog = dialogBase
+  local text = dialog 
+  dialog = ""
 
   -- do nothing with empty text...
   if text == "" then table.insert( dialogLog , " ") ; return end
@@ -254,11 +252,17 @@ function Dialog:doDialog()
 
 end
 
+local baseH1 = layout.snapshotSize + layout.snapshotMargin * 3 + 22 * 4
+local baseH2 = layout.snapshotSize + layout.snapshotMargin * 3
+
 function Dialog:liveResize()
 	if self.w < 200 then self.w = 200 end
-	if self.h < 300 then self.h = 300 end
+	if self.h < baseH1 then self.h = baseH1 end
 end
 
+function Dialog:resize()
+	self.h = baseH1 + math.max(4, math.floor((self.h - baseH1) / 22)) * 22
+end
 
 return Dialog
 
