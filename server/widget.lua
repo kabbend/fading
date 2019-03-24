@@ -11,7 +11,7 @@ widget.buttonWidget = { x=0, y=0,	-- relative to the parent object
 		 w=60, h=30,
 	 	 parent = nil, text = "button",
 		 onClick = nil,
-  		 clickTimer = 0, clickTimerLimit = 0.3, clickDraw = false,
+  		 clickTimer = 0, clickTimerLimit = 0.05, clickDraw = false,
 	       }
 
 function widget.buttonWidget:new( t ) 
@@ -79,8 +79,10 @@ function widget.textWidget:new( t )
   new.fontHeight 	= math.floor(self:getFont(new.fontSize):getHeight())
   new.cursorTimer 	= 0
   new.flexible 		= false
-  new.cursorTimerLimit 	= 0.5
-  new.cursorPosition 	= 0
+  new.cursorTimerLimit 	= 0.355555
+  new.cursorPosition 	= 0		-- index of the cursor (in the text)
+  new.cursorPositionX 	= 0		-- x-position (at scale 1)
+  new.cursorPositionY 	= 0		-- y-position (at scale 1)
   new.cursorDraw 	= false
   new.head 		= t.text or "" -- text is splitted in 2, so we can place cursor
   new.trail 		= ""
@@ -91,7 +93,6 @@ function widget.textWidget:new( t )
   new.lineOffset 	= 1	-- number of lines, used as an offset to display rectangle
   new.color 		= theme.color.black
   new.backgroundColor 	= theme.color.white
-  new.cursorPosition 	= 0
   return new
   end
 
@@ -129,6 +130,47 @@ function widget.textWidget:setCorrectNumberOfLines()
 		end	
 	end
 
+-- recompute exact cursor positionX and Y when text is changed
+-- this is done at scale 1, and result (X,Y) is at scale 1 also
+--
+function widget.textWidget:setCorrectCursorPosition(index)
+		local index = index or 1
+		local t = self.head .. self.trail
+		local remaining = t
+		local currenty, currentx = 0, 0
+		local w = self.w 
+		local i = 1
+		local f = nil
+		if self.bold then
+			font = fontsBold
+		else
+			font = fonts
+		end
+		font = font[self.fontSize]
+		while i <= index do
+			local byteoffset = utf8.offset(remaining,2)
+                	if byteoffset then
+                        	c = string.sub(remaining,1,byteoffset-1)
+				remaining = string.sub(remaining,1+byteoffset-1)
+			else
+				c = string.sub(remaining,i,i)
+				remaining = string.sub(remaining,2)
+                	end
+			if c == "\n" then
+				currentx = 0
+				currenty = currenty + font:getHeight()
+			else
+				if currentx + font:getWidth(c) > w then
+					currentx = 0
+					currenty = currenty + font:getHeight() 
+				end
+			end
+			currentx = currentx + font:getWidth(c) 
+			i = i + 1 
+		end	
+		self.cursorPositionX, self.cursorPositionY = currentx , currenty 
+	end
+
 function widget.textWidget:select(y,x) 
 
 	self.selected = true; 
@@ -140,6 +182,8 @@ function widget.textWidget:select(y,x)
 		self.lineOffset = 1	
 		self.cursorLineOffset = 0 
 		self.cursorPosition = 0
+		self.cursorPositionX = 0
+		self.cursorPositionY = 0
 		self.w = fonts[self.fontSize]:getWidth("X") -- set a default minimum width
 
 	else
@@ -209,8 +253,13 @@ function widget.textWidget:select(y,x)
 			i = i + 1 
 		end	
 
+		self:setCorrectCursorPosition(self.cursorPosition)
+
 		io.write("=> head : '" .. self.head .. "'\n")
 		io.write("=> trail : '" .. self.trail .. "'\n")
+		io.write("=> cursorPosition : " .. self.cursorPosition .. "\n")
+		io.write("=> cursorPositionX : " .. self.cursorPositionX .. "\n")
+		io.write("=> cursorPositionY : " .. self.cursorPositionY .. "\n")
 
 	end
 
@@ -223,6 +272,7 @@ function widget.textWidget:select(y,x)
 		end 
 		self.cursorPosition = self.cursorPosition + 1
 		if self.flexible then self.w = self.w + fonts[self.fontSize]:getWidth(t) end
+		self:setCorrectCursorPosition(self.cursorPosition)
 		self:setCorrectNumberOfLines()
 		end 
 
@@ -240,7 +290,9 @@ function widget.textWidget:select(y,x)
 				self.cursorLineOffset = self.cursorLineOffset + 1
 			end
 			self.cursorPosition = self.cursorPosition - 1
+			if self.cursorPosition < 0 then self.cursorPosition = 0 end
 			if self.flexible then self.w = self.w - fonts[self.fontSize]:getWidth(remove) end
+			self:setCorrectCursorPosition(self.cursorPosition)
 			self:setCorrectNumberOfLines()
 		end
 		end
@@ -254,6 +306,7 @@ function widget.textWidget:select(y,x)
 		local t = love.system.getClipboardText( )
 		self.head = self.head .. t
 		self.cursorPosition = self.cursorPosition + string.len(t) 
+		self:setCorrectCursorPosition(self.cursorPosition)
 		self:setCorrectNumberOfLines()
 		end 
 
@@ -276,7 +329,21 @@ function widget.textWidget:select(y,x)
 			self.textSelected = "" ; self.textSelectedPosition = 0 ; self.textSelectedCursorLineOffset = 0
 		end
 		self.cursorPosition = self.cursorPosition - 1
+		if self.cursorPosition < 0 then self.cursorPosition = 0 end
+		self:setCorrectCursorPosition(self.cursorPosition)
 		end 
+
+	textActiveUpCallback = function() 
+		if self.cursorLineOffset == 0 then return end
+		io.write("cursor is at " .. self.cursorPositionY .. ", now calling at " .. self.cursorPositionY - fonts[self.fontSize]:getHeight() / 2 .. "\n")
+		self:select( self.cursorPositionY - fonts[self.fontSize]:getHeight() / 2, self.cursorPositionX )
+		end 
+
+	textActiveDownCallback = function() 
+		io.write("cursor is at " .. self.cursorPositionY .. ", now calling at " .. self.cursorPositionY + fonts[self.fontSize]:getHeight() / 2 .. "\n")
+		self:select( self.cursorPositionY + fonts[self.fontSize]:getHeight() * 1.5 , self.cursorPositionX )
+		end 
+
 
 	textActiveRightCallback = function() 
 		if self.trail == "" then return end
@@ -297,13 +364,13 @@ function widget.textWidget:select(y,x)
 			self.textSelected = "" ; self.textSelectedPosition = 0 ; self.textSelectedCursorLineOffset = 0
 		end
 		self.cursorPosition = self.cursorPosition + 1
+		self:setCorrectCursorPosition(self.cursorPosition)
 		end 
 
 	end
 
 function widget.textWidget:unselect() 
 	if self.selected then 
-		--self.lineOffset = 0
 		self.cursorLineOffset = 0
 		self.selected = false
 		self.flexible = false
@@ -346,9 +413,9 @@ function widget.textWidget:draw()
   local fh = self:getFont():getHeight()
   if self.selected then
     love.graphics.setColor(0,0,0)
-    love.graphics.rectangle("line",x/mag+zx-2,y/mag+zy-2,self.w/mag+4,self.lineOffset*fh+4, 5, 5)
+    love.graphics.rectangle("line",x/mag+zx-2,y/mag+zy-2,self.w/mag+4,self.lineOffset*fh+4)
     love.graphics.setColor(unpack(self.backgroundColor))
-    love.graphics.rectangle("fill",x/mag+zx-2,y/mag+zy-2,self.w/mag+4,self.lineOffset*fh+4, 5, 5)
+    love.graphics.rectangle("fill",x/mag+zx-2,y/mag+zy-2,self.w/mag+4,self.lineOffset*fh+4)
     love.graphics.setColor(0,0,0)
   end
   love.graphics.setColor(unpack(self.color))
@@ -359,6 +426,15 @@ function widget.textWidget:draw()
 	local len = string.len(t)
 	local currenty, currentx = 0, 0
 	local height = f:getHeight()
+
+	-- special case where cursor is at start
+    	if 0 == self.cursorPosition and self.cursorDraw then 
+			love.graphics.line(zx+self.x/mag, 
+					   zy+self.y/mag, 
+					   zx+self.x/mag, 
+					   zy+self.y/mag + height) 
+    	end
+
 	local i = 1
 	while i <= len do
 		local byteoffset = utf8.offset(remaining,2)
@@ -439,8 +515,7 @@ function widget.textWidget:incFont()
   if self.fontSize < MAX_FONT_SIZE then 
 	self.fontSize = self.fontSize + 1 
 	self.fontHeight = self:getFont():getHeight()
-	--self:updateBaseHeight()
-	self:setCursorPosition()
+	self:setCorrectNumberOfLines()
   end
   end
 
@@ -448,13 +523,13 @@ function widget.textWidget:decFont()
   if self.fontSize > MIN_FONT_SIZE then 
 	self.fontSize = self.fontSize - 1 
 	self.fontHeight = self:getFont():getHeight()
-	--self:updateBaseHeight()
-	self:setCursorPosition()
+	self:setCorrectNumberOfLines()
   end
   end
 
-function widget.textWidget:updateBaseHeight()
-  --self.h = self:getFont():getHeight()
+function widget.textWidget:toggleBold()
+  self.bold = not self.bold
+  self:setCorrectNumberOfLines()
   end
 
 return widget

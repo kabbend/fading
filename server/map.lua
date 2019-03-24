@@ -701,9 +701,9 @@ function Map:draw()
 						font = fonts
 					end
     	  				love.graphics.setColor(0,0,0)
-    	  				love.graphics.rectangle("line",x+nx-2, y+ny-2,width+4 ,height+4,5,5 )	
+    	  				love.graphics.rectangle("line",x+nx-2, y+ny-2,width+4 ,height+4)	
     	  				love.graphics.setColor(unpack(self.nodes[j].backgroundColor))
-    	  				love.graphics.rectangle("fill",x+nx-2, y+ny-2,width+4 ,height+4,5,5 )	
+    	  				love.graphics.rectangle("fill",x+nx-2, y+ny-2,width+4 ,height+4 )	
     	  				love.graphics.setColor(0,0,0)
     	  				love.graphics.line(x+nx+width-3,y+ny,x+nx+width-3,y+ny+height)	
   					local fontSize = math.floor(((self.nodes[j].fontSize or DEFAULT_FONT_SIZE ) / MAG)+0.5)
@@ -791,7 +791,7 @@ function Map:draw()
     	  			love.graphics.setColor(255,255,255)
 				love.graphics.draw( theme.pin, x+nx-12, y+ny-12 )
 
-				if x + nx + width > 0 and x + nx < self.w and y + ny + height > 0 and y + ny < self.h then 
+				--if x + nx + width > 0 and x + nx < self.w and y + ny + height > 0 and y + ny < self.h then 
 					local font = nil
 					if self.nodes[j].bold then
 						font = fontsBold
@@ -799,9 +799,9 @@ function Map:draw()
 						font = fonts
 					end
     	  				love.graphics.setColor(0,0,0)
-    	  				love.graphics.rectangle("line",x+nx-2, y+ny-2,width+4 ,height+4,5,5 )	
+    	  				love.graphics.rectangle("line",x+nx-2, y+ny-2,width+4 ,height+4 )	
     	  				love.graphics.setColor(unpack(self.nodes[j].backgroundColor))
-    	  				love.graphics.rectangle("fill",x+nx-2, y+ny-2,width+4 ,height+4,5,5 )	
+    	  				love.graphics.rectangle("fill",x+nx-2, y+ny-2,width+4 ,height+4 )	
     	  				love.graphics.setColor(0,0,0)
     	  				love.graphics.line(x+nx+width-3,y+ny,x+nx+width-3,y+ny+height)	
   					local fontSize = math.floor(((self.nodes[j].fontSize or DEFAULT_FONT_SIZE ) / MAG)+0.5)
@@ -809,39 +809,38 @@ function Map:draw()
     	  				  love.graphics.setColor(unpack(self.nodes[j].color))
 					  local f = font[fontSize]
 	  				  love.graphics.setFont( f )
-	local remaining = self.nodes[j].text 
-	local len = string.len(self.nodes[j].text)
-	local currenty, currentx = 0, 0
-	local height = f:getHeight()
-	local i = 1
-	while i <= len do
-		local byteoffset = utf8.offset(remaining,2)
-               	if byteoffset then
-                       	c = string.sub(remaining,1,byteoffset-1)
-			remaining = string.sub(remaining,1+byteoffset-1)
-		else
-			c = string.sub(remaining,i,i)
-			remaining = string.sub(remaining,2)
-               	end
-		if c == '\n' then
-			currenty = currenty + height
-			currentx = 0
-		else
-			if currentx + f:getWidth(c) > self.nodes[j].w / MAG then
-				currentx = 0
-				currenty = currenty + height
-  				love.graphics.print(c,math.floor(currentx+x+nx),math.floor(currenty+y+ny))
-				currentx = currentx + f:getWidth(c)
-			else
-  				love.graphics.print(c,math.floor(currentx+x+nx),math.floor(currenty+y+ny))
-				currentx = currentx + f:getWidth(c)
-			end
-		end
-		i = i + 1
-	end
-	  				  --love.graphics.printf( self.nodes[j].text, math.floor(x+nx), math.floor(y+ny), math.floor(width) , "left" )
+					  local remaining = self.nodes[j].text 
+					  local len = string.len(self.nodes[j].text)
+					  local currenty, currentx = 0, 0
+					  local height = f:getHeight()
+					  local i = 1
+					  while i <= len do
+						local byteoffset = utf8.offset(remaining,2)
+               					if byteoffset then
+                       					c = string.sub(remaining,1,byteoffset-1)
+							remaining = string.sub(remaining,1+byteoffset-1)
+						else
+							c = string.sub(remaining,i,i)
+							remaining = string.sub(remaining,2)
+               					end
+						if c == '\n' then
+							currenty = currenty + height
+							currentx = 0
+						else
+							if currentx + f:getWidth(c) > self.nodes[j].w / MAG then
+								currentx = 0
+								currenty = currenty + height
+  								love.graphics.print(c,math.floor(currentx+x+nx),math.floor(currenty+y+ny))
+								currentx = currentx + f:getWidth(c)
+							else
+  								love.graphics.print(c,math.floor(currentx+x+nx),math.floor(currenty+y+ny))
+								currentx = currentx + f:getWidth(c)
+							end
+						end
+						i = i + 1
 					end
-	  			end
+					end
+	  			--end
 			end
      		end -- loop nodes
 
@@ -1254,14 +1253,10 @@ function Map:click(x,y)
 			-- we store and save a node only if not empty ...
 			if text ~= "" then 
 				io.write("map.lua: saving a node\n")
-          			--local width, wrappedtext = font[fontSize]:getWrap( self.wText:getText(), self.wText.finalWidth )
-          			--local width, wrappedtext = font[fontSize]:getWrap( self.wText:getText(), self.wText.w )
-				--width = math.max(MIN_TEXT_W_AT_SCALE_1,width)
-          			--local height = (table.getn(wrappedtext)+1)* math.floor(fontSize*1.2+0.5)
 				justSaved = {
                                 	id = self.wText.id, x = math.floor(self.wText.x) , y = math.floor(self.wText.y) , text = self.wText:getText() , 
-					w = math.floor(width), h = math.floor(height), bold = self.wText.bold, fontSize = self.wText.fontSize
-					--xOffset = math.floor(self.wText.xOffset), lineOffset = self.wText.lineOffset
+					w = math.floor(width), h = math.floor(height), bold = self.wText.bold, fontSize = self.wText.fontSize , 
+					lineOffset = self.wText.lineOffset
                                 	}
 				io.write("inserting new node " .. justSaved.id .. "\n")
 				table.insert( self.nodes , justSaved )
@@ -1279,7 +1274,6 @@ function Map:click(x,y)
 			self.wText:unselect()		
 			-- save file
 			self:textChanged()
-			--self:saveText()
 
 		end
 

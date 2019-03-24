@@ -123,6 +123,8 @@ pawnMaxLayer		= 1		-- value of the highest layer currently
 -- text input
 -- A window or widget waiting for keyboard input should set these functions in order to be called back
 textActiveCallback		= nil			-- if set, function to call with keyboard input (argument: one char)
+textActiveUpCallback		= nil			-- if set, function to call on up key 
+textActiveDownCallback		= nil			-- if set, function to call on down key 
 textActiveBackspaceCallback	= nil			-- if set, function to call on a backspace 
 textActivePasteCallback		= nil			-- if set, function to call on a paste clipboard
 textActiveCopyCallback		= nil			-- if set, function to call on a copy clipboard 
@@ -1322,6 +1324,8 @@ if textActiveCallback 		and key == "return" 	then textActiveCallback('\n'); retu
 if textActiveBackspaceCallback 	and key == "backspace" 	then textActiveBackspaceCallback(); return end
 if textActiveLeftCallback 	and key == "left" 	then textActiveLeftCallback(); return end
 if textActiveRightCallback 	and key == "right" 	then textActiveRightCallback(); return end
+if textActiveUpCallback 	and key == "up" 	then textActiveUpCallback(); return end
+if textActiveDownCallback 	and key == "down" 	then textActiveDownCallback(); return end
 if textActivePasteCallback 	and key == "v" 	and love.keyboard.isDown(keyPaste) then textActivePasteCallback(); return end
 if textActiveCopyCallback 	and key == "c" 	and love.keyboard.isDown(keyPaste) then textActiveCopyCallback(); return end
 
@@ -1339,6 +1343,9 @@ if not initialized then return end
 -- 'lctrl + c' : display combat window 
 -- 'lctrl + b' : display bar (snapshots) window 
 -- 'lctrl + p' : display projector window 
+
+-- is there currently a window with focus ?
+local window = layout:getFocus()
 
 if key == "d" and love.keyboard.isDown("lctrl") then
   layout:toggleWindow( layout.dialogWindow )
@@ -1359,7 +1366,8 @@ if key == "c" and love.keyboard.isDown("lctrl")
   layout:setFocus( layout.combatWindow )
   return
 end
-if key == "b" and love.keyboard.isDown("lctrl") then 
+if key == "b" and love.keyboard.isDown("lctrl") and not (window and window.class == "map" and window.wText.selected ) then 
+  -- open snapshot bar, except when editing a text node, where it means 'bold'
   layout:setDisplay( layout.snapshotWindow, true )
   layout:setFocus( layout.snapshotWindow )
   return
@@ -1380,8 +1388,6 @@ if key == "tab" and love.keyboard.isDown("lctrl") then
 end
 
 -- other keys applicable 
-local window = layout:getFocus()
-
 if window then
   -- a window is selected. Keys applicable to any window:
   --[[ 'lctrl + C' : recenter window ]]
@@ -1449,70 +1455,39 @@ if window then
 
 	local map = window
 
-	-- keys for map. We expect:
+	-- keys for map. We manage:
 	-- Zoom in and out
-	-- 'tab' to get to circ or rect mode
-	-- 'lctrl + p' : remove all pawns
-	-- 'lctrl + v' : toggle visible / not visible
-	-- 'lctrl + z' : maximize/minimize (zoom)
-	-- 'lctrl + s' : stick map
-	-- 'lctrl + u' : unstick map
+	-- 'lctrl + b' : if we edit a text, toggle Bold 
+	-- 'lctrl + a' : if we adit a text, decrease font size 
+	-- 'lctrl + z' : if we edit a text, increase font size
 
-  	if key == "s" and love.keyboard.isDown("lctrl") then
-		if not atlas:isVisible(map) then return end -- if map is not visible, do nothing
-		if not map.sticky then
-			-- we enter sticky mode. Normally, the projector is fully aligned already, so
-			-- we just save the current status for future restoration
-			map.stickX, map.stickY, map.stickmag = map.x, map.y, map.mag
-			map.sticky = true
-			layout.notificationWindow:addMessage("Map " .. map.displayFilename .. " is now sticky")
-		else
-			-- we were already sticky, with a different status probably. So we store this
-			-- new one, but we need to align the projector as well
-			map.stickX, map.stickY, map.stickmag = map.x, map.y, map.mag
-			tcpsend( projector, "CHXY " .. math.floor(map.x+map.translateQuadX) .. " " .. math.floor(map.y+map.translateQuadY) ) 
-			tcpsend( projector, "MAGN " .. 1/map.mag ) 
-		end
+  	if key == "b" and love.keyboard.isDown("lctrl") and map.wText.selected then
+		map.wText:toggleBold()
 		return
   	end
 
-  	if key == "u" and love.keyboard.isDown("lctrl") then
-		if not map.sticky then return end
-		window:closemove( window.stickX , window.stickY )
-		window.mag = window.stickmag
-		window.sticky = false
-		layout.notificationWindow:addMessage("Map " .. window.displayFilename .. " is no more sticky. Be careful with your movements")
+  	if key == "a" and love.keyboard.isDown("lctrl") and map.wText.selected then
+		map.wText:decFont()
 		return
-	end
+  	end
 
-    	if key == keyZoomIn then
-		--ignoreLastChar = true
+  	if key == "z" and love.keyboard.isDown("lctrl") and map.wText.selected then
+		map.wText:incFont()
+		return
+  	end
+
+    	if key == keyZoomIn and not map.wText.selected then
+		ignoreLastChar = true
 		map:zoom( 1 )
     	end 
 
-    	if key == keyZoomOut then
-		--ignoreLastChar = true
+    	if key == keyZoomOut and not map.wText.selected then
+		ignoreLastChar = true
 		map:zoom( -1 )
     	end 
     
-	if key == "v" and love.keyboard.isDown("lctrl") then
-		atlas:toggleVisible( map )
-    	end
-
-   	if key == "p" and love.keyboard.isDown("lctrl") then
-	   map.pawns = {} 
-	   map.basePawnSize = nil
-	   tcpsend( projector, "ERAS" )    
-   	end
-   	if key == "z" and love.keyboard.isDown("lctrl") then
-		map:maximize()
-	end
-
-   	if key == "tab" then
-	  if maskType == "RECT" then maskType = "CIRC" else maskType = "RECT" end
-   	end
-	
   end
+
   end
 
   end
