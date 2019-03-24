@@ -709,8 +709,39 @@ function Map:draw()
   					local fontSize = math.floor(((self.nodes[j].fontSize or DEFAULT_FONT_SIZE ) / MAG)+0.5)
   					if fontSize >= MIN_FONT_SIZE and fontSize <= MAX_FONT_SIZE then  -- don't print if too small or too big...
     	  				  love.graphics.setColor(unpack(self.nodes[j].color))
-	  				  love.graphics.setFont( font[fontSize] )
-	  				  love.graphics.printf( self.nodes[j].text, math.floor(x+nx), math.floor(y+ny), math.floor(width) , "left" )
+					  local f = font[fontSize]
+	  				  love.graphics.setFont( f )
+	local remaining = self.nodes[j].text 
+	local len = string.len(self.nodes[j].text)
+	local currenty, currentx = 0, 0
+	local height = f:getHeight()
+	local i = 1
+	while i <= len do
+		local byteoffset = utf8.offset(remaining,2)
+               	if byteoffset then
+                       	c = string.sub(remaining,1,byteoffset-1)
+			remaining = string.sub(remaining,1+byteoffset-1)
+		else
+			c = string.sub(remaining,i,i)
+			remaining = string.sub(remaining,2)
+               	end
+		if c == '\n' then
+			currenty = currenty + height
+			currentx = 0
+		else
+			if currentx + f:getWidth(c) > self.nodes[j].w / MAG then
+				currentx = 0
+				currenty = currenty + height
+  				love.graphics.print(c,math.floor(currentx+x+nx),math.floor(currenty+y+ny))
+				currentx = currentx + f:getWidth(c)
+			else
+  				love.graphics.print(c,math.floor(currentx+x+nx),math.floor(currenty+y+ny))
+				currentx = currentx + f:getWidth(c)
+			end
+		end
+		i = i + 1
+	end
+	  				 -- love.graphics.printf( self.nodes[j].text, math.floor(x+nx), math.floor(y+ny), math.floor(width) , "left" )
 					end
 	
 	  			end
@@ -776,8 +807,39 @@ function Map:draw()
   					local fontSize = math.floor(((self.nodes[j].fontSize or DEFAULT_FONT_SIZE ) / MAG)+0.5)
   					if fontSize >= MIN_FONT_SIZE and fontSize <= MAX_FONT_SIZE then  -- don't print if too small or too big...
     	  				  love.graphics.setColor(unpack(self.nodes[j].color))
-	  				  love.graphics.setFont( font[fontSize] )
-	  				  love.graphics.printf( self.nodes[j].text, math.floor(x+nx), math.floor(y+ny), math.floor(width) , "left" )
+					  local f = font[fontSize]
+	  				  love.graphics.setFont( f )
+	local remaining = self.nodes[j].text 
+	local len = string.len(self.nodes[j].text)
+	local currenty, currentx = 0, 0
+	local height = f:getHeight()
+	local i = 1
+	while i <= len do
+		local byteoffset = utf8.offset(remaining,2)
+               	if byteoffset then
+                       	c = string.sub(remaining,1,byteoffset-1)
+			remaining = string.sub(remaining,1+byteoffset-1)
+		else
+			c = string.sub(remaining,i,i)
+			remaining = string.sub(remaining,2)
+               	end
+		if c == '\n' then
+			currenty = currenty + height
+			currentx = 0
+		else
+			if currentx + f:getWidth(c) > self.nodes[j].w / MAG then
+				currentx = 0
+				currenty = currenty + height
+  				love.graphics.print(c,math.floor(currentx+x+nx),math.floor(currenty+y+ny))
+				currentx = currentx + f:getWidth(c)
+			else
+  				love.graphics.print(c,math.floor(currentx+x+nx),math.floor(currenty+y+ny))
+				currentx = currentx + f:getWidth(c)
+			end
+		end
+		i = i + 1
+	end
+	  				  --love.graphics.printf( self.nodes[j].text, math.floor(x+nx), math.floor(y+ny), math.floor(width) , "left" )
 					end
 	  			end
 			end
@@ -1178,21 +1240,24 @@ function Map:click(x,y)
 			local MAG = self.mag
 			local fontSize = self.wText.fontSize  
 			local text = self.wText:getText()
+			local width = self.wText.w
+			local font = nil
+			if self.wText.bold then
+				font = fontsBold
+			else
+				font = fonts
+			end 
+			local height = self.wText.lineOffset * font[fontSize]:getHeight()
 			-- if the node already exists, we remove it first
 			local n, index = self:findNodeById(self.wText.id) 
 			if n then table.remove( self.nodes, index) ; io.write("map.lua: removed node id " .. tostring(self.wText.id) .. "\n") end
 			-- we store and save a node only if not empty ...
 			if text ~= "" then 
 				io.write("map.lua: saving a node\n")
-				local font = nil
-				if self.wText.bold then
-					font = fontsBold
-				else
-					font = fonts
-				end 
-          			local width, wrappedtext = font[fontSize]:getWrap( self.wText:getText(), self.wText.finalWidth )
-				width = math.max(MIN_TEXT_W_AT_SCALE_1,width)
-          			local height = (table.getn(wrappedtext)+1)* math.floor(fontSize*1.2+0.5)
+          			--local width, wrappedtext = font[fontSize]:getWrap( self.wText:getText(), self.wText.finalWidth )
+          			--local width, wrappedtext = font[fontSize]:getWrap( self.wText:getText(), self.wText.w )
+				--width = math.max(MIN_TEXT_W_AT_SCALE_1,width)
+          			--local height = (table.getn(wrappedtext)+1)* math.floor(fontSize*1.2+0.5)
 				justSaved = {
                                 	id = self.wText.id, x = math.floor(self.wText.x) , y = math.floor(self.wText.y) , text = self.wText:getText() , 
 					w = math.floor(width), h = math.floor(height), bold = self.wText.bold, fontSize = self.wText.fontSize
@@ -1220,52 +1285,64 @@ function Map:click(x,y)
 
 		local node, resize = self:isInsideText(x,y)
 		if node and love.keyboard.isDown("lctrl") then
-			-- we click on an existing node 	
+
+			-- WE MOVE A NODE 
+
 			io.write("map.lua: moving node " .. node.id .. "\n")
 			moveText = node
 			editingNode = true
 
 		elseif node and resize and (not love.keyboard.isDown("lctrl")) then
-			-- we resize an existing node 	
+
+			-- WE RESIZE A NODE
+
 			io.write("map.lua: resizing node " .. node.id .. "\n")
 			resizeText = node
 			editingNode = true
 
 		elseif node and (not love.keyboard.isDown("lctrl")) then
+
+			-- WE EDIT AN EXISTING NODE
+
 			io.write("map.lua: editing existing node " .. node.id .. "\n")
-			self.wText.id = node.id 
-			self.wText.x , self.wText.y = node.x , node.y 	-- move the input zone to the existing node
-                        self.wText.head = node.text 			-- and with the same text
-			self.wText.bold = node.bold
-			self.wText.fontSize = node.fontSize or DEFAULT_FONT_SIZE
-			self.wText.fontHeight = self.wText:getFont():getHeight()
-                        self.wText.trail = '' 				-- and with the same text
-			--self.wText.xOffset = node.xOffset or 0		-- and same text and cursor position
-			--self.wText.lineOffset = node.lineOffset or 0
-			--self.wText.cursorLineOffset = 0	
-			self.wText:setCursorPosition() 			-- we edit end of node 
-			self.wText.finalWidth = node.w			-- get same width when we save node
-                        self.wText:select(  (y - zy)  * self.mag - node.y , (x - zx) * self.mag - node.x , node.w  )
-                        --self.wText:select()
+
+			self.wText.id 		= node.id 
+			self.wText.x 		= node.x
+	 		self.wText.y 		= node.y 	-- move the input zone to the existing node
+                        self.wText.head 	= node.text 	-- and with the same text
+                        self.wText.trail 	= '' 		-- and with the same text
+			self.wText.bold 	= node.bold
+			self.wText.fontSize 	= node.fontSize or DEFAULT_FONT_SIZE
+			self.wText.fontHeight 	= self.wText:getFont():getHeight()
+			self.wText.w 		= node.w	-- get same width 
+			self.wText.finalWidth 	= node.w	-- get same width when we save node
+			self.wText.flexible	= false
+
+                        self.wText:select(  (y - zy)  * self.mag - node.y , (x - zx) * self.mag - node.x )
+
 			-- don't display the existing node, we will replace it eventually
 			node.hide = true
 			editingNode = true
 	
 		elseif love.keyboard.isDown("lctrl") then
-			-- we edit a new node
-			self.wText.x , self.wText.y = (x - zx) * self.mag , (y - zy) * self.mag
-			self.wText.bold = false
-			self.wText.fontSize = DEFAULT_FONT_SIZE
-			self.wText.fontHeight = self.wText:getFont():getHeight()
-			self.wText.head = '' 
-                        self.wText.trail = '' 		
-			--self.wText.lineOffset = 0
-			--self.wText.cursorLineOffset = 0	
-			self.wText.id = uuid()
+
+			-- WE CREATE A NEW EMPTY NODE
+ 
+			self.wText.x  		= (x - zx) * self.mag 
+			self.wText.y 		= (y - zy) * self.mag
+			self.wText.bold 	= false
+			self.wText.fontSize 	= DEFAULT_FONT_SIZE
+			self.wText.fontHeight 	= self.wText:getFont():getHeight()
+			self.wText.head 	= '' 
+                        self.wText.trail 	= '' 		
+			self.wText.flexible	= true				-- we don't know width yet, this may change
+			self.wText.id 		= uuid()
+			self.wText.finalWidth 	= DEFAULT_TEXT_W_AT_SCALE_1 	-- by default
+
 			io.write("map.lua: editing new node " .. tostring(self.wText.id) .. "\n")
-			self.wText.finalWidth = DEFAULT_TEXT_W_AT_SCALE_1 	-- by default
-			self.wText:setCursorPosition() 			-- we edit end of node 
+
 			self.wText:select()
+
 			editingNode = true
 
 		else

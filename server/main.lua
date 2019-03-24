@@ -81,7 +81,7 @@ local iconSize = theme.iconSize
 local sep = '/'
 
 -- maps & scenario stuff
-local ignoreLastChar	= false
+--local ignoreLastChar	= false
 local keyZoomIn		= ':'			-- default on macbookpro keyboard. Changed at runtime for windows
 local keyZoomOut 	= '=' 			-- default on macbookpro keyboard. Changed at runtime for windows
 local keyPaste		= 'lgui'		-- on mac only
@@ -202,7 +202,7 @@ function tcpsendBinary( t )
 -- (eg. when pressing CTRL+z to zoom a scenario, 'z' should be discarded for search input)
 function love.textinput(t)
 	if not textActiveCallback then return end
-	if ignoreLastChar then ignoreLastChar = false; return end
+	--if ignoreLastChar then ignoreLastChar = false; return end
 	textActiveCallback( t )
 	end
 
@@ -1412,30 +1412,6 @@ if window then
   	end
 
 		
-  elseif window.class == "graph" then
-
-    	if key == keyZoomIn then
-		ignoreLastChar = true
-		window:zoom( 1 )
-    	end 
-
-    	if key == keyZoomOut then
-		ignoreLastChar = true
-		window:zoom( -1 )
-    	end 
-
-   	if key == "tab" then
-	  window:iterate()
-   	end
-
-   	if key == "return" then
-	  window:doSearch()
-   	end
-
-  	if key == "s" and love.keyboard.isDown("lctrl") then
-	  window:saveGraph()
-	end
-
   elseif window.class == "snapshot" then
  
   	-- 'space' to change snapshot list
@@ -1510,12 +1486,12 @@ if window then
 	end
 
     	if key == keyZoomIn then
-		ignoreLastChar = true
+		--ignoreLastChar = true
 		map:zoom( 1 )
     	end 
 
     	if key == keyZoomOut then
-		ignoreLastChar = true
+		--ignoreLastChar = true
 		map:zoom( -1 )
     	end 
     
@@ -1536,39 +1512,6 @@ if window then
 	  if maskType == "RECT" then maskType = "CIRC" else maskType = "RECT" end
    	end
 	
-  elseif window.class == "map" and window.kind == "scenario" then
-
-	local map = window
-
-	-- keys for map. We expect:
-	-- Zoom in and out
-	-- 'return' to submit a query
-	-- 'backspace'
-	-- 'tab' to get to next search result
-	-- 'lctrl + z' : maximize/minimize (zoom)
-	-- any other key is treated as a search query input
-    	if key == keyZoomIn then
-		ignoreLastChar = true
-		map:zoom( 1 )
-    	end 
-
-    	if key == keyZoomOut then
-		ignoreLastChar = true
-		map:zoom( -1 )
-    	end 
-	
-   	if key == "z" and love.keyboard.isDown("lctrl") then
-		map:maximize()
-	end
-
-   	if key == "tab" then
-	  map:iterate()
-   	end
-
-   	if key == "return" then
-	  map:doSearch()
-   	end
-
   end
   end
 
