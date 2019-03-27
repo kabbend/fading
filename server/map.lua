@@ -808,10 +808,12 @@ function Map:draw()
   					if fontSize >= MIN_FONT_SIZE and fontSize <= MAX_FONT_SIZE then  -- don't print if too small or too big...
     	  				  love.graphics.setColor(unpack(self.nodes[j].color))
 					  local f = font[fontSize]
+					  local f1 = font[ self.nodes[j].fontSize ]
 	  				  love.graphics.setFont( f )
 					  local remaining = self.nodes[j].text 
 					  local len = string.len(self.nodes[j].text)
 					  local currenty, currentx = 0, 0
+					  local currentx1 = 0
 					  local height = f:getHeight()
 					  local i = 1
 					  while i <= len do
@@ -826,15 +828,21 @@ function Map:draw()
 						if c == '\n' then
 							currenty = currenty + height
 							currentx = 0
+							currentx1 = 0
 						else
-							if currentx + f:getWidth(c) > self.nodes[j].w / MAG then
+							--if currentx + f:getWidth(c) > self.nodes[j].w / MAG then
+							if currentx1 + f1:getWidth(c) > self.nodes[j].w then
 								currentx = 0
+								currentx1 = 0
 								currenty = currenty + height
   								love.graphics.print(c,math.floor(currentx+x+nx),math.floor(currenty+y+ny))
 								currentx = currentx + f:getWidth(c)
+								currentx1 = currentx1 + f1:getWidth(c)
+							
 							else
   								love.graphics.print(c,math.floor(currentx+x+nx),math.floor(currenty+y+ny))
 								currentx = currentx + f:getWidth(c)
+								currentx1 = currentx1 + f1:getWidth(c)
 							end
 						end
 						i = i + 1
@@ -1307,12 +1315,12 @@ function Map:click(x,y)
                         self.wText.trail 	= '' 		-- and with the same text
 			self.wText.bold 	= node.bold
 			self.wText.fontSize 	= node.fontSize or DEFAULT_FONT_SIZE
-			self.wText.fontHeight 	= self.wText:getFont():getHeight()
+			--self.wText.fontHeight 	= self.wText:getFont():getHeight()
 			self.wText.w 		= node.w	-- get same width 
 			self.wText.finalWidth 	= node.w	-- get same width when we save node
 			self.wText.flexible	= false
 
-                        self.wText:select(  (y - zy)  * self.mag - node.y , (x - zx) * self.mag - node.x )
+                        self.wText:select( "click",  (y - zy)  * self.mag - node.y , (x - zx) * self.mag - node.x )
 
 			-- don't display the existing node, we will replace it eventually
 			node.hide = true
@@ -1326,7 +1334,7 @@ function Map:click(x,y)
 			self.wText.y 		= (y - zy) * self.mag
 			self.wText.bold 	= false
 			self.wText.fontSize 	= DEFAULT_FONT_SIZE
-			self.wText.fontHeight 	= self.wText:getFont():getHeight()
+			--self.wText.fontHeight 	= self.wText:getFont():getHeight()
 			self.wText.head 	= '' 
                         self.wText.trail 	= '' 		
 			self.wText.flexible	= true				-- we don't know width yet, this may change
@@ -1335,7 +1343,7 @@ function Map:click(x,y)
 
 			io.write("map.lua: editing new node " .. tostring(self.wText.id) .. "\n")
 
-			self.wText:select()
+			self.wText:select( "click" )
 
 			editingNode = true
 
